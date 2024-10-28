@@ -11,7 +11,7 @@ Unicity's infrastructure comprises a decentralized Agent layer interacting with 
 ## API Operations
 
 ### 1. Submit State Transition Request
-- **Operation:** `submitStateTransition`
+- **Operation:** `aggregator_submit`
 - **Description:** Allows an agent to submit a state transition request to the Aggregation layer.
 - **Input:**
   - `requestId` (string): The unique identifier for the request.
@@ -19,16 +19,24 @@ Unicity's infrastructure comprises a decentralized Agent layer interacting with 
   - `authenticator` (string): Digital signature of the payload signed by the agent's private key.
 - **Output:**
   - `success` (boolean): Indicates if the request was successfully submitted.
-  - `transactionId` (string): A unique identifier for tracking the state transition request.
 
-### 2. Get Unicity Proof
-- **Operation:** `getUnicityProof`
-- **Description:** Retrieves the unicity proof for a specific state transition request.
+### 2. Get Inclusion/exclusion proof
+- **Operation:** `aggregator_get_path`
+- **Description:** Retrieves the individual inclusion/exclusion proof for a specific state transition request at specific block number
 - **Input:**
   - `requestId` (string): The unique identifier for the state transition request.
+  - `blockNum` (integer): the block number for which to generate the inclusion/exclusion proof (normally, a hash path between the root at the given blockNum and the respective leaf position corresponding to the requestId)
 - **Output:**
-  - `inclusionProof` (object): Contains proof elements showing the request's inclusion in the SMT.
+  - `inclusionProof` (object): Contains proof elements showing the request's inclusion in the SMT (or its exclusion otherwise).
   - `nonDeletionProof` (object): Zero-knowledge proof confirming no deletion has occurred.
+
+### 3. Get Inclusion/exclusion proof
+- **Operation:** `aggregator_get_nodel`
+- **Description:** Retrieves the global nodeletion proof for the aggregator data structure at specific block number (the nodel proof is recursive, it proves already no deletion/modification of any aggregator records since the genesis till the current blocknum)
+- **Input:**
+  - `blockNum` (integer): the block number for which to generate the inclusion/exclusion proof (normally, a hash path between the root at the given blockNum and the respective leaf position corresponding to the requestId)
+- **Output:**
+  - `nonDeletionProof` (object): Zero-knowledge proof confirming no deletion has occurred since the genesis.
 
 ## Transport-Agnostic JavaScript Functions
 
