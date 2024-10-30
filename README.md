@@ -30,7 +30,7 @@ Unicity's infrastructure comprises a decentralized Agent layer interacting with 
   - `inclusionProof` (object): Contains proof elements showing the request's inclusion in the SMT (or its exclusion otherwise).
   - `nonDeletionProof` (object): Zero-knowledge proof confirming no deletion has occurred.
 
-### 3. Get Inclusion/exclusion proof
+### 3. Get No-Deletion proof
 - **Operation:** `aggregator_get_nodel`
 - **Description:** Retrieves the global nodeletion proof for the aggregator data structure at specific block number (the nodel proof is recursive, it proves already no deletion/modification of any aggregator records since the genesis till the current blocknum)
 - **Input:**
