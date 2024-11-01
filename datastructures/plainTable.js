@@ -8,18 +8,21 @@ class plainTable{
 	}
     }
 
-    add(requestId, payload, authenticator){
-	if (records[request_id]) {
-	    if(records[request_id].payload != payload)
+    async add(requestId, payload, authenticator){
+	if (records[requestId]) {
+	    if(records[requestId].payload != payload)
     		throw new Error('Request ID already exists');
 	    return;
 	}
 	// Store record (append-only)
-	records[request_id] = { payload, authenticator };
+	records[requestId] = { payload, authenticator };
 
 	// Persist records to file
 	fs.writeFileSync(STORAGE_FILE, JSON.stringify(records));
     }
 
-    
+    async get(requestId){
+	const proof = {};
+	return {proof, content: records[requestId]};
+    }
 }
