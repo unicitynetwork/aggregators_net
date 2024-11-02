@@ -5,6 +5,9 @@ class AggregatorGateway {
   constructor() {
     this.app = express();
     this.app.use(bodyParser.json());
+    this.storage = storage;
+    this.aggregator = aggregator;
+    this.nodelprover = nodelprover;
 
     this.methods = {
       aggregator_submit: this.submitStateTransition.bind(this),

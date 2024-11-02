@@ -1,4 +1,4 @@
-class aggregator {
+class Aggregator {
     constructor(dataStructure, noDelProver){
 	this.dataStructure = dataStructure;
 	this.noDelProver = noDelProver;

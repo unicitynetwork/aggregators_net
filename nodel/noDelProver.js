@@ -1,5 +1,5 @@
 class NoDelProver(){
-    construct(delta){
+    construct(storage){
 	this.proof = {}
     }
 }

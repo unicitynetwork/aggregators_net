@@ -1,5 +1,5 @@
 class NoDelProof{
-    constructor(storage, id, proof){
+    constructor(proof, id, storage){
 	this.id = id;
 	this.proof = proof;
 	if(!proof)
