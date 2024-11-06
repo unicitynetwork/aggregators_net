@@ -1,11 +1,11 @@
 const { NODEL_FAILED, NOT_INCLUDED, NOT_MATCHING, NOT_AUTHENTICATED, WRONG_AUTH_TYPE, OK } = require("../constants.js");
 
-
 class UnicityProvider{
 
-    constructor(transport, signer){
+    constructor(transport, signer, hasher){
 	this.api = new AggregatorAPI(transport);
 	this.signer = signer;
+	this.hasher = hasher;
     }
 
     async function submitSingleSpend(sourceStateHash, transitionHash){
@@ -16,7 +16,7 @@ class UnicityProvider{
 	const noDelProof = new NoDelProof(await getNodelProof());
 	if(!(await noDelProof.verify()))return NODEL_FAILED;
 	const requestId = await getRequestId(sourceStateHash);
-	const path = await this.api.getInclusionProof(requestId);
+	const { path } = await this.api.getInclusionProof(requestId);
 	if(!path) throw new Error("Internal error: malformed unicity response. No path field");
 	const leaf = path[path.length-1];
 	if(!leaf.leaf)return NOT_INCLUDED;
@@ -27,15 +27,15 @@ class UnicityProvider{
     }
 
     async function getRequestId(sourceStateHash){
-	return (await this.signer.getPubKey)+sourceStateHash;
-    }
-
-    function extractPubKey(requestId){
-	return requestId.substring(0,this.signer.pubKeyLength*2);
+	return await this.hasher.hash((await this.signer.getPubKey())+sourceStateHash);
     }
 
     async function getAuthenticator(transitionHash){
-	return {signature: await this.signer.sign(transitionHash), alg: this.signer.getAlg()};
+	return {pubkey: await this.signer.getPubKey(), 
+	    signature: await this.signer.sign(transitionHash), 
+	    sign_alg: this.signer.getAlg(), 
+	    hash_alg: this.hasher.getAlg()
+	};
     }
 
 }
