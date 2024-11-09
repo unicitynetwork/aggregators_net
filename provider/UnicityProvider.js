@@ -16,18 +16,14 @@ class UnicityProvider{
 	    await this.getAuthenticator(sourceStateHash, transitionHash));
     }
 
-    async verifySingleSpend(sourceStateHash, transitionHash){
-	const noDelProof = new NoDelProof(await getNodelProof());
-	if(!(await noDelProof.verify()))return NODEL_FAILED;
-	const requestId = await getRequestId(sourceStateHash);
-	const { path } = await this.api.getInclusionProof(requestId);
+    async extractSingleSpend(requestId){
+	const { path } = (await this.api.getInclusionProof(requestId)).result;
 	if(!path) throw new Error("Internal error: malformed unicity response. No path field");
 	const leaf = path[path.length-1];
-	if(!leaf.leaf)return NOT_INCLUDED;
-	if(leaf.payload !== transitionHash)return NOT_MATCHING;
-	if(leaf.authenticator.alg !== signer.getAlg())return WRONG_AUTH_TYPE;
-	if(!signer.verify(extractPubKey(requestId), transitionHash, leaf.authenticator.signature))return NOT_AUTHENTICATED;
-	return OK;
+	if(!leaf)return { status: NOT_INCLUDED };
+	if(!leaf.leaf)return { status: NOT_INCLUDED };
+	if(!SignerEC.verify(leaf.authenticator.pubkey, leaf.payload, leaf.authenticator.signature))return { status: NOT_AUTHENTICATED };
+	return { status: OK, path };
     }
 
     async getRequestId(sourceStateHash){

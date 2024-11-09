@@ -68,7 +68,7 @@ class AggregatorGateway {
 
   async getInclusionProof({ requestId }) {
     // Fetch inclusion and non-deletion proofs from the Aggregation Layer
-    return { path: [this.records[request_id]] };
+    return { path: [this.records[requestId]] };
   }
 
   async getNodeletionProof({ requestId }) {
