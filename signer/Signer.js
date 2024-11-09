@@ -1,6 +1,6 @@
 const { throwAbstractInstantiate, throwAbstractMethod } = require("../helper.js");
 
-class SignerEC {
+class Signer {
     constructor(privateKeyHex) {
 	if (new.target == Signer)
     	    throwAbstractInstantiate();
@@ -30,3 +30,5 @@ class SignerEC {
 	throwAbstractMethod();
     }
 }
+
+module.exports = { Signer }

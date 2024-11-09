@@ -1,10 +1,12 @@
 const crypto = require('crypto');
-const secp256k1 = require('secp256k1');
+const elliptic = require('elliptic');
 
-class SignerEC extends Signer{
+const ec=new elliptic.ec('secp256k1');
+
+class SignerEC {
     constructor(privateKeyHex) {
-        super(privateKeyHex);
-        this.publicKey = secp256k1.publicKeyCreate(this.privateKey, false).toString('hex');
+	this.privateKey = ec.keyFromPrivate(privateKeyHex, 'hex');
+        this.publicKey = ec.keyFromPrivate(this.privateKey).getPublic('hex');
     }
 
     static generatePrivateKey() {
@@ -15,26 +17,16 @@ class SignerEC extends Signer{
         return privateKey.toString('hex');
     }
 
-    static isValidPrivateKey(privateKeyHex) {
-        try {
-            const privateKey = Buffer.from(privateKeyHex, 'hex');
-            return secp256k1.privateKeyVerify(privateKey);
-        } catch {
-            return false;
-        }
-    }
-
     sign(messageHex) {
         const messageBuffer = Buffer.from(messageHex, 'hex');
         if (messageBuffer.length !== 32) {
             throw new Error('Message must be 32 bytes in length');
         }
-        const { signature } = secp256k1.ecdsaSign(messageBuffer, this.privateKey);
-        return Buffer.from(signature).toString('hex');
+	return this.privateKey.sign(messageBuffer).toDER('hex');
     }
 
     static verify(pubKeyHex, messageHex, signatureHex) {
-        const pubKey = Buffer.from(pubKeyHex, 'hex');
+        const pubKey = ec.keyFromPublic(pubKeyHex, 'hex') ;
         const messageBuffer = Buffer.from(messageHex, 'hex');
         const signature = Buffer.from(signatureHex, 'hex');
         
@@ -42,10 +34,16 @@ class SignerEC extends Signer{
             throw new Error('Message must be 32 bytes in length');
         }
 
-        return secp256k1.ecdsaVerify(signature, messageBuffer, pubKey);
+	return pubKey.verify(messageBuffer, signature);
+    }
+
+    async getPubKey(){
+	return this.publicKey;
     }
 
     static getAlg() {
 	return 'secp256k1';
     }
 }
+
+module.exports = { SignerEC }

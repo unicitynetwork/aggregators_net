@@ -1,4 +1,5 @@
 const axios = require("axios");
+const crypto = require("crypto");
 
 class JSONRPCTransport {
   constructor(endpoint) {
@@ -24,10 +25,12 @@ class JSONRPCTransport {
       if (response.data.error) {
         throw new Error(response.data.error.message);
       }
-      return response.data.result;
+      return { requestId: params.requestId, result: response.data.result };
     } catch (error) {
       console.error("JSON-RPC Request Error:", error);
       throw error;
     }
   }
 }
+
+module.exports = { JSONRPCTransport }

@@ -22,5 +22,6 @@ class AggregatorAPI {
     return await this.transport.send("aggregator_get_nodel", data);
   }
 
-
 }
+
+module.exports = { AggregatorAPI }

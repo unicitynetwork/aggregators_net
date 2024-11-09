@@ -1,4 +1,7 @@
 const { NODEL_FAILED, NOT_INCLUDED, NOT_MATCHING, NOT_AUTHENTICATED, WRONG_AUTH_TYPE, OK } = require("../constants.js");
+const { AggregatorAPI } = require('../api/api.js');
+const { SignerEC } = require('../signer/SignerEC.js');
+const { SHA256Hasher } = require('../hasher/sha256hasher.js');
 
 class UnicityProvider{
 
@@ -8,11 +11,12 @@ class UnicityProvider{
 	this.hasher = hasher;
     }
 
-    async function submitSingleSpend(sourceStateHash, transitionHash){
-	await this.api.submitStateTransition(await getRequestId(sourceStateHash), transitionHash, await getAuthenticator(transitionHash));
+    async submitSingleSpend(sourceStateHash, transitionHash){
+	return await this.api.submitStateTransition(await this.getRequestId(sourceStateHash), transitionHash, 
+	    await this.getAuthenticator(sourceStateHash, transitionHash));
     }
 
-    async function verifySingleSpend(sourceStateHash, transitionHash){
+    async verifySingleSpend(sourceStateHash, transitionHash){
 	const noDelProof = new NoDelProof(await getNodelProof());
 	if(!(await noDelProof.verify()))return NODEL_FAILED;
 	const requestId = await getRequestId(sourceStateHash);
@@ -26,16 +30,20 @@ class UnicityProvider{
 	return OK;
     }
 
-    async function getRequestId(sourceStateHash){
+    async getRequestId(sourceStateHash){
 	return await this.hasher.hash((await this.signer.getPubKey())+sourceStateHash);
     }
 
-    async function getAuthenticator(transitionHash){
-	return {pubkey: await this.signer.getPubKey(), 
+    async getAuthenticator(sourceStateHash, transitionHash){
+	return {
+	    state: sourceStateHash,
+	    pubkey: await this.signer.getPubKey(), 
 	    signature: await this.signer.sign(transitionHash), 
-	    sign_alg: this.signer.getAlg(), 
-	    hash_alg: this.hasher.getAlg()
+	    sign_alg: SignerEC.getAlg(), 
+	    hash_alg: SHA256Hasher.getAlg()
 	};
     }
 
 }
+
+module.exports = { UnicityProvider }

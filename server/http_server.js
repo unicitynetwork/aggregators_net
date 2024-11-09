@@ -4,79 +4,54 @@ const bodyParser = require("body-parser");
 const crypto = require('crypto');
 const fs = require('fs');
 const { JSONRPCServer } = require('json-rpc-2.0');
-const elliptic = require('elliptic');
 
-// Elliptic curve for signing/verifying
-const ec = new elliptic.ec('secp256k1');
+const { SignerEC } = require('../signer/SignerEC.js');
+const { SHA256Hasher } = require('../hasher/sha256hasher.js');
 
 
 // Persistent storage file
 const STORAGE_FILE = './records.json';
 
-// Load records from the file, or initialize an empty object
-/*let records = {};
-if (fs.existsSync(STORAGE_FILE)) {
-    records = JSON.parse(fs.readFileSync(STORAGE_FILE));
-}*/
-
 // Helper: Verify authenticator
-function verifyAuthenticator(requestId, payload, authenticator) {
-    const { pubkey, signature, sign_alg, hash_alg } = authenticator;
+async function verifyAuthenticator(requestId, payload, authenticator) {
+    const { state, pubkey, signature, sign_alg, hash_alg } = authenticator;
 
-    // Verify request_id is correct: SHA256(publicKey + state)
-    const hash = crypto.createHash('sha256');
-    hash.update(Buffer.concat([Buffer.from(pubkey, 'hex'), Buffer.from(payload, 'utf-8')]));
-    const expectedRequestId = hash.digest('hex');
+    const hasher = new SHA256Hasher();
+    const expectedRequestId = await hasher.hash(pubkey+state);
 
     if (expectedRequestId !== requestId) {
         return false;
     }
 
-    // Verify the signature on the payload
-    const publicKey = ec.keyFromPublic(pubkey, 'hex');
-    const messageHash = crypto.createHash('sha256').update(payload).digest();
-
-    return publicKey.verify(messageHash, signature);
+    return SignerEC.verify(pubkey, payload, signature);
 }
 
 class AggregatorGateway {
   constructor() {
-//    this.app = express();
-//    this.app.use(bodyParser.json());
-//    this.storage = storage;
-//    this.aggregator = aggregator;
-//    this.nodelprover = nodelprover;
-
     // Initialize the JSON-RPC server
     this.records = {};
     if (fs.existsSync(STORAGE_FILE)) {
 	this.records = JSON.parse(fs.readFileSync(STORAGE_FILE));
     }
-
     this.jsonRpcServer = new JSONRPCServer();
 
-/*    this.methods = {
-      aggregator_submit: this.submitStateTransition.bind(this),
-      aggregator_get_path: this.getInclusionProof.bind(this),
-      aggregator_get_nodel: this.getNodeletionProof.bind(this),
-    };*/
-    this.jsonRpcServer.addMethod('aggregator_submit', this.submitStateTransition);
-    this.jsonRpcServer.addMethod('aggregator_get_path', this.getInclusionProof);
-    this.jsonRpcServer.addMethod('aggregator_get_nodel', this.getNodeletionProof);
+    this.jsonRpcServer.addMethod('aggregator_submit', submitStateTransition);
+    this.jsonRpcServer.addMethod('aggregator_get_path', getInclusionProof);
+    this.jsonRpcServer.addMethod('aggregator_get_nodel', getNodeletionProof);
   }
 
   async submitStateTransition({ requestId, payload, authenticator }) {
     // Validate input and process the state transition submission
-    console.log(JSON.stringify({ requestId, payload, authenticator }));
+    console.log(JSON.stringify({ requestId, payload, authenticator }, null, 4));
     if (this.records[requestId]) {
 	if(this.records[requestId].payload == payload){
-    	    console.log('OK');
-    	    return { status: 'success'};
+    	    console.log(`${requestId} - FOUND`);
+    	    return { status: 'success', requestId };
 	}
         throw new Error('Request ID already exists');
     }
 
-    if (!verifyAuthenticator(requestId, payload, authenticator)) {
+    if (!(await verifyAuthenticator(requestId, payload, authenticator))) {
         throw new Error('Invalid authenticator');
     }
 
@@ -86,9 +61,9 @@ class AggregatorGateway {
     // Persist records to file
     fs.writeFileSync(STORAGE_FILE, JSON.stringify(this.records));
 
-    console.log('OK');
+    console.log(`${requestId} - REGISTERED`);
 
-    return { success: true };
+    return { status: 'success', requestId };
   }
 
   async getInclusionProof({ requestId }) {
@@ -99,7 +74,7 @@ class AggregatorGateway {
   async getNodeletionProof({ requestId }) {
     // Fetch inclusion and non-deletion proofs from the Aggregation Layer
     return {
-      nonDeletionProof: { status: true },
+      nonDeletionProof: { status: 'success' },
     };
   }
 
@@ -120,3 +95,15 @@ class AggregatorGateway {
 
 const gateway = new AggregatorGateway();
 gateway.listen(8847);
+
+function submitStateTransition(obj){
+    return gateway.submitStateTransition(obj);
+}
+
+function getInclusionProof(obj){
+    return gateway.getInclusionProof(obj);
+}
+
+function getNodeletionProof(obj){
+    return gateway.getNodeletionProof(obj);
+}
