@@ -16,7 +16,7 @@ Unicity's infrastructure comprises a decentralized Agent layer interacting with 
 - **Input:**
   - `requestId` (string, 64 digit hex number): The unique identifier for the request.
   - `payload` (string, 64 hex number): The hash of the state transition.
-  - `authenticator` (structure {state - 64 digit hex of the original state hash, pubkey - 64 digit hex, signatue - hex, sign_alg - string, hash_alg - string}): Self-authentication of the transition request submission, contains digital signature (or more generically, ZK proof) of the payload signed by the agent's private key (ZK proof of the respective computation linked to the initial state hash and transition hash).
+  - `authenticator` (structure {state - 64 digit hex of the original state hash, pubkey - hex, signatue - hex, sign_alg - string, hash_alg - string}): Self-authentication of the transition request submission, contains digital signature (or more generically, ZK proof) of the payload signed by the agent's private key (ZK proof of the respective computation linked to the initial state hash and transition hash).
 - **Output:**
   - status (string): `success` Indicates if the request was successfully submitted.
 
@@ -38,9 +38,36 @@ Unicity's infrastructure comprises a decentralized Agent layer interacting with 
   - `nonDeletionProof` (object): Zero-knowledge proof confirming no deletion has occurred since the genesis.
 
 ## Transport-Agnostic JavaScript Functions
-
 The `AggregatorAPI` class provides transport-agnostic functions for submitting requests and fetching proofs.
-### su
+### Constructor
+ - **Arguments:**
+   - `transport` (object): object implementing communication between agent and Unicity gateway
+### submitStateTransition
+ - **Implements:** `aggregator_submit`
+ - **Arguments:**
+   - `requestId` (string, 64 digit hex) - unique ID of the state transition request. Normally, this id is calculated from the original state hash and public key (or some other public input for ZK proof)
+   - `payload` (string, 64 digit hex) - hash of the agent transition
+   - `authenticator` (object, structure {state - 64 digit hex of the original state hash, pubkey - hex, signatue - hex, sign_alg - string, hash_alg - string}) - authenticating the request submission, links payload to requestId, so that only authenticated transition request could be submitted (ex., agent owner uses his private key to sign the tranistion request, or keyless agent submits ZK proof of correct transition from its source state to a new state). Structure:
+     - `state` (string, 64 digit hex) - hash of the origin/source state of the transition
+     - `pubkey` (string, hex) - public ID for the authentication
+     - `signature` (string, hex) - signature/ZK-proof of the payload for the pubkey
+     - `sign_alg` (string) - signature algorithm standard
+     - `hash_alg` (string) - hash algorithm standard
+ - **Returns:**
+   - `result` (object) - responce from transport
+### getInclusionProof
+ - **Implements:** `aggregator_get_path`
+ - **Arguments:**
+   - `requestId` (string, 64 digit hex) - unique ID of the state transition request
+   - `blockNum` (Optional, integer) - number of a specific block for which to extract the proof. Note, there is no guarantee proofs can be extracted for "ancient" blocks
+ - **Returns:**
+   - `result` (object) - responce from transport
+### getNodelProof
+ - **Implements:** `aggregator_get_nodel`
+ - **Arguments:**
+   - `blockNum` (Optional, integer) - number of a specific block for which to extract the proof. Note, there is no guarantee proofs can be extracted for "ancient" blocks
+ - **Returns:**
+   - `result` (object) - responce from transport
 
 ## JSON-RPC Client and Server Libraries
 
