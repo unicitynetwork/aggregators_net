@@ -14,21 +14,20 @@ Unicity's infrastructure comprises a decentralized Agent layer interacting with 
 - **Operation:** `aggregator_submit`
 - **Description:** Allows an agent to submit a state transition request to the Aggregation layer.
 - **Input:**
-  - `requestId` (string): The unique identifier for the request.
-  - `payload` (string): The hash of the state transition.
-  - `authenticator` (string): Digital signature of the payload signed by the agent's private key.
+  - `requestId` (string, 64 digit hex number): The unique identifier for the request.
+  - `payload` (string, 64 hex number): The hash of the state transition.
+  - `authenticator` (structure {state - 64 digit hex of the original state hash, pubkey - 64 digit hex, signatue - hex, sign_alg - string, hash_alg - string}): Self-authentication of the transition request submission, contains digital signature (or more generically, ZK proof) of the payload signed by the agent's private key (ZK proof of the respective computation linked to the initial state hash and transition hash).
 - **Output:**
-  - `success` (boolean): Indicates if the request was successfully submitted.
+  - status (string): `success` Indicates if the request was successfully submitted.
 
 ### 2. Get Inclusion/exclusion proof
 - **Operation:** `aggregator_get_path`
-- **Description:** Retrieves the individual inclusion/exclusion proof for a specific state transition request at specific block number
+- **Description:** Retrieves the individual inclusion/exclusion proof for a specific state transition request (optionally, at specific block number)
 - **Input:**
-  - `requestId` (string): The unique identifier for the state transition request.
-  - `blockNum` (integer): the block number for which to generate the inclusion/exclusion proof (normally, a hash path between the root at the given blockNum and the respective leaf position corresponding to the requestId)
+  - `requestId` (string, 64 digit hex number): The unique identifier for the state transition request as it was submitted to the unicity.
+  - `blockNum` (optional, integer): the block number for which to generate the inclusion/exclusion proof (normally, a hash path between the root at the given blockNum and the respective leaf position corresponding to the requestId)
 - **Output:**
-  - `inclusionProof` (object): Contains proof elements showing the request's inclusion in the SMT (or its exclusion otherwise).
-  - `nonDeletionProof` (object): Zero-knowledge proof confirming no deletion has occurred.
+  - `inclusionProof` (object, hash path in the unicity tree from the root to the respective leaf or null vertex): Contains proof elements showing the request's inclusion in the unicity SMT (or its exclusion otherwise).
 
 ### 3. Get No-Deletion proof
 - **Operation:** `aggregator_get_nodel`
@@ -41,6 +40,7 @@ Unicity's infrastructure comprises a decentralized Agent layer interacting with 
 ## Transport-Agnostic JavaScript Functions
 
 The `AggregatorAPI` class provides transport-agnostic functions for submitting requests and fetching proofs.
+### su
 
 ## JSON-RPC Client and Server Libraries
 
