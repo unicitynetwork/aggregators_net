@@ -37,7 +37,7 @@ Unicity's infrastructure comprises a decentralized Agent layer interacting with 
 - **Output:**
   - `nonDeletionProof` (object): Zero-knowledge proof confirming no deletion has occurred since the genesis.
 
-## Transport-Agnostic JavaScript Functions
+## SDK, Transport-Agnostic JavaScript Functions
 The `AggregatorAPI` class provides transport-agnostic functions for submitting requests and fetching proofs.
 ### Constructor
  - **Arguments:**
@@ -74,11 +74,34 @@ The `AggregatorAPI` class provides transport-agnostic functions for submitting r
 ### JSON-RPC Client
 
 The client uses JSON-RPC to communicate with the Aggregation layer.
+#### send
+ - **Implements:** Delivers API request to the Unicity Aggregator Layer gateway endpoint
+ - **Arguments:**
+   - `method` (string) - Unicity API method (ex., aggregator_submit, aggregator_get_path or aggregator_get_nodel)
+   - `params` (object) - Struct containing parameters
 
 ### JSON-RPC Server
 
 The server processes JSON-RPC requests and calls the corresponding handler functions.
 
+## Example
+You can submit and query the status of transaction requests via command-line tools. Use the source code of these tools as a reference.
+
+### register_request.js
+Use this to submit your state transition request via command line to the Unicity Aggregator Layer
+ - **Usage:** node register_request.js <endpoint_url> <secret> <state> <transition>
+   - `endpoint_url` - URL of the Unicity Aggregator Layer Gateway endpoint
+   - `secret` - a secret phrase to be used for generating self-authenticated state transition request
+   - `state` - a string containg origin state definition
+   - `transition` - a string containing state transition from the origin state to some new state
+- **Output:** result of the request submission. Note, successful submission does not guarantee that the strate transition request has been registered within the uni8city aggregation layer. It only means that the aggregaor gateway has received and validated the submission. In order to get the proof of the request submission use `get_request.js`
+
+### get_request.js
+Use this to request the profs about your state transition request via command line to the Unicity Aggregator Layer
+ - **Usage:** node get_request.js <endpoint_url> <request_id>
+   - `endpoint_url` - URL of the Unicity Aggregator Layer Gateway endpoint
+   - `request_id` - the request id
+- **Output:** the proofs
 
 ## Summary
 
