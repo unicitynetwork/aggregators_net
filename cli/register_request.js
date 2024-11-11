@@ -22,7 +22,7 @@ const payload = crypto.createHash('sha256').update(transition).digest('hex');  /
 
 (async () => {
     try {
-	const { requestId, result } = await provider.submitSingleSpend(stateHash, payload);
+	const { requestId, result } = await provider.submitStateTransition(stateHash, payload);
         if (result.status === 'success') {
             console.log('Request successfully registered. Request ID:', requestId);
         } else {

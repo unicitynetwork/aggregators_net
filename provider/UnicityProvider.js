@@ -11,12 +11,12 @@ class UnicityProvider{
 	this.hasher = hasher;
     }
 
-    async submitSingleSpend(sourceStateHash, transitionHash){
+    async submitStateTransition(sourceStateHash, transitionHash){
 	return await this.api.submitStateTransition(await this.getRequestId(sourceStateHash), transitionHash, 
 	    await this.getAuthenticator(sourceStateHash, transitionHash));
     }
 
-    async extractSingleSpend(requestId){
+    async extractProofs(requestId){
 	const { path } = (await this.api.getInclusionProof(requestId)).result;
 	if(!path) throw new Error("Internal error: malformed unicity response. No path field");
 	const leaf = path[path.length-1];

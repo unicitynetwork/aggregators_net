@@ -17,7 +17,7 @@ const provider = new UnicityProvider(transport);
 
 (async () => {
     try {
-	const { status, path } = await provider.extractSingleSpend(requestId);
+	const { status, path } = await provider.extractProofs(requestId);
 	console.log(`STATUS: ${status}`);
 	console.log(`PATH: ${JSON.stringify(path, null, 4)}`);
     } catch (err) {
