@@ -103,6 +103,41 @@ Use this to request the profs about your state transition request via command li
    - `request_id` - the request id
 - **Output:** the proofs
 
+## Integration with your project
+ - Include this github project as submodule in your project.
+ - Import `UnicityProvider.js`, `JSONRPCTransport`, `SignerEC` and `SHA256Hasher` into your nodejs app.
+ - Initialize Unicity provider as here (endpointUrl - url of the Unicity aggregator endpoint, secret - your agent secret, )
+```
+const transport = new JSONRPCTransport(endpointUrl);
+const signer = new SignerEC(crypto.createHash('sha256').update(secret).digest('hex'));
+const hasher = new SHA256Hasher();
+const provider = new UnicityProvider(transport, signer, hasher);
+```
+ - Hint: calculate hash of the original `plaintext` as 64 digit hex string `crypto.createHash('sha256').update(plaintext).digest('hex')`
+ - Submit state transition request as here (stateHash - hash of the original state as 64 digit hex string, payload - hash of the serialized state transition as 64 digit hex string)
+```
+try {
+	const { requestId, result } = await provider.submitStateTransition(stateHash, payload);
+        if (result.status === 'success') {
+            console.log('Request successfully registered. Request ID:', requestId);
+        } else {
+            console.error('Failed to register request:', result);
+        }
+    } catch (err) {
+        console.error('Error registering request:', err.message);
+    }
+```
+ - get proof of the state transition request as here
+```
+try {
+	const { status, path, nodel } = await provider.extractProofs(requestId);
+	console.log(`STATUS: ${status}`);
+	console.log(`PATH: ${JSON.stringify(path, null, 4)}`);
+    } catch (err) {
+        console.error('Error getting request:', err.message);
+    }
+```
+
 ## Summary
 
 - **Transport-Agnostic Functions:** `AggregatorAPI` defines core functions for submitting and retrieving proofs.
