@@ -18,16 +18,15 @@ class UnicityProvider{
 
     async extractProofs(requestId){
 	const { path } = (await this.api.getInclusionProof(requestId)).result;
-	if(!path) throw new Error("Internal error: malformed unicity response. No path field");
-	const leaf = path[path.length-1];
-	if(!leaf)return { status: NOT_INCLUDED };
-	if(!leaf.leaf)return { status: NOT_INCLUDED };
-	if(!SignerEC.verify(leaf.authenticator.pubkey, leaf.payload, leaf.authenticator.signature))return { status: NOT_AUTHENTICATED };
-	return { status: OK, path };
+	return { status: verifyInclusionProofs(path), path };
     }
 
     async getRequestId(sourceStateHash){
-	return await this.hasher.hash((await this.signer.getPubKey())+sourceStateHash);
+	return calculateRequestId(await this.signer.getPubKey(), sourceStateHash, this.hasher);
+    }
+
+    async static calculateRequestId(pubKey, state, hasher){
+	return await hasher.hash(pubKey+state);
     }
 
     async getAuthenticator(sourceStateHash, transitionHash){
@@ -38,6 +37,15 @@ class UnicityProvider{
 	    sign_alg: SignerEC.getAlg(), 
 	    hash_alg: SHA256Hasher.getAlg()
 	};
+    }
+
+    static verifyInclusionProofs(path){
+	if(!path) throw new Error("Internal error: malformed unicity response. No path field");
+	const leaf = path[path.length-1];
+	if(!leaf)return NOT_INCLUDED;
+	if(!leaf.leaf)return NOT_INCLUDED;
+	if(!SignerEC.verify(leaf.authenticator.pubkey, leaf.payload, leaf.authenticator.signature))return NOT_AUTHENTICATED;
+	return OK;
     }
 
 }
