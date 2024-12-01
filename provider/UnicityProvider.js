@@ -18,14 +18,14 @@ class UnicityProvider{
 
     async extractProofs(requestId){
 	const { path } = (await this.api.getInclusionProof(requestId)).result;
-	return { status: verifyInclusionProofs(path), path };
+	return { status: UnicityProvider.verifyInclusionProofs(path), path };
     }
 
     async getRequestId(sourceStateHash){
-	return calculateRequestId(await this.signer.getPubKey(), sourceStateHash, this.hasher);
+	return UnicityProvider.calculateRequestId(await this.signer.getPubKey(), sourceStateHash, this.hasher);
     }
 
-    async static calculateRequestId(pubKey, state, hasher){
+    static async calculateRequestId(pubKey, state, hasher){
 	return await hasher.hash(pubKey+state);
     }
 
