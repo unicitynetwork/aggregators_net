@@ -37,7 +37,7 @@ class SignerEC {
 	return pubKey.verify(messageBuffer, signature);
     }
 
-    async getPubKey(){
+    getPubKey(){
 	return this.publicKey;
     }
 
