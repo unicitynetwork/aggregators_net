@@ -1,4 +1,5 @@
 const express = require("express");
+const cors = require('cors');
 const bodyParser = require("body-parser");
 
 const crypto = require('crypto');
@@ -6,7 +7,7 @@ const fs = require('fs');
 const { JSONRPCServer } = require('json-rpc-2.0');
 
 const { SignerEC } = require('../signer/SignerEC.js');
-const { SHA256Hasher } = require('../hasher/sha256hasher.js');
+const { hash } = require('../hasher/sha256hasher.js').SHA256Hasher;
 
 
 // Persistent storage file
@@ -16,8 +17,7 @@ const STORAGE_FILE = './records.json';
 async function verifyAuthenticator(requestId, payload, authenticator) {
     const { state, pubkey, signature, sign_alg, hash_alg } = authenticator;
 
-    const hasher = new SHA256Hasher();
-    const expectedRequestId = await hasher.hash(pubkey+state);
+    const expectedRequestId = hash(pubkey+state);
 
     if (expectedRequestId !== requestId) {
         return false;
@@ -80,6 +80,7 @@ class AggregatorGateway {
 
   listen(port){
     const app = express();
+    app.use(cors());
     app.use(bodyParser.json());
     app.post('/', (req, res) => {
 	this.jsonRpcServer.receive(req.body).then((jsonRpcResponse) => {

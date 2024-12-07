@@ -1,14 +1,14 @@
 const { NODEL_FAILED, NOT_INCLUDED, NOT_MATCHING, NOT_AUTHENTICATED, WRONG_AUTH_TYPE, OK } = require("../constants.js");
 const { AggregatorAPI } = require('../api/api.js');
 const { SignerEC } = require('../signer/SignerEC.js');
+const { hash } = require('../hasher/sha256hasher.js').SHA256Hasher;
 const { SHA256Hasher } = require('../hasher/sha256hasher.js');
 
 class UnicityProvider{
 
-    constructor(transport, signer, hasher){
+    constructor(transport, signer){
 	this.api = new AggregatorAPI(transport);
 	this.signer = signer;
-	this.hasher = hasher;
     }
 
     async submitStateTransition(sourceStateHash, transitionHash){
@@ -26,7 +26,7 @@ class UnicityProvider{
     }
 
     static async calculateRequestId(pubKey, state, hasher){
-	return await hasher.hash(pubKey+state);
+	return await hash(pubKey+state);
     }
 
     async getAuthenticator(sourceStateHash, transitionHash){

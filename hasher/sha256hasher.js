@@ -1,10 +1,8 @@
-const crypto = require('crypto');
+const CryptoJS = require('crypto-js');
 
 class SHA256Hasher{
-    async hash(hexMsg){
-	const h = crypto.createHash('sha256');
-	h.update(Buffer.from(hexMsg, 'hex'));
-	return h.digest('hex');
+    static hash(hexMsg){
+	return CryptoJS.SHA256(CryptoJS.enc.Hex.parse(hexMsg)).toString();
     }
 
     static getAlg(){

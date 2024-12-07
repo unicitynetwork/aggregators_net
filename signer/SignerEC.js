@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+const CryptoJS = require('crypto-js');
 const elliptic = require('elliptic');
 
 const ec=new elliptic.ec('secp256k1');
@@ -12,7 +12,7 @@ class SignerEC {
     static generatePrivateKey() {
         let privateKey;
         do {
-            privateKey = crypto.randomBytes(32);
+            privateKey = CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Hex);
         } while (!secp256k1.privateKeyVerify(privateKey));
         return privateKey.toString('hex');
     }

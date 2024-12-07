@@ -1,5 +1,5 @@
 const axios = require("axios");
-const crypto = require("crypto");
+const { hash } = require('../hasher/sha256hasher.js').SHA256Hasher;
 
 class JSONRPCTransport {
   constructor(endpoint) {
@@ -9,7 +9,7 @@ class JSONRPCTransport {
   generateRequestId(requestId, method) {
     const timestamp = Math.floor(Date.now() / 1000); // POSIX timestamp in seconds
     const data = `${requestId}-${method}-${timestamp}`;
-    return crypto.createHash("sha256").update(data).digest("hex");
+    return hash(Buffer.from(data).toString('hex'));
   }
 
   async send(method, params) {
