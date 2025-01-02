@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { JSONRPCServer } = require('json-rpc-2.0');
 
-const { SignerEC } = require('@unicitylabs/shared');
+const { SignerEC } = require('@unicitylabs/shared/signer/SignerEC.js');
 const { hash } = require('@unicitylabs/shared/hasher/sha256hasher.js').SHA256Hasher;
 
 

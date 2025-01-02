@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/unicitynetwork/aggregators_net#readme",
   "dependencies": {
+    "@unicitylabs/shared": "^1.0.0",
     "axios": "^1.7.7",
     "cors": "^2.8.5",
     "crypto-js": "^4.2.0",
