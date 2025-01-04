@@ -1,7 +1,7 @@
-const { UnicityProvider } = require('../provider/UnicityProvider.js');
-const { JSONRPCTransport } = require('../client/http_client.js');
-const { SignerEC } = require('../signer/SignerEC.js');
-const { hash } = require('../hasher/sha256hasher.js').SHA256Hasher;
+const { UnicityProvider } = require('@unicitylabs/shared/provider/UnicityProvider.js');
+const { JSONRPCTransport } = require('@unicitylabs/shared/client/http_client.js');
+const { SignerEC } = require('@unicitylabs/shared/signer/SignerEC.js');
+const { hash } = require('@unicitylabs/shared/hasher/sha256hasher.js').SHA256Hasher;
 
 const args = process.argv.slice(2);
 if (args.length < 4) {

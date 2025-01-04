@@ -6,8 +6,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { JSONRPCServer } = require('json-rpc-2.0');
 
-const { SignerEC } = require('../signer/SignerEC.js');
-const { hash } = require('../hasher/sha256hasher.js').SHA256Hasher;
+const { SignerEC } = require('@unicitylabs/shared/signer/SignerEC.js');
+const { hash } = require('@unicitylabs/shared/hasher/sha256hasher.js').SHA256Hasher;
 
 
 // Persistent storage file
