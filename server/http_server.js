@@ -6,9 +6,13 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { JSONRPCServer } = require('json-rpc-2.0');
 
+const objectHash = require("object-hash");
+
 const { SignerEC } = require('@unicitylabs/shared/signer/SignerEC.js');
 const { hash } = require('@unicitylabs/shared/hasher/sha256hasher.js').SHA256Hasher;
 
+const { SMT, wordArrayToHex, isWordArray } = require('@unicitylabs/prefix-hash-tree');
+const smtHash = require('@unicitylabs/prefix-hash-tree').hash;
 
 // Persistent storage file
 const STORAGE_FILE = './records.json';
@@ -26,6 +30,12 @@ async function verifyAuthenticator(requestId, payload, authenticator) {
     return SignerEC.verify(pubkey, payload, signature);
 }
 
+function recordToLeaf(id, rec){
+    const path = BigInt('0x'+id);
+    const value = BigInt('0x'+objectHash(rec, {algorithm: 'sha256'}));
+    return {path, value }
+}
+
 class AggregatorGateway {
   constructor() {
     // Initialize the JSON-RPC server
@@ -33,6 +43,7 @@ class AggregatorGateway {
     if (fs.existsSync(STORAGE_FILE)) {
 	this.records = JSON.parse(fs.readFileSync(STORAGE_FILE));
     }
+    this.smt = new SMT(smtHash, Object.entries(this.records).map(([key, val]) => {return recordToLeaf(key, val)}));
     this.jsonRpcServer = new JSONRPCServer();
 
     this.jsonRpcServer.addMethod('aggregator_submit', submitStateTransition);
@@ -60,6 +71,8 @@ class AggregatorGateway {
 
     // Persist records to file
     fs.writeFileSync(STORAGE_FILE, JSON.stringify(this.records));
+    const leaf = recordToLeaf(requestId, this.records[requestId]);
+    this.smt.addLeaf(leaf.path, leaf.value);
 
     console.log(`${requestId} - REGISTERED`);
 
@@ -68,7 +81,12 @@ class AggregatorGateway {
 
   async getInclusionProof({ requestId }) {
     // Fetch inclusion and non-deletion proofs from the Aggregation Layer
-    return { path: [this.records[requestId]] };
+//    return { path: [this.records[requestId]] };
+    const path = this.smt.getPath(BigInt('0x'+requestId));
+    return path.map((entry) => {return {prefix: entry.prefix?.toString(16), 
+	covalue: wordArrayToHex(entry.covalue), value:isWordArray(entry.value)?
+	('0x'+wordArrayToHex(entry.value)):(typeof entry.value === 'bigint')?
+	('0x'+entry.value.toString(16)):entry.value};});
   }
 
   async getNodeletionProof({ requestId }) {
