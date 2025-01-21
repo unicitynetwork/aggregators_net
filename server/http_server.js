@@ -83,10 +83,10 @@ class AggregatorGateway {
     // Fetch inclusion and non-deletion proofs from the Aggregation Layer
 //    return { path: [this.records[requestId]] };
     const path = this.smt.getPath(BigInt('0x'+requestId));
-    return path.map((entry) => {return {prefix: entry.prefix?.toString(16), 
+    return {path: [...path.map((entry) => {return {prefix: entry.prefix?.toString(16), 
 	covalue: wordArrayToHex(entry.covalue), value:isWordArray(entry.value)?
 	('0x'+wordArrayToHex(entry.value)):(typeof entry.value === 'bigint')?
-	('0x'+entry.value.toString(16)):entry.value};});
+	('0x'+entry.value.toString(16)):entry.value};}), ...[this.records[requestId]]]};
   }
 
   async getNodeletionProof({ requestId }) {
