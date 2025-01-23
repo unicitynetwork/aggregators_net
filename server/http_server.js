@@ -17,6 +17,7 @@ const { wordArrayToHex, isWordArray, smthash } = require("@unicitylabs/shared");
 const { serializeHashPath } = require("@unicitylabs/shared/provider/UnicityProvider.js");
 
 console.log(JSON.stringify(require("@unicitylabs/shared/provider/UnicityProvider.js"), null, 4));
+console.log(serializeHashPath);
 
 // Persistent storage file
 const STORAGE_FILE = './records.json';
