@@ -11,8 +11,12 @@ const objectHash = require("object-hash");
 const { SignerEC } = require('@unicitylabs/shared/signer/SignerEC.js');
 const { hash } = require('@unicitylabs/shared/hasher/sha256hasher.js').SHA256Hasher;
 
-const { SMT, wordArrayToHex, isWordArray } = require('@unicitylabs/prefix-hash-tree');
-const smtHash = require('@unicitylabs/prefix-hash-tree').hash;
+const { SMT } = require('@unicitylabs/prefix-hash-tree');
+
+const { wordArrayToHex, isWordArray, smthash } = require("@unicitylabs/shared");
+const { serializeHashPath } = require("@unicitylabs/shared/provider/UnicityProvider.js");
+
+console.log(JSON.stringify(require("@unicitylabs/shared/provider/UnicityProvider.js"), null, 4));
 
 // Persistent storage file
 const STORAGE_FILE = './records.json';
@@ -43,7 +47,7 @@ class AggregatorGateway {
     if (fs.existsSync(STORAGE_FILE)) {
 	this.records = JSON.parse(fs.readFileSync(STORAGE_FILE));
     }
-    this.smt = new SMT(smtHash, Object.entries(this.records).map(([key, val]) => {return recordToLeaf(key, val)}));
+    this.smt = new SMT(smthash, Object.entries(this.records).map(([key, val]) => {return recordToLeaf(key, val)}));
     this.jsonRpcServer = new JSONRPCServer();
 
     this.jsonRpcServer.addMethod('aggregator_submit', submitStateTransition);
@@ -83,10 +87,11 @@ class AggregatorGateway {
     // Fetch inclusion and non-deletion proofs from the Aggregation Layer
 //    return { path: [this.records[requestId]] };
     const path = this.smt.getPath(BigInt('0x'+requestId));
-    return {path: [...path.map((entry) => {return {prefix: entry.prefix?.toString(16), 
+/*    return {path: [...path.map((entry) => {return {prefix: entry.prefix?.toString(16), 
 	covalue: wordArrayToHex(entry.covalue), value:isWordArray(entry.value)?
 	('0x'+wordArrayToHex(entry.value)):(typeof entry.value === 'bigint')?
-	('0x'+entry.value.toString(16)):entry.value};}), ...[this.records[requestId]]]};
+	('0x'+entry.value.toString(16)):entry.value};}), ...[this.records[requestId]]]};*/
+    return serializeHashPath(path, this.records[requestId]);
   }
 
   async getNodeletionProof({ requestId }) {
