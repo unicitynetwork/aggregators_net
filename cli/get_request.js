@@ -16,11 +16,11 @@ const transport = new JSONRPCTransport(endpointUrl);
 const provider = new UnicityProvider(transport);
 
 (async () => {
-//    try {
+    try {
 	const { status, path } = await provider.extractProofs(requestId);
 	console.log(`STATUS: ${status}`);
 	console.log(`PATH: ${JSON.stringify(path, null, 4)}`);
-//    } catch (err) {
-//        console.error('Error getting request:', err.message);
-//    }
+    } catch (err) {
+	console.error('Error getting request:', err.message);
+    }
 })();

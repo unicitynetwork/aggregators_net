@@ -8,7 +8,7 @@ const { JSONRPCServer } = require('json-rpc-2.0');
 
 const objectHash = require("object-hash");
 
-const { SignerEC } = require('@unicitylabs/shared/signer/SignerEC.js');
+const { SignerEC, verify } = require('@unicitylabs/shared/signer/SignerEC.js');
 const { hash } = require('@unicitylabs/shared/hasher/sha256hasher.js').SHA256Hasher;
 
 const { SMT } = require('@unicitylabs/prefix-hash-tree');
@@ -32,7 +32,7 @@ async function verifyAuthenticator(requestId, payload, authenticator) {
         return false;
     }
 
-    return SignerEC.verify(pubkey, payload, signature);
+    return verify(pubkey, payload, signature);
 }
 
 function recordToLeaf(id, rec){
@@ -86,12 +86,7 @@ class AggregatorGateway {
 
   async getInclusionProof({ requestId }) {
     // Fetch inclusion and non-deletion proofs from the Aggregation Layer
-//    return { path: [this.records[requestId]] };
     const path = this.smt.getPath(BigInt('0x'+requestId));
-/*    return {path: [...path.map((entry) => {return {prefix: entry.prefix?.toString(16), 
-	covalue: wordArrayToHex(entry.covalue), value:isWordArray(entry.value)?
-	('0x'+wordArrayToHex(entry.value)):(typeof entry.value === 'bigint')?
-	('0x'+entry.value.toString(16)):entry.value};}), ...[this.records[requestId]]]};*/
     return serializeHashPath(path, this.records[requestId]);
   }
 
