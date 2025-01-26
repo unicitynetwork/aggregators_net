@@ -6,18 +6,13 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { JSONRPCServer } = require('json-rpc-2.0');
 
-const objectHash = require("object-hash");
-
 const { SignerEC, verify } = require('@unicitylabs/shared/signer/SignerEC.js');
-const { hash } = require('@unicitylabs/shared/hasher/sha256hasher.js').SHA256Hasher;
+const { hash, objectHash } = require('@unicitylabs/shared/hasher/sha256hasher.js').SHA256Hasher;
 
 const { SMT } = require('@unicitylabs/prefix-hash-tree');
 
 const { wordArrayToHex, isWordArray, smthash } = require("@unicitylabs/shared");
 const { serializeHashPath } = require("@unicitylabs/shared/provider/UnicityProvider.js");
-
-console.log(JSON.stringify(require("@unicitylabs/shared/provider/UnicityProvider.js"), null, 4));
-console.log(serializeHashPath);
 
 // Persistent storage file
 const STORAGE_FILE = './records.json';
@@ -37,7 +32,7 @@ async function verifyAuthenticator(requestId, payload, authenticator) {
 
 function recordToLeaf(id, rec){
     const path = BigInt('0x'+id);
-    const value = BigInt('0x'+objectHash(rec, {algorithm: 'sha256'}));
+    const value = BigInt('0x'+objectHash(rec));
     return {path, value }
 }
 
