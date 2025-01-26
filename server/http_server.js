@@ -13,7 +13,7 @@ const { hash, objectHash } = require('@unicitylabs/shared/hasher/sha256hasher.js
 
 const { SMT } = require('@unicitylabs/prefix-hash-tree');
 
-const { wordArrayToHex, isWordArray, smthash } = require("@unicitylabs/shared");
+const { wordArrayToHex, hexToWordArray, isWordArray, smthash } = require("@unicitylabs/shared");
 const { serializeHashPath } = require("@unicitylabs/shared/provider/UnicityProvider.js");
 
 require('dotenv').config();
@@ -40,7 +40,7 @@ async function verifyAuthenticator(requestId, payload, authenticator) {
 
 function recordToLeaf(id, rec){
     const path = BigInt('0x'+id);
-    const value = BigInt('0x'+objectHash(rec));
+    const value = hexToWordArray(objectHash(rec));
     return {path, value }
 }
 
@@ -51,7 +51,9 @@ class AggregatorGateway {
     if (fs.existsSync(STORAGE_FILE)) {
 	this.records = JSON.parse(fs.readFileSync(STORAGE_FILE));
     }
+    console.log("Found "+Object.entries(this.records).length+" commits");
     this.smt = new SMT(smthash, Object.entries(this.records).map(([key, val]) => {return recordToLeaf(key, val)}));
+    console.log("Aggregator tree with root "+this.smt.root.getValue()+" constructed");
     this.jsonRpcServer = new JSONRPCServer();
 
     this.jsonRpcServer.addMethod('aggregator_submit', submitStateTransition);
@@ -82,7 +84,7 @@ class AggregatorGateway {
     const leaf = recordToLeaf(requestId, this.records[requestId]);
     this.smt.addLeaf(leaf.path, leaf.value);
 
-    console.log(`${requestId} - REGISTERED`);
+    console.log(`${requestId} - REGISTERED, root ${this.smt.root.getValue()}`);
 
     return { status: 'success', requestId };
   }
