@@ -12,21 +12,21 @@ if (args.length < 4) {
 const [endpointUrl, secret, state, transition] = args;
 
 const transport = new JSONRPCTransport(endpointUrl);
-const signer = new SignerEC(CryptoJS.SHA256(secret).toString(CryptoJS.enc.Hex));
-const provider = new UnicityProvider(transport, signer, hasher);
+const signer = new SignerEC(hash(secret));
+const provider = new UnicityProvider(transport, signer);
 
 const stateHash = hash(state);  // Hash of the state
 const payload = hash(transition);  // Hash of the transition
 
 (async () => {
-    try {
+//    try {
 	const { requestId, result } = await provider.submitStateTransition(stateHash, payload);
         if (result.status === 'success') {
             console.log('Request successfully registered. Request ID:', requestId);
         } else {
             console.error('Failed to register request:', result);
         }
-    } catch (err) {
-        console.error('Error registering request:', err.message);
-    }
+//    } catch (err) {
+//        console.error('Error registering request:', err.message);
+//    }
 })();

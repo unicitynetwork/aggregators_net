@@ -21,6 +21,6 @@ const provider = new UnicityProvider(transport);
 	console.log(`STATUS: ${status}`);
 	console.log(`PATH: ${JSON.stringify(path, null, 4)}`);
     } catch (err) {
-        console.error('Error getting request:', err.message);
+	console.error('Error getting request:', err.message);
     }
 })();
