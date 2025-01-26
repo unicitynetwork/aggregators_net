@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require('cors');
 const bodyParser = require("body-parser");
+const https = require("https");
+const http = require("http");
 
 const crypto = require('crypto');
 const fs = require('fs');
@@ -13,6 +15,12 @@ const { SMT } = require('@unicitylabs/prefix-hash-tree');
 
 const { wordArrayToHex, isWordArray, smthash } = require("@unicitylabs/shared");
 const { serializeHashPath } = require("@unicitylabs/shared/provider/UnicityProvider.js");
+
+require('dotenv').config();
+
+const sslCertPath = process.env.SSL_CERT_PATH;
+const sslKeyPath = process.env.SSL_KEY_PATH;
+const port = process.env.PORT || ((sslCertPath && sslKeyPath && fs.existsSync(sslCertPath) && fs.existsSync(sslKeyPath))?443:80);
 
 // Persistent storage file
 const STORAGE_FILE = './records.json';
@@ -101,15 +109,26 @@ class AggregatorGateway {
     	    res.json(jsonRpcResponse);
 	});
     });
-    app.listen(port, () => {
-	console.log(`unicity-mock listening on port ${port}`);
-    });
+    if (sslCertPath && sslKeyPath && fs.existsSync(sslCertPath) && fs.existsSync(sslKeyPath)) {
+	const options = {
+    	    cert: fs.readFileSync(sslCertPath),
+    	    key: fs.readFileSync(sslKeyPath),
+	};
+
+	https.createServer(options, app).listen(port, () => {
+    	    console.log(`unicity-mock (HTTPS) listening on port ${port}`);
+        });
+    } else {
+        http.createServer(app).listen(port, () => {
+    	    console.log(`unicity-mock (HTTP) listening on port ${port}`);
+        });
+    }
   }
 
 }
 
 const gateway = new AggregatorGateway();
-gateway.listen(8847);
+gateway.listen(port);
 
 function submitStateTransition(obj){
     return gateway.submitStateTransition(obj);
