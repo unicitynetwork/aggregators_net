@@ -1,6 +1,6 @@
 {
   "name": "aggregators_net",
-  "version": "1.2.9",
+  "version": "1.2.10",
   "description": "This repository contains the API definition and JavaScript implementations for communication between the Agent and Aggregation layers on the Unicity blockchain platform.",
   "main": "./server/http_server.js",
   "scripts": {
@@ -17,8 +17,8 @@
   },
   "homepage": "https://github.com/unicitynetwork/aggregators_net#readme",
   "dependencies": {
-    "@unicitylabs/prefix-hash-tree": "^1.2.5",
-    "@unicitylabs/shared": "^1.2.8",
+    "@unicitylabs/prefix-hash-tree": "^1.2.6",
+    "@unicitylabs/shared": "^1.2.9",
     "axios": "^1.7.7",
     "cors": "^2.8.5",
     "crypto-js": "^4.2.0",
