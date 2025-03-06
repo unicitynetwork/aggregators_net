@@ -1,8 +1,8 @@
-import { Authenticator } from '@unicitylabs/shared/src/api/Authenticator';
-import { DataHasher, HashAlgorithm } from '@unicitylabs/shared/src/hash/DataHasher';
-import { SigningService } from '@unicitylabs/shared/src/signing/SigningService';
-import { SparseMerkleTree } from '@unicitylabs/shared/src/smt/SparseMerkleTree';
-import { BigintConverter } from '@unicitylabs/shared/src/util/BigintConverter';
+import { Authenticator } from '@unicitylabs/shared/lib/api/Authenticator';
+import { DataHasher, HashAlgorithm } from '@unicitylabs/shared/lib/hash/DataHasher';
+import { SigningService } from '@unicitylabs/shared/lib/signing/SigningService';
+import { SparseMerkleTree } from '@unicitylabs/shared/lib/smt/SparseMerkleTree';
+import { BigintConverter } from '@unicitylabs/shared/lib/util/BigintConverter';
 import { JSONRPCServer } from 'json-rpc-2.0';
 
 import { Record } from '../Record.js';

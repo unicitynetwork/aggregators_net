@@ -1,4 +1,4 @@
-import { JsonRpcHttpTransport } from '@unicitylabs/shared/src/client/JsonRpcHttpTransport';
+import { JsonRpcHttpTransport } from '@unicitylabs/shared/lib/client/JsonRpcHttpTransport';
 import { Command } from 'commander';
 
 const command = new Command();

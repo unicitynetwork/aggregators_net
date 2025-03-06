@@ -1,4 +1,4 @@
-import { Authenticator } from '@unicitylabs/shared/src/api/Authenticator';
+import { Authenticator } from '@unicitylabs/shared/lib/api/Authenticator';
 
 export class Record {
   public constructor(

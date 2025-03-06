@@ -3,8 +3,8 @@ import https from 'https';
 import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 
-import { HashAlgorithm } from '@unicitylabs/shared/src/hash/DataHasher';
-import { SparseMerkleTree } from '@unicitylabs/shared/src/smt/SparseMerkleTree';
+import { HashAlgorithm } from '@unicitylabs/shared/lib/hash/DataHasher';
+import { SparseMerkleTree } from '@unicitylabs/shared/lib/smt/SparseMerkleTree';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 import express from 'express';

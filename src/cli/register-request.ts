@@ -1,6 +1,6 @@
-import { JsonRpcHttpTransport } from '@unicitylabs/shared/src/client/JsonRpcHttpTransport';
-import { DataHasher, HashAlgorithm } from '@unicitylabs/shared/src/hash/DataHasher';
-import { SigningService } from '@unicitylabs/shared/src/signing/SigningService';
+import { JsonRpcHttpTransport } from '@unicitylabs/shared/lib/client/JsonRpcHttpTransport';
+import { DataHasher, HashAlgorithm } from '@unicitylabs/shared/lib/hash/DataHasher';
+import { SigningService } from '@unicitylabs/shared/lib/signing/SigningService';
 import { Command } from 'commander';
 
 const command = new Command();
