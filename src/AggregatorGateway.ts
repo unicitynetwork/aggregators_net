@@ -1,40 +1,43 @@
 import http from 'http';
 import https from 'https';
 import { existsSync, readFileSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
 
-import { HashAlgorithm } from '@unicitylabs/shared/lib/hash/DataHasher';
-import { SparseMerkleTree } from '@unicitylabs/shared/lib/smt/SparseMerkleTree';
+import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/DataHasher';
+import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService';
+import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 import express from 'express';
 import 'dotenv/config';
 
+import { AlphabillClient } from './alphabill/AlphabillClient.js';
 import { AggregatorJsonRpcServer } from './json-rpc/AggregatorJsonRpcServer.js';
-import { Record } from './Record.js';
-import { FileStorage } from './storage/FileStorage.js';
+import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
+import { ISmtStorage } from './smt/ISmtStorage.js';
 
 const sslCertPath = process.env.SSL_CERT_PATH;
 const sslKeyPath = process.env.SSL_KEY_PATH;
 const port =
   process.env.PORT || (sslCertPath && sslKeyPath && existsSync(sslCertPath) && existsSync(sslKeyPath)) ? 443 : 80;
-const STORAGE_FILE = './records.json';
 
+const privateKey = null; // TODO
+const signingService = new SigningService(privateKey);
+const alphabillTokenPartitionUrl = null; // TODO
+const networkId = null; // TODO
+const alphabillClient = new AlphabillClient(signingService, alphabillTokenPartitionUrl, networkId);
+await alphabillClient.initialSetup();
 const smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
-
-let records = new Map<bigint, Record>();
-if (existsSync(STORAGE_FILE)) {
-  console.log('Reading records file from storage %s.', STORAGE_FILE);
-  records = JSON.parse(await readFile(STORAGE_FILE, 'utf8'));
-  console.log('Found %d records from storage.', records.size);
+const smtStorage: ISmtStorage = null; // TODO
+const smtLeaves = await smtStorage.getAll();
+if (smtLeaves.length > 0) {
+  console.log('Found %s leaves from storage.', smtLeaves.length);
   console.log('Constructing tree...');
-  Object.entries(records).map(async ([key, val]) => await smt.addLeaf(BigInt('0x' + key), val));
+  smtLeaves.forEach(async (leaf) => await smt.addLeaf(leaf.path, leaf.value));
   console.log('Tree with root hash %s constructed successfully.', smt.rootHash.toString());
 }
 
-const storage = new FileStorage(STORAGE_FILE);
-const aggregatorJsonRpcServer = new AggregatorJsonRpcServer(records, smt, storage);
-
+const recordStorage: IAggregatorRecordStorage = null; // TODO
+const aggregatorJsonRpcServer = new AggregatorJsonRpcServer(alphabillClient, smt, recordStorage);
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
@@ -50,7 +53,6 @@ if (sslCertPath && sslKeyPath && existsSync(sslCertPath) && existsSync(sslKeyPat
     cert: readFileSync(sslCertPath),
     key: readFileSync(sslKeyPath),
   };
-
   https.createServer(options, app).listen(port, () => {
     console.log(`Unicity (HTTPS) listening on port ${port}`);
   });

@@ -7,8 +7,8 @@
     "build": "tsc --noEmit",
     "lint": "eslint \"src/**/*\"",
     "lint:fix": "eslint \"src/**/*\" --fix",
-    "test": "jest tests/unit/",
-    "test:ci": "jest tests/unit/ --ci --reporters=default"
+    "test": "jest tests/",
+    "test:ci": "jest tests/ --ci --reporters=default"
   },
   "type": "module",
   "repository": {
@@ -19,8 +19,7 @@
   "dependencies": {
     "@alphabill/alphabill-js-sdk": "1.0.0-rc1-rc.a0a1660",
     "@types/node": "22.13.8",
-    "@unicitylabs/shared": "https://github.com/unicitynetwork/shared#typescript",
-    "commander": "13.1.0",
+    "@unicitylabs/commons": "https://github.com/unicitynetwork/shared#typescript",
     "cors": "2.8.5",
     "dotenv": "16.4.7",
     "express": "4.21.2",
