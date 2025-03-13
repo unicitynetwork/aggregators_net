@@ -1,13 +1,13 @@
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator';
 import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId';
-import { SubmitStateTransitionResponse } from '@unicitylabs/commons/lib/api/SubmitStateTransitionResponse';
 import { SubmitStateTransitionStatus } from '@unicitylabs/commons/lib/api/SubmitStateTransitionStatus';
 import { DataHasher, HashAlgorithm } from '@unicitylabs/commons/lib/hash/DataHasher';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree';
 import { JSONRPCServer } from 'json-rpc-2.0';
 
+import { SubmitStateTransitionResponse } from './SubmitStateTransitionResponse.js';
 import { AlphabillClient } from '../alphabill/AlphabillClient.js';
 import { AggregatorRecord } from '../records/AggregatorRecord.js';
 import { IAggregatorRecordStorage } from '../records/IAggregatorRecordStorage.js';
@@ -34,7 +34,11 @@ export class AggregatorJsonRpcServer extends JSONRPCServer {
     if (existingRecord != null) {
       if (existingRecord.rootHash == payload) {
         console.log(`Record with ID ${requestId} already exists.`);
-        return { requestId, status: SubmitStateTransitionStatus.SUCCESS };
+        const merkleTreePath = this.smt.getPath(requestId.toBigInt());
+        return new SubmitStateTransitionResponse(
+          new InclusionProof(merkleTreePath, existingRecord.authenticator, existingRecord.rootHash),
+          SubmitStateTransitionStatus.SUCCESS,
+        );
       }
       throw new Error('Request ID already exists with different payload.');
     }
@@ -52,13 +56,18 @@ export class AggregatorJsonRpcServer extends JSONRPCServer {
     const leaf = await this.recordToSmtNode(requestId, record.rootHash);
     await this.smt.addLeaf(leaf.path, leaf.value);
 
-    console.log(`Request with ID ${requestId} registered, new root hash %s`, this.smt.rootHash.toString());
-    return { requestId, status: SubmitStateTransitionStatus.SUCCESS };
+    const newRootHash = this.smt.rootHash();
+    console.log(`Request with ID ${requestId} registered, new root hash %s`, newRootHash.toString());
+    const merkleTreePath = this.smt.getPath(requestId.toBigInt());
+    return new SubmitStateTransitionResponse(
+      new InclusionProof(merkleTreePath, record.authenticator, newRootHash),
+      SubmitStateTransitionStatus.SUCCESS,
+    );
   }
 
   public async getInclusionProof(requestId: RequestId): Promise<InclusionProof> {
     const record = await this.recordStorage.get(requestId);
-    const merkleTreePath = null; // TODO
+    const merkleTreePath = this.smt.getPath(requestId.toBigInt());
     return new InclusionProof(merkleTreePath, record.authenticator, record.rootHash);
   }
 
