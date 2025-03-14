@@ -53,7 +53,7 @@ export class AggregatorJsonRpcServer extends JSONRPCServer {
     const record = new AggregatorRecord(payload, previousBlockData, authenticator, txProof);
     await this.recordStorage.put(requestId, record);
 
-    const leaf = await this.recordToSmtNode(requestId, record.rootHash);
+    const leaf = new SmtNode(requestId.toBigInt(), payload);
     await this.smt.addLeaf(leaf.path, leaf.value);
 
     const newRootHash = this.smt.rootHash();
@@ -90,11 +90,5 @@ export class AggregatorJsonRpcServer extends JSONRPCServer {
     }
     const payloadHash = await new DataHasher(HashAlgorithm.SHA256).update(payload).digest();
     return await SigningService.verifyWithPublicKey(payloadHash, authenticator.signature, publicKey);
-  }
-
-  private async recordToSmtNode(requestId: RequestId, payload: Uint8Array): Promise<SmtNode> {
-    const path = requestId.toBigInt();
-    const value = await new DataHasher(HashAlgorithm.SHA256).update(payload).digest();
-    return new SmtNode(path, value);
   }
 }
