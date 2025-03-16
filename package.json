@@ -8,7 +8,10 @@
     "lint": "eslint \"src/**/*\"",
     "lint:fix": "eslint \"src/**/*\" --fix",
     "test": "jest tests/",
-    "test:ci": "jest tests/ --ci --reporters=default"
+    "test:ci": "jest tests/ --ci --reporters=default",
+    "docker:mongo": "docker compose -f src/database/mongo/docker/docker-compose.yml up -d",
+    "docker:mongo:down": "docker compose -f src/database/mongo/docker/docker-compose.yml down -v",
+    "test:mongo": "tsx src/database/mongo/__tests__/AggregatorRecordStorage.test.ts && tsx src/database/mongo/__tests__/SmtStorage.test.ts"
   },
   "type": "module",
   "repository": {
@@ -19,14 +22,18 @@
   "dependencies": {
     "@alphabill/alphabill-js-sdk": "1.0.0-rc1-rc.a0a1660",
     "@types/node": "22.13.8",
-    "@unicitylabs/commons": "https://github.com/unicitynetwork/shared#typescript",
+    "@unicitylabs/commons": "github:unicitynetwork/shared#typescript",
+    "bson": "^6.10.3",
     "cors": "2.8.5",
     "dotenv": "16.4.7",
     "express": "4.21.2",
-    "json-rpc-2.0": "1.7.0"
+    "json-rpc-2.0": "1.7.0",
+    "mongodb": "6.14",
+    "mongoose": "^8.12.1"
   },
   "devDependencies": {
     "@eslint/js": "9.21.0",
+    "@testcontainers/mongodb": "^10.19.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "eslint": "9.21.0",
@@ -34,6 +41,7 @@
     "eslint-plugin-import": "2.31.0",
     "eslint-plugin-prettier": "5.2.3",
     "globals": "16.0.0",
+    "tsx": "^4.7.1",
     "typescript-eslint": "8.26.0"
   }
 }

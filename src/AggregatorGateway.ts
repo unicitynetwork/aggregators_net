@@ -12,8 +12,7 @@ import 'dotenv/config';
 
 import { AlphabillClient } from './alphabill/AlphabillClient.js';
 import { AggregatorJsonRpcServer } from './json-rpc/AggregatorJsonRpcServer.js';
-import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
-import { ISmtStorage } from './smt/ISmtStorage.js';
+import { Storage } from './database/mongo/Storage.js';
 
 const sslCertPath = process.env.SSL_CERT_PATH;
 const sslKeyPath = process.env.SSL_KEY_PATH;
@@ -26,9 +25,10 @@ const alphabillTokenPartitionUrl = null; // TODO
 const networkId = null; // TODO
 const alphabillClient = new AlphabillClient(signingService, alphabillTokenPartitionUrl, networkId);
 await alphabillClient.initialSetup();
+const storage = await Storage.init();
+
 const smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
-const smtStorage: ISmtStorage = null; // TODO
-const smtLeaves = await smtStorage.getAll();
+const smtLeaves = await storage.smt.getAll();
 if (smtLeaves.length > 0) {
   console.log('Found %s leaves from storage.', smtLeaves.length);
   console.log('Constructing tree...');
@@ -36,8 +36,7 @@ if (smtLeaves.length > 0) {
   console.log('Tree with root hash %s constructed successfully.', smt.rootHash.toString());
 }
 
-const recordStorage: IAggregatorRecordStorage = null; // TODO
-const aggregatorJsonRpcServer = new AggregatorJsonRpcServer(alphabillClient, smt, recordStorage);
+const aggregatorJsonRpcServer = new AggregatorJsonRpcServer(alphabillClient, smt, storage.records);
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
