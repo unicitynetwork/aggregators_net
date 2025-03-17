@@ -1,5 +1,3 @@
-import { GenericContainer } from 'testcontainers';
-import mongoose from 'mongoose';
 import { AggregatorRecordStorage } from './../AggregatorRecordStorage.js';
 import { AggregatorRecord } from '../../../records/AggregatorRecord.js';
 import { TransactionOrder } from "@alphabill/alphabill-js-sdk/lib/transaction/TransactionOrder.js";
@@ -102,6 +100,21 @@ async function testStorage() {
                 retrieved.previousBlockData && record.previousBlockData && 
                 Buffer.compare(retrieved.previousBlockData, record.previousBlockData) === 0
             );
+            
+            const originalProof = record.txProof;
+            const retrievedProof = retrieved.txProof;
+            console.log('Transaction proof comparison:');
+            console.log('Transaction type matches:', 
+                originalProof.transactionRecord.transactionOrder.payload.type === 
+                retrievedProof.transactionRecord.transactionOrder.payload.type
+            );
+            console.log('Transaction attributes match:', 
+                Buffer.compare(
+                    originalProof.transactionRecord.transactionOrder.payload.attributes.data.bytes,
+                    retrievedProof.transactionRecord.transactionOrder.payload.attributes.data.bytes
+                ) === 0
+            );
+            
             console.log('Auth signature matches:', Buffer.compare(retrieved.authenticator.signature, record.authenticator.signature) === 0);
             console.log('Auth public key matches:', Buffer.compare(retrieved.authenticator.publicKey, record.authenticator.publicKey) === 0);
             console.log('Auth state matches:', Buffer.compare(retrieved.authenticator.state, record.authenticator.state) === 0);
