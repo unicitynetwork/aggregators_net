@@ -1,13 +1,13 @@
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator';
 import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof';
-import { SubmitStateTransitionResponse } from '@unicitylabs/commons/lib/api/SubmitStateTransitionResponse';
+import { RequestId } from '@unicitylabs/commons/lib/api/RequestId';
 import { SubmitStateTransitionStatus } from '@unicitylabs/commons/lib/api/SubmitStateTransitionStatus';
 import { DataHasher, HashAlgorithm } from '@unicitylabs/commons/lib/hash/DataHasher';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree';
-import { BigintConverter } from '@unicitylabs/commons/lib/util/BigintConverter';
 import { JSONRPCServer } from 'json-rpc-2.0';
 
+import { SubmitStateTransitionResponse } from './SubmitStateTransitionResponse.js';
 import { AlphabillClient } from '../alphabill/AlphabillClient.js';
 import { AggregatorRecord } from '../records/AggregatorRecord.js';
 import { IAggregatorRecordStorage } from '../records/IAggregatorRecordStorage.js';
@@ -26,7 +26,7 @@ export class AggregatorJsonRpcServer extends JSONRPCServer {
   }
 
   public async submitStateTransition(
-    requestId: bigint,
+    requestId: RequestId,
     payload: Uint8Array,
     authenticator: Authenticator,
   ): Promise<SubmitStateTransitionResponse> {
@@ -34,7 +34,11 @@ export class AggregatorJsonRpcServer extends JSONRPCServer {
     if (existingRecord != null) {
       if (existingRecord.rootHash == payload) {
         console.log(`Record with ID ${requestId} already exists.`);
-        return { requestId, status: SubmitStateTransitionStatus.SUCCESS };
+        const merkleTreePath = this.smt.getPath(requestId.toBigInt());
+        return new SubmitStateTransitionResponse(
+          new InclusionProof(merkleTreePath, existingRecord.authenticator, existingRecord.rootHash),
+          SubmitStateTransitionStatus.SUCCESS,
+        );
       }
       throw new Error('Request ID already exists with different payload.');
     }
@@ -49,16 +53,21 @@ export class AggregatorJsonRpcServer extends JSONRPCServer {
     const record = new AggregatorRecord(payload, previousBlockData, authenticator, txProof);
     await this.recordStorage.put(requestId, record);
 
-    const leaf = await this.recordToSmtNode(requestId, record.rootHash);
+    const leaf = new SmtNode(requestId.toBigInt(), payload);
     await this.smt.addLeaf(leaf.path, leaf.value);
 
-    console.log(`Request with ID ${requestId} registered, new root hash %s`, this.smt.rootHash.toString());
-    return { requestId, status: SubmitStateTransitionStatus.SUCCESS };
+    const newRootHash = this.smt.rootHash();
+    console.log(`Request with ID ${requestId} registered, new root hash %s`, newRootHash.toString());
+    const merkleTreePath = this.smt.getPath(requestId.toBigInt());
+    return new SubmitStateTransitionResponse(
+      new InclusionProof(merkleTreePath, record.authenticator, newRootHash),
+      SubmitStateTransitionStatus.SUCCESS,
+    );
   }
 
-  public async getInclusionProof(requestId: bigint): Promise<InclusionProof> {
+  public async getInclusionProof(requestId: RequestId): Promise<InclusionProof> {
     const record = await this.recordStorage.get(requestId);
-    const merkleTreePath = null; // TODO
+    const merkleTreePath = this.smt.getPath(requestId.toBigInt());
     return new InclusionProof(merkleTreePath, record.authenticator, record.rootHash);
   }
 
@@ -67,7 +76,7 @@ export class AggregatorJsonRpcServer extends JSONRPCServer {
   }
 
   private async verifyAuthenticator(
-    requestId: bigint,
+    requestId: RequestId,
     payload: Uint8Array,
     authenticator: Authenticator,
   ): Promise<boolean> {
@@ -76,16 +85,10 @@ export class AggregatorJsonRpcServer extends JSONRPCServer {
       .update(publicKey)
       .update(authenticator.state)
       .digest();
-    if (BigintConverter.decode(expectedRequestId) !== requestId) {
+    if (expectedRequestId !== requestId.encode()) {
       return false;
     }
     const payloadHash = await new DataHasher(HashAlgorithm.SHA256).update(payload).digest();
     return await SigningService.verifyWithPublicKey(payloadHash, authenticator.signature, publicKey);
-  }
-
-  private async recordToSmtNode(requestId: bigint, payload: Uint8Array): Promise<SmtNode> {
-    const path = BigInt('0x' + requestId);
-    const value = await new DataHasher(HashAlgorithm.SHA256).update(payload).digest();
-    return new SmtNode(path, value);
   }
 }

@@ -133,3 +133,6 @@ records.json
 
 # IntelliJ
 .idea/
+
+# MacOS
+.DS_Store
