@@ -7,13 +7,13 @@ interface ISMTNode {
 }
 
 interface IAggregatorRecord {
-    requestId: bigint;
+    requestId: Uint8Array;
     rootHash: Uint8Array;
     previousBlockData: Uint8Array;
     authenticator: {
         hashAlgorithm: string;
         publicKey: Uint8Array;
-        algorithm: string;
+        signatureAlgorithm: string;
         signature: Uint8Array;
         state: Uint8Array;
     };
@@ -26,13 +26,13 @@ const LeafSchema = new mongoose.Schema({
 });
   
 const AggregatorRecordSchema = new mongoose.Schema({
-    requestId: { type: SCHEMA_TYPES.BIGINT_BINARY, required: true, unique: true },
+    requestId: { type: SCHEMA_TYPES.UINT8_ARRAY, required: true, unique: true },
     rootHash: { type: SCHEMA_TYPES.UINT8_ARRAY, required: true },
     previousBlockData: { type: SCHEMA_TYPES.UINT8_ARRAY, required: true },
     authenticator: {
         hashAlgorithm: { type: String, required: true },
         publicKey: { type: SCHEMA_TYPES.UINT8_ARRAY, required: true },
-        algorithm: { type: String, required: true },
+        signatureAlgorithm: { type: String, required: true },
         signature: { type: SCHEMA_TYPES.UINT8_ARRAY, required: true },
         state: { type: SCHEMA_TYPES.UINT8_ARRAY, required: true }
     },

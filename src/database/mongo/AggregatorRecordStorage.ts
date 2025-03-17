@@ -1,5 +1,6 @@
 import { AggregatorRecord } from '../../records/AggregatorRecord.js';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator';
+import { RequestId } from '@unicitylabs/commons/src/api/RequestId';
 import { TransactionRecordWithProof } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionRecordWithProof';
 import { IAggregatorRecordStorage } from '../../records/IAggregatorRecordStorage.js';
 import { AggregatorRecordModel } from './models.js';
@@ -7,16 +8,16 @@ import { UpdateNonFungibleTokenAttributes } from '@alphabill/alphabill-js-sdk/li
 import { TypeDataUpdateProofsAuthProof } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/TypeDataUpdateProofsAuthProof.js';
 
 export class AggregatorRecordStorage implements IAggregatorRecordStorage {
-    async put(requestId: bigint, record: AggregatorRecord): Promise<boolean> {
+    async put(requestId: RequestId, record: AggregatorRecord): Promise<boolean> {
         try {
             await new AggregatorRecordModel({
-                requestId: requestId,
+                requestId: requestId.encode(),
                 rootHash: record.rootHash,
                 previousBlockData: record.previousBlockData || new Uint8Array(),
                 authenticator: {
                     hashAlgorithm: record.authenticator.hashAlgorithm,
                     publicKey: record.authenticator.publicKey,
-                    algorithm: record.authenticator.algorithm,
+                    signatureAlgorithm: record.authenticator.signatureAlgorithm,
                     signature: record.authenticator.signature,
                     state: record.authenticator.state
                 },
@@ -29,9 +30,9 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
         }
     }
 
-    async get(requestId: bigint): Promise<AggregatorRecord | null> {
+    async get(requestId: RequestId): Promise<AggregatorRecord | null> {
         try {
-            const stored = await AggregatorRecordModel.findOne({ requestId });
+            const stored = await AggregatorRecordModel.findOne({ requestId: requestId.encode() });
 
             if (!stored) {
                 return null;
@@ -50,7 +51,7 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
             const authenticator = new Authenticator(
                 stored.authenticator.hashAlgorithm,
                 new Uint8Array(stored.authenticator.publicKey),
-                stored.authenticator.algorithm,
+                stored.authenticator.signatureAlgorithm,
                 new Uint8Array(stored.authenticator.signature),
                 new Uint8Array(stored.authenticator.state)
             );

@@ -9,6 +9,7 @@ import { BitString } from '@alphabill/alphabill-js-sdk/lib/codec/cbor/BitString.
 import { UpdateNonFungibleTokenAttributes } from '@alphabill/alphabill-js-sdk/lib/tokens/attributes/UpdateNonFungibleTokenAttributes.js';
 import { TypeDataUpdateProofsAuthProof } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/TypeDataUpdateProofsAuthProof.js';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator';
+import { RequestId } from '@unicitylabs/commons/lib/api/RequestId';
 import { TransactionStatus } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionStatus.js';
 import { ServerMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/record/ServerMetadata.js';
 import { UnitId } from "@alphabill/alphabill-js-sdk/lib/UnitId.js";
@@ -22,8 +23,8 @@ async function testStorage() {
 
     try {
         const storage = new AggregatorRecordStorage();
-        const testRequestId = BigInt('0x' + Math.floor(Math.random() * 1000000).toString(16));
-        console.log('Using requestId:', testRequestId.toString(16));
+        const testRequestId = await RequestId.create(new Uint8Array([1, 2, 3, 4]), new Uint8Array([5, 6, 7, 8]))
+        console.log('Using requestId:', testRequestId.toString());
 
         const attributes = new UpdateNonFungibleTokenAttributes(
             { bytes: new Uint8Array([1, 2, 3]) },
@@ -123,11 +124,6 @@ async function testStorage() {
         } else {
             console.log('Failed to retrieve record');
         }
-
-        console.log('\nTesting non-existent record retrieval...');
-        const nonExistent = await storage.get(BigInt('0x999999'));
-        console.log('Non-existent record result:', nonExistent === null ? 'null (correct)' : 'not null (wrong)');
-
     } catch (error) {
         console.error('Test failed:', error);
         if (error instanceof Error) {

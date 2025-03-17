@@ -12,10 +12,10 @@ import 'dotenv/config';
 
 import { AlphabillClient } from './alphabill/AlphabillClient.js';
 import { AggregatorJsonRpcServer } from './json-rpc/AggregatorJsonRpcServer.js';
-import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
-import { ISmtStorage } from './smt/ISmtStorage.js';
 import { JSONRPCServer } from 'json-rpc-2.0';
-import { NetworkIdentifier } from '@alphabill/alphabill-js-sdk/lib/NetworkIdentifier';
+import { NetworkIdentifier } from '@alphabill/alphabill-js-sdk/lib/NetworkIdentifier';õ
+import { Storage } from './database/mongo/Storage.js';
+import { ISmtStorage } from './smt/ISmtStorage.js';
 
 const sslCertPath = process.env.SSL_CERT_PATH ?? '';
 const sslKeyPath = process.env.SSL_KEY_PATH ?? '';
@@ -36,9 +36,9 @@ startServer(sslCertPath, sslKeyPath, port);
 
 async function setupAggregatorServer(): Promise<JSONRPCServer> {
   const alphabillClient = await setupAlphabillClient();
-  const smt = await setupSmt();
-  const recordStorage: IAggregatorRecordStorage = null; // TODO
-  return new AggregatorJsonRpcServer(alphabillClient, smt, recordStorage);
+  const storage = await Storage.init();
+  const smt = await setupSmt(storage.smt);
+  return new AggregatorJsonRpcServer(alphabillClient, smt, storage.records);
 }
 
 async function setupAlphabillClient(): Promise<AlphabillClient> {
@@ -52,9 +52,8 @@ async function setupAlphabillClient(): Promise<AlphabillClient> {
   return alphabillClient;
 }
 
-async function setupSmt(): Promise<SparseMerkleTree> {
+async function setupSmt(smtStorage: ISmtStorage): Promise<SparseMerkleTree> {
   const smt = SparseMerkleTree.create(HashAlgorithm.SHA256);
-  const smtStorage: ISmtStorage = null; // TODO
   const smtLeaves = await smtStorage.getAll();
   if (smtLeaves.length > 0) {
     console.log('Found %s leaves from storage.', smtLeaves.length);
