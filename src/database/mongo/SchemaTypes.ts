@@ -6,41 +6,43 @@ export const SCHEMA_TYPES = {
     UINT8_ARRAY: "Uint8Array"
 } as const;
 
-function bigIntToUint8Array(bigInt: bigint): Uint8Array {
-  let hex = bigInt.toString(16).padStart(64, "0");
-  return new Uint8Array(Buffer.from(hex, "hex"));
+function bigIntToBuffer(bigInt: bigint): Buffer {
+    const hex = bigInt.toString(16);
+    const paddedHex = hex.length % 2 === 0 ? hex : '0' + hex;
+    const buf = Buffer.from(paddedHex, "hex");
+    return buf;
 }
 
-function uint8ArrayToBigInt(binary: Binary): bigint {
-  return BigInt("0x" + Buffer.from(binary.buffer).toString("hex"));
+function bufferToBigInt(binary: Binary): bigint {
+    return BigInt("0x" + Buffer.from(binary.buffer).toString("hex"));
 }
 
 class BigIntBinarySchemaType extends SchemaType {
-  static schemaName = SCHEMA_TYPES.BIGINT_BINARY;
+    static schemaName = SCHEMA_TYPES.BIGINT_BINARY;
 
-  constructor(key: string, options?: SchemaTypeOptions<any>) {
-    super(key, options, SCHEMA_TYPES.BIGINT_BINARY);
-  }
+    constructor(key: string, options?: SchemaTypeOptions<any>) {
+        super(key, options, SCHEMA_TYPES.BIGINT_BINARY);
+    }
 
-  cast(val: any) {
-    if (typeof val === "bigint") return new Binary(bigIntToUint8Array(val));
-    if (val instanceof Binary) return uint8ArrayToBigInt(val);
-    throw new Error(`BigIntBinary: Cannot cast ${val} to BigInt`);
-  }
+    cast(val: any) {
+        if (typeof val === "bigint") return new Binary(bigIntToBuffer(val));
+        if (val instanceof Binary) return bufferToBigInt(val);
+        throw new Error(`BigIntBinarySchemaType: Cannot cast ${val}`);
+    }
 }
 
 class Uint8ArraySchemaType extends SchemaType {
-  static schemaName = SCHEMA_TYPES.UINT8_ARRAY;
+    static schemaName = SCHEMA_TYPES.UINT8_ARRAY;
 
-  constructor(key: string, options?: SchemaTypeOptions<any>) {
-    super(key, options, SCHEMA_TYPES.UINT8_ARRAY);
-  }
+    constructor(key: string, options?: SchemaTypeOptions<any>) {
+      super(key, options, SCHEMA_TYPES.UINT8_ARRAY);
+    }
 
-  cast(val: any) {
-    if (val instanceof Uint8Array) return new Binary(Buffer.from(val));
-    if (val instanceof Binary) return new Uint8Array(val.buffer);
-    throw new Error(`Uint8ArraySchemaType: Cannot cast ${val}`);
-  }
+    cast(val: any) {
+      if (val instanceof Uint8Array) return new Binary(Buffer.from(val));
+      if (val instanceof Binary) return new Uint8Array(val.buffer);
+      throw new Error(`Uint8ArraySchemaType: Cannot cast ${val}`);
+    }
 }
 
 (mongoose.Schema.Types as any)[SCHEMA_TYPES.BIGINT_BINARY] = BigIntBinarySchemaType;

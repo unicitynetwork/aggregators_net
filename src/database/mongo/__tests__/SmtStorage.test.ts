@@ -11,13 +11,15 @@ async function testStorage() {
         const testNodes = [
             new SmtNode(BigInt(1), new Uint8Array([1, 2, 3])),
             new SmtNode(BigInt(2), new Uint8Array([4, 5, 6])),
-            new SmtNode(BigInt(3), new Uint8Array([7, 8, 9]))
+            // Max 256-bit value: 2^256 - 1
+            new SmtNode(2n ** 256n - 1n, new Uint8Array([7, 8, 9]))
         ];
 
         console.log('\nStoring test nodes...');
         for (const node of testNodes) {
+            console.log(`Storing node with path ${node.path} (hex: ${node.path.toString(16)})`);
             const result = await storage.put(node);
-            console.log(`Stored node with path ${node.path}: ${result}`);
+            console.log(`Store result: ${result}`);
         }
 
         console.log('\nRetrieving all nodes...');
