@@ -13,7 +13,7 @@ import 'dotenv/config';
 import { AlphabillClient } from './alphabill/AlphabillClient.js';
 import { AggregatorJsonRpcServer } from './json-rpc/AggregatorJsonRpcServer.js';
 import { JSONRPCServer } from 'json-rpc-2.0';
-import { NetworkIdentifier } from '@alphabill/alphabill-js-sdk/lib/NetworkIdentifier';õ
+import { NetworkIdentifier } from '@alphabill/alphabill-js-sdk/lib/NetworkIdentifier';
 import { Storage } from './database/mongo/Storage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 
