@@ -39,7 +39,7 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
             }
 
             const decodedProof = TransactionRecordWithProof.fromCbor(
-                new Uint8Array(stored.txProof),
+                stored.txProof,
                 {
                     fromCbor: (bytes: Uint8Array) => UpdateNonFungibleTokenAttributes.fromCbor(bytes)
                 },
@@ -50,15 +50,15 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
 
             const authenticator = new Authenticator(
                 stored.authenticator.hashAlgorithm,
-                new Uint8Array(stored.authenticator.publicKey),
+                stored.authenticator.publicKey,
                 stored.authenticator.signatureAlgorithm,
-                new Uint8Array(stored.authenticator.signature),
-                new Uint8Array(stored.authenticator.state)
+                stored.authenticator.signature,
+                stored.authenticator.state
             );
 
             return new AggregatorRecord(
-                new Uint8Array(stored.rootHash),
-                stored.previousBlockData ? new Uint8Array(stored.previousBlockData) : null,
+                stored.rootHash,
+                stored.previousBlockData || null,
                 authenticator,
                 decodedProof
             );
