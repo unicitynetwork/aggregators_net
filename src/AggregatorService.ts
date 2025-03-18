@@ -5,25 +5,19 @@ import { SubmitStateTransitionStatus } from '@unicitylabs/commons/lib/api/Submit
 import { DataHasher, HashAlgorithm } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
-import { JSONRPCServer } from 'json-rpc-2.0';
 
+import { AlphabillClient } from './alphabill/AlphabillClient.js';
+import { AggregatorRecord } from './records/AggregatorRecord.js';
+import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
+import { SmtNode } from './smt/SmtNode.js';
 import { SubmitStateTransitionResponse } from './SubmitStateTransitionResponse.js';
-import { AlphabillClient } from '../alphabill/AlphabillClient.js';
-import { AggregatorRecord } from '../records/AggregatorRecord.js';
-import { IAggregatorRecordStorage } from '../records/IAggregatorRecordStorage.js';
-import { SmtNode } from '../smt/SmtNode.js';
 
-export class AggregatorJsonRpcServer extends JSONRPCServer {
+export class AggregatorService {
   public constructor(
     public readonly alphabillClient: AlphabillClient,
     public readonly smt: SparseMerkleTree,
     public readonly recordStorage: IAggregatorRecordStorage,
-  ) {
-    super();
-    this.addMethod('aggregator_submit', () => this.submitStateTransition);
-    this.addMethod('aggregator_get_path', this.getInclusionProof);
-    this.addMethod('aggregator_get_nodel', this.getNodeletionProof);
-  }
+  ) {}
 
   public async submitStateTransition(
     requestId: RequestId,

@@ -22,8 +22,7 @@
     "@unicitylabs/commons": "https://github.com/unicitynetwork/shared#typescript",
     "cors": "2.8.5",
     "dotenv": "16.4.7",
-    "express": "4.21.2",
-    "json-rpc-2.0": "1.7.0"
+    "express": "4.21.2"
   },
   "devDependencies": {
     "@eslint/js": "9.22.0",
