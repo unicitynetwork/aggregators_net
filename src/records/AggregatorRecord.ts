@@ -1,8 +1,8 @@
-import { type UpdateNonFungibleTokenTransactionOrder } from '@alphabill/alphabill-js-sdk/lib/tokens/transactions/UpdateNonFungibleToken';
-import { TransactionRecordWithProof } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionRecordWithProof';
-import { dedent } from '@alphabill/alphabill-js-sdk/lib/util/StringUtils';
-import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator';
-import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter';
+import { type UpdateNonFungibleTokenTransactionOrder } from '@alphabill/alphabill-js-sdk/lib/tokens/transactions/UpdateNonFungibleToken.js';
+import { TransactionRecordWithProof } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionRecordWithProof.js';
+import { dedent } from '@alphabill/alphabill-js-sdk/lib/util/StringUtils.js';
+import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
 export class AggregatorRecord {
   public constructor(

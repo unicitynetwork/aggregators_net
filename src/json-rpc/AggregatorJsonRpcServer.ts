@@ -1,10 +1,10 @@
-import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator';
-import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof';
-import { RequestId } from '@unicitylabs/commons/lib/api/RequestId';
-import { SubmitStateTransitionStatus } from '@unicitylabs/commons/lib/api/SubmitStateTransitionStatus';
-import { DataHasher, HashAlgorithm } from '@unicitylabs/commons/lib/hash/DataHasher';
-import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService';
-import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree';
+import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
+import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
+import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
+import { SubmitStateTransitionStatus } from '@unicitylabs/commons/lib/api/SubmitStateTransitionStatus.js';
+import { DataHasher, HashAlgorithm } from '@unicitylabs/commons/lib/hash/DataHasher.js';
+import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { JSONRPCServer } from 'json-rpc-2.0';
 
 import { SubmitStateTransitionResponse } from './SubmitStateTransitionResponse.js';
@@ -56,7 +56,7 @@ export class AggregatorJsonRpcServer extends JSONRPCServer {
     const leaf = new SmtNode(requestId.toBigInt(), payload);
     await this.smt.addLeaf(leaf.path, leaf.value);
 
-    const newRootHash = this.smt.rootHash();
+    const newRootHash = this.smt.rootHash;
     console.log(`Request with ID ${requestId} registered, new root hash %s`, newRootHash.toString());
     const merkleTreePath = this.smt.getPath(requestId.toBigInt());
     return new SubmitStateTransitionResponse(

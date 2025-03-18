@@ -2,27 +2,27 @@ import http from 'http';
 import https from 'https';
 import { existsSync, readFileSync } from 'node:fs';
 
-import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/DataHasher';
-import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService';
-import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree';
+import { NetworkIdentifier } from '@alphabill/alphabill-js-sdk/lib/NetworkIdentifier.js';
+import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/DataHasher.js';
+import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 import express from 'express';
 import 'dotenv/config';
+import { JSONRPCServer } from 'json-rpc-2.0';
 
 import { AlphabillClient } from './alphabill/AlphabillClient.js';
 import { AggregatorJsonRpcServer } from './json-rpc/AggregatorJsonRpcServer.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
-import { JSONRPCServer } from 'json-rpc-2.0';
-import { NetworkIdentifier } from '@alphabill/alphabill-js-sdk/lib/NetworkIdentifier';
 
 const sslCertPath = process.env.SSL_CERT_PATH ?? '';
 const sslKeyPath = process.env.SSL_KEY_PATH ?? '';
 const port =
   process.env.PORT || (sslCertPath && sslKeyPath && existsSync(sslCertPath) && existsSync(sslKeyPath)) ? 443 : 80;
 
-const aggregatorJsonRpcServer = await setupAggregatorServer()
+const aggregatorJsonRpcServer = await setupAggregatorServer();
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
@@ -53,7 +53,7 @@ async function setupAlphabillClient(): Promise<AlphabillClient> {
 }
 
 async function setupSmt(): Promise<SparseMerkleTree> {
-  const smt = SparseMerkleTree.create(HashAlgorithm.SHA256);
+  const smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
   const smtStorage: ISmtStorage = null; // TODO
   const smtLeaves = await smtStorage.getAll();
   if (smtLeaves.length > 0) {
@@ -65,7 +65,7 @@ async function setupSmt(): Promise<SparseMerkleTree> {
   return smt;
 }
 
-function startServer(sslCertPath: string, sslKeyPath: string, port: number) {
+function startServer(sslCertPath: string, sslKeyPath: string, port: number): void {
   if (sslCertPath && sslKeyPath && existsSync(sslCertPath) && existsSync(sslKeyPath)) {
     const options = {
       cert: readFileSync(sslCertPath),

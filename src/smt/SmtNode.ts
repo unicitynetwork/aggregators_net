@@ -1,5 +1,5 @@
-import { dedent } from '@alphabill/alphabill-js-sdk/lib/util/StringUtils';
-import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter';
+import { dedent } from '@alphabill/alphabill-js-sdk/lib/util/StringUtils.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
 export class SmtNode {
   public constructor(

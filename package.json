@@ -18,7 +18,7 @@
   "license": "ISC",
   "dependencies": {
     "@alphabill/alphabill-js-sdk": "1.0.0-rc1-rc.a0a1660",
-    "@types/node": "22.13.8",
+    "@types/node": "22.13.10",
     "@unicitylabs/commons": "https://github.com/unicitynetwork/shared#typescript",
     "cors": "2.8.5",
     "dotenv": "16.4.7",
@@ -26,14 +26,14 @@
     "json-rpc-2.0": "1.7.0"
   },
   "devDependencies": {
-    "@eslint/js": "9.21.0",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
-    "eslint": "9.21.0",
-    "eslint-config-prettier": "10.0.2",
+    "@eslint/js": "9.22.0",
+    "@types/cors": "2.8.17",
+    "@types/express": "5.0.0",
+    "eslint": "9.22.0",
+    "eslint-config-prettier": "10.1.1",
     "eslint-plugin-import": "2.31.0",
     "eslint-plugin-prettier": "5.2.3",
     "globals": "16.0.0",
-    "typescript-eslint": "8.26.0"
+    "typescript-eslint": "8.26.1"
   }
 }
