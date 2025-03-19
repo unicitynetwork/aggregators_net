@@ -9,30 +9,24 @@ import { TypeDataUpdateProofsAuthProof } from '@alphabill/alphabill-js-sdk/lib/t
 
 export class AggregatorRecordStorage implements IAggregatorRecordStorage {
     async put(requestId: RequestId, record: AggregatorRecord): Promise<boolean> {
-        try {
-            await new AggregatorRecordModel({
-                requestId: requestId.encode(),
-                rootHash: record.rootHash,
-                previousBlockData: record.previousBlockData || new Uint8Array(),
-                authenticator: {
-                    hashAlgorithm: record.authenticator.hashAlgorithm,
-                    publicKey: record.authenticator.publicKey,
-                    signatureAlgorithm: record.authenticator.signatureAlgorithm,
-                    signature: record.authenticator.signature,
-                    state: record.authenticator.state
-                },
-                txProof: record.txProof.encode()
-            }).save();
-            return true;
-        } catch (error) {
-            console.error('Failed to store record:', error);
-            return false;
-        }
+        await new AggregatorRecordModel({
+            requestId: requestId.encode(),
+            rootHash: record.rootHash,
+            previousBlockData: record.previousBlockData || new Uint8Array(),
+            authenticator: {
+                hashAlgorithm: record.authenticator.hashAlgorithm,
+                publicKey: record.authenticator.publicKey,
+                signatureAlgorithm: record.authenticator.signatureAlgorithm,
+                signature: record.authenticator.signature,
+                state: record.authenticator.state
+            },
+            txProof: record.txProof.encode()
+        }).save();
+        return true;
     }
 
     async get(requestId: RequestId): Promise<AggregatorRecord | null> {
-        try {
-            const stored = await AggregatorRecordModel.findOne({ requestId: requestId.encode() });
+        const stored = await AggregatorRecordModel.findOne({ requestId: requestId.encode() });
 
             if (!stored) {
                 return null;
@@ -62,9 +56,5 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
                 authenticator,
                 decodedProof
             );
-        } catch (error) {
-            console.error('Failed to retrieve record:', error);
-            return null;
-        }
     }
 }

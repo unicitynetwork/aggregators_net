@@ -11,7 +11,8 @@
     "test:ci": "jest tests/ --ci --reporters=default",
     "docker:mongo": "docker compose -f src/database/mongo/docker/docker-compose.yml up -d",
     "docker:mongo:down": "docker compose -f src/database/mongo/docker/docker-compose.yml down -v",
-    "test:mongo": "tsx src/database/mongo/__tests__/AggregatorRecordStorage.test.ts && tsx src/database/mongo/__tests__/SmtStorage.test.ts"
+    "test:mongo": "tsx src/database/mongo/__tests__/AggregatorRecordStorage.test.ts && tsx src/database/mongo/__tests__/SmtStorage.test.ts",
+    "test:mongo:replica": "tsx src/database/mongo/__tests__/MongoReplicaSet.test.ts"
   },
   "type": "module",
   "repository": {

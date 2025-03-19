@@ -19,18 +19,21 @@ export class Storage {
         try {
             console.log('Connecting to MongoDB...');
             await mongoose.connect(mongoUri, {
-                serverSelectionTimeoutMS: 5000,
-                connectTimeoutMS: 10000
+                serverSelectionTimeoutMS: 30000,
+                connectTimeoutMS: 15000,
+                heartbeatFrequencyMS: 1000,
             });
 
             mongoose.connection.on('error', (error) => {
                 console.error('MongoDB connection error:', error);
-                process.exit(1);
             });
 
             mongoose.connection.on('disconnected', () => {
-                console.error('MongoDB disconnected. Exiting...');
-                process.exit(1);
+                console.log('MongoDB disconnected');
+            });
+
+            mongoose.connection.on('reconnected', () => {
+                console.log('MongoDB reconnected successfully');
             });
 
             console.log('Connected to MongoDB successfully');
