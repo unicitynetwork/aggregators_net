@@ -57,7 +57,7 @@ startServer(sslCertPath, sslKeyPath, port);
 async function setupAggregatorService(): Promise<AggregatorService> {
   const alphabillClient = await setupAlphabillClient();
   const storage = await Storage.init();
-  const smt = await setupSmt();
+  const smt = await setupSmt(storage.smt);
   return new AggregatorService(alphabillClient, smt, storage.records);
 }
 

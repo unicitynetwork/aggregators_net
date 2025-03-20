@@ -13,7 +13,7 @@ interface IAggregatorRecord {
     authenticator: {
         hashAlgorithm: string;
         publicKey: Uint8Array;
-        signatureAlgorithm: string;
+        algorithm: string;
         signature: Uint8Array;
         state: Uint8Array;
     };
@@ -32,7 +32,7 @@ const AggregatorRecordSchema = new mongoose.Schema({
     authenticator: {
         hashAlgorithm: { type: String, required: true },
         publicKey: { type: SCHEMA_TYPES.UINT8_ARRAY, required: true },
-        signatureAlgorithm: { type: String, required: true },
+        algorithm: { type: String, required: true },
         signature: { type: SCHEMA_TYPES.UINT8_ARRAY, required: true },
         state: { type: SCHEMA_TYPES.UINT8_ARRAY, required: true }
     },

@@ -16,7 +16,7 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
             authenticator: {
                 hashAlgorithm: record.authenticator.hashAlgorithm,
                 publicKey: record.authenticator.publicKey,
-                signatureAlgorithm: record.authenticator.signatureAlgorithm,
+                algorithm: record.authenticator.algorithm,
                 signature: record.authenticator.signature,
                 state: record.authenticator.state
             },
@@ -45,7 +45,7 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
             const authenticator = new Authenticator(
                 stored.authenticator.hashAlgorithm,
                 stored.authenticator.publicKey,
-                stored.authenticator.signatureAlgorithm,
+                stored.authenticator.algorithm,
                 stored.authenticator.signature,
                 stored.authenticator.state
             );
