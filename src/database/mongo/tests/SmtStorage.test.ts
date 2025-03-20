@@ -1,4 +1,4 @@
-import { SmtStorage } from './../SmtStorage.js';
+import { SmtStorage } from '../SmtStorage.js';
 import { SmtNode } from '../../../smt/SmtNode.js';
 import { setupTestDatabase, teardownTestDatabase } from './TestUtils.js';
 

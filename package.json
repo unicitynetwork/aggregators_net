@@ -11,8 +11,8 @@
     "test:ci": "jest tests/ --ci --reporters=default",
     "docker:mongo": "docker compose -f src/database/mongo/docker/docker-compose.yml up -d",
     "docker:mongo:down": "docker compose -f src/database/mongo/docker/docker-compose.yml down -v",
-    "test:mongo": "tsx src/database/mongo/__tests__/AggregatorRecordStorage.test.ts && tsx src/database/mongo/__tests__/SmtStorage.test.ts",
-    "test:mongo:replica": "tsx src/database/mongo/__tests__/MongoReplicaSet.test.ts"
+    "test:mongo": "tsx src/database/mongo/tests/AggregatorRecordStorage.test.ts && tsx src/database/mongo/tests/SmtStorage.test.ts",
+    "test:mongo:replica": "tsx src/database/mongo/tests/MongoReplicaSet.test.ts"
   },
   "type": "module",
   "repository": {
@@ -23,7 +23,7 @@
   "dependencies": {
     "@alphabill/alphabill-js-sdk": "1.0.0-rc1-rc.a0a1660",
     "@types/node": "22.13.8",
-    "@unicitylabs/commons": "github:unicitynetwork/shared#typescript",
+    "@unicitylabs/commons": "https://github.com/unicitynetwork/shared#typescript",
     "bson": "^6.10.3",
     "cors": "2.8.5",
     "dotenv": "16.4.7",

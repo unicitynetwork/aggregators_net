@@ -1,21 +1,11 @@
 import mongoose, { SchemaType, SchemaTypeOptions } from "mongoose";
 import { Binary } from "mongodb";
+import { BigintConverter } from "@unicitylabs/commons/lib/util/BigintConverter";
 
 export const SCHEMA_TYPES = {
     BIGINT_BINARY: "BigIntBinary",
     UINT8_ARRAY: "Uint8Array"
 } as const;
-
-function bigIntToBuffer(bigInt: bigint): Buffer {
-    const hex = bigInt.toString(16);
-    const paddedHex = hex.length % 2 === 0 ? hex : '0' + hex;
-    const buf = Buffer.from(paddedHex, "hex");
-    return buf;
-}
-
-function bufferToBigInt(binary: Binary): bigint {
-    return BigInt("0x" + Buffer.from(binary.buffer).toString("hex"));
-}
 
 class BigIntBinarySchemaType extends SchemaType {
     static schemaName = SCHEMA_TYPES.BIGINT_BINARY;
@@ -25,8 +15,14 @@ class BigIntBinarySchemaType extends SchemaType {
     }
 
     cast(val: any) {
-        if (typeof val === "bigint") return new Binary(bigIntToBuffer(val));
-        if (val instanceof Binary) return bufferToBigInt(val);
+        if (typeof val === "bigint") {
+            const uint8Array = BigintConverter.encode(val);
+            return new Binary(Buffer.from(uint8Array));
+        }
+        if (val instanceof Binary) {
+            const uint8Array = new Uint8Array(val.buffer);
+            return BigintConverter.decode(uint8Array);
+        }
         throw new Error(`BigIntBinarySchemaType: Cannot cast ${val}`);
     }
 }

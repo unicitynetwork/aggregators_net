@@ -1,4 +1,4 @@
-import { AggregatorRecordStorage } from './../AggregatorRecordStorage.js';
+import { AggregatorRecordStorage } from '../AggregatorRecordStorage.js';
 import { AggregatorRecord } from '../../../records/AggregatorRecord.js';
 import { TransactionOrder } from "@alphabill/alphabill-js-sdk/lib/transaction/TransactionOrder.js";
 import { TransactionRecordWithProof } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionRecordWithProof.js';

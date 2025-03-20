@@ -119,7 +119,6 @@ async function testReplicaFailover() {
         const result = await setupReplicaSet();
         containers = result.containers;
         process.env.MONGODB_URI = result.uri;
-        const storage = await Storage.init();
 
         // Find which container is primary
         const status = await containers[0].exec([
@@ -134,7 +133,9 @@ async function testReplicaFailover() {
             (_, index) => 27017 + index === primaryPort
         );
         
-        console.log(`Current primary is on port ${primaryPort} (container index ${primaryIndex})`);
+        console.log(`Current primary is on port ${primaryPort}`);
+
+        const storage = await Storage.init();
 
         console.log('\nStoring test data...');
         const testLeaf = new SmtNode(BigInt(1), new Uint8Array([1, 2, 3]));
@@ -147,9 +148,6 @@ async function testReplicaFailover() {
         const failoverStart = Date.now();
         
         let failoverComplete = false;
-        mongoose.connection.once('disconnected', () => {
-            console.log(`MongoDB disconnected at ${(Date.now() - failoverStart) / 1000}s`);
-        });
         mongoose.connection.once('reconnected', () => {
             console.log(`MongoDB driver reconnected after ${(Date.now() - failoverStart) / 1000}s`);
         });
