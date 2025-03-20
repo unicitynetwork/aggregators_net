@@ -1,8 +1,7 @@
 export default {
-  preset: 'ts-jest',
   testEnvironment: 'node',
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', { useESM: true }],
+    '^.+\\.[tj]sx?$': 'babel-jest'
   },
   moduleNameMapper: {
     '^(.*)\\.js$': '$1',
@@ -10,4 +9,7 @@ export default {
   testMatch: ['<rootDir>/tests/**/*Test.ts'],
   collectCoverage: true,
   collectCoverageFrom: ['<rootDir>/src/**/*.ts'],
+  transformIgnorePatterns: [
+    '/node_modules/(?!@alphabill|@unicitylabs)'
+  ],
 };
