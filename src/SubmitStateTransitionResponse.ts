@@ -1,6 +1,6 @@
-import { dedent } from '@alphabill/alphabill-js-sdk/lib/util/StringUtils';
-import { InclusionProof } from '@unicitylabs/commons/src/api/InclusionProof';
-import { SubmitStateTransitionStatus } from '@unicitylabs/commons/src/api/SubmitStateTransitionStatus';
+import { dedent } from '@alphabill/alphabill-js-sdk/lib/util/StringUtils.js';
+import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
+import { SubmitStateTransitionStatus } from '@unicitylabs/commons/lib/api/SubmitStateTransitionStatus.js';
 
 export class SubmitStateTransitionResponse {
   public constructor(

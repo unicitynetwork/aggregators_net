@@ -1,4 +1,4 @@
-import { RequestId } from '@unicitylabs/commons/lib/api/RequestId';
+import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 
 import { AggregatorRecord } from './AggregatorRecord.js';
 
