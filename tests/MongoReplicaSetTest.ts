@@ -1,7 +1,7 @@
 import { GenericContainer, StartedTestContainer, Wait } from 'testcontainers';
 import mongoose from 'mongoose';
-import { Storage } from '../Storage.js';
-import { SmtNode } from '../../../smt/SmtNode.js';
+import { Storage } from '../src/database/mongo/Storage.js';
+import { SmtNode } from '../src/smt/SmtNode.js';
 
 interface ReplicaSetMember {
     _id: number;

@@ -1,6 +1,6 @@
-import { SmtStorage } from '../SmtStorage.js';
-import { SmtNode } from '../../../smt/SmtNode.js';
-import { setupTestDatabase, teardownTestDatabase } from './TestUtils.js';
+import { SmtStorage } from '../src/database/mongo/SmtStorage.js';
+import { SmtNode } from '../src/smt/SmtNode.js';
+import { setupTestDatabase, teardownTestDatabase } from '../src/database/mongo/tests/TestUtils.js';
 
 async function testStorage() {
     const { container } = await setupTestDatabase();

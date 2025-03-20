@@ -5,7 +5,7 @@ export default {
     '^.+\\.tsx?$': ['ts-jest', { useESM: true }],
   },
   moduleNameMapper: {
-    '^(\\.\\.?/.*)\\.js$': '$1',
+    '^(.*)\\.js$': '$1',
   },
   testMatch: ['<rootDir>/tests/**/*Test.ts'],
   collectCoverage: true,

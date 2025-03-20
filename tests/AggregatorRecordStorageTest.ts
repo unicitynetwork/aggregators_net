@@ -1,5 +1,5 @@
-import { AggregatorRecordStorage } from '../AggregatorRecordStorage.js';
-import { AggregatorRecord } from '../../../records/AggregatorRecord.js';
+import { AggregatorRecordStorage } from '../src/database/mongo/AggregatorRecordStorage.js';
+import { AggregatorRecord } from '../src/records/AggregatorRecord.js';
 import { TransactionOrder } from "@alphabill/alphabill-js-sdk/lib/transaction/TransactionOrder.js";
 import { TransactionRecordWithProof } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionRecordWithProof.js';
 import { TransactionRecord } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionRecord.js';
@@ -8,15 +8,15 @@ import { UnicityCertificate, InputRecord, ShardTreeCertificate, UnicityTreeCerti
 import { BitString } from '@alphabill/alphabill-js-sdk/lib/codec/cbor/BitString.js';
 import { UpdateNonFungibleTokenAttributes } from '@alphabill/alphabill-js-sdk/lib/tokens/attributes/UpdateNonFungibleTokenAttributes.js';
 import { TypeDataUpdateProofsAuthProof } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/TypeDataUpdateProofsAuthProof.js';
-import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator';
-import { RequestId } from '@unicitylabs/commons/lib/api/RequestId';
+import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
+import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { TransactionStatus } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionStatus.js';
 import { ServerMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/record/ServerMetadata.js';
 import { UnitId } from "@alphabill/alphabill-js-sdk/lib/UnitId.js";
 import { TransactionPayload } from "@alphabill/alphabill-js-sdk/lib/transaction/TransactionPayload.js";
 import { StateLock } from "@alphabill/alphabill-js-sdk/lib/transaction/StateLock.js";
 import { ClientMetadata } from "@alphabill/alphabill-js-sdk/lib/transaction/ClientMetadata.js";
-import { setupTestDatabase, teardownTestDatabase } from './TestUtils.js';
+import { setupTestDatabase, teardownTestDatabase } from '../src/database/mongo/tests/TestUtils.js';
 
 async function testStorage() {
     const { container } = await setupTestDatabase();
