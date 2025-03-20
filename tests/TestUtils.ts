@@ -1,10 +1,12 @@
 import mongoose from 'mongoose';
 import { GenericContainer, StartedTestContainer } from 'testcontainers';
 
-export async function setupTestDatabase(): Promise<{
+export interface ITestDatabase {
   container: StartedTestContainer;
   uri: string;
-}> {
+}
+
+export async function setupTestDatabase(): Promise<ITestDatabase> {
   const container = await new GenericContainer('mongo:7')
     .withExposedPorts(27017)
     .withCommand(['mongod', '--noauth'])

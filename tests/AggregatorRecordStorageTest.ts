@@ -6,7 +6,9 @@ import { ServerMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/reco
 import { TransactionProof } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionProof.js';
 import { TransactionRecord } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionRecord.js';
 import { TransactionRecordWithProof } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionRecordWithProof.js';
-import { TransactionOrder } from "@alphabill/alphabill-js-sdk/lib/transaction/TransactionOrder.js";
+import { TransactionStatus } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionStatus.js';
+import { StateLock } from '@alphabill/alphabill-js-sdk/lib/transaction/StateLock.js';
+import { TransactionOrder } from '@alphabill/alphabill-js-sdk/lib/transaction/TransactionOrder.js';
 import { TransactionPayload } from '@alphabill/alphabill-js-sdk/lib/transaction/TransactionPayload.js';
 import {
   UnicityCertificate,
@@ -18,17 +20,27 @@ import {
 import { UnitId } from '@alphabill/alphabill-js-sdk/lib/UnitId.js';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
-import { TransactionStatus } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionStatus.js';
-import { StateLock } from '@alphabill/alphabill-js-sdk/lib/transaction/StateLock.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
+import { StartedTestContainer } from 'testcontainers';
 
+import { setupTestDatabase, teardownTestDatabase } from './TestUtils.js';
 import { AggregatorRecordStorage } from '../src/database/mongo/AggregatorRecordStorage.js';
-import { setupTestDatabase, teardownTestDatabase } from '../src/database/mongo/tests/TestUtils.js';
 import { AggregatorRecord } from '../src/records/AggregatorRecord.js';
 
-async function testStorage() {
-  const { container } = await setupTestDatabase();
+describe('Aggregator Record Storage Tests', () => {
+  jest.setTimeout(60000);
 
-  try {
+  let container: StartedTestContainer;
+
+  beforeAll(async () => {
+    container = (await setupTestDatabase()).container;
+  });
+
+  afterAll(async () => {
+    await teardownTestDatabase(container);
+  });
+
+  it('Store and retrieve record', async () => {
     const storage = new AggregatorRecordStorage();
     const testRequestId = await RequestId.create(new Uint8Array([1, 2, 3, 4]), new Uint8Array([5, 6, 7, 8]));
     console.log('Using requestId:', testRequestId.toString());
@@ -99,62 +111,33 @@ async function testStorage() {
     if (retrieved) {
       console.log('Retrieved successfully');
       console.log('Data comparison:');
-      console.log('Root hash matches:', Buffer.compare(retrieved.rootHash, record.rootHash) === 0);
-      console.log(
-        'Previous block data matches:',
-        retrieved.previousBlockData &&
-          record.previousBlockData &&
-          Buffer.compare(retrieved.previousBlockData, record.previousBlockData) === 0,
-      );
+      expect(HexConverter.encode(retrieved.rootHash)).toEqual(HexConverter.encode(record.rootHash));
+      if (retrieved.previousBlockData && record.previousBlockData) {
+        expect(HexConverter.encode(retrieved.previousBlockData)).toEqual(HexConverter.encode(record.previousBlockData));
+      }
 
       const originalProof = record.txProof;
       const retrievedProof = retrieved.txProof;
       console.log('Transaction proof comparison:');
-      console.log(
-        'Transaction type matches:',
-        originalProof.transactionRecord.transactionOrder.payload.type ===
-          retrievedProof.transactionRecord.transactionOrder.payload.type,
+      expect(originalProof.transactionRecord.transactionOrder.payload.type).toEqual(
+        retrievedProof.transactionRecord.transactionOrder.payload.type,
       );
-      console.log(
-        'Transaction attributes match:',
-        Buffer.compare(
-          originalProof.transactionRecord.transactionOrder.payload.attributes.data.bytes,
-          retrievedProof.transactionRecord.transactionOrder.payload.attributes.data.bytes,
-        ) === 0,
+      expect(
+        HexConverter.encode(originalProof.transactionRecord.transactionOrder.payload.attributes.data.bytes),
+      ).toEqual(HexConverter.encode(retrievedProof.transactionRecord.transactionOrder.payload.attributes.data.bytes));
+      expect(HexConverter.encode(retrieved.authenticator.signature)).toEqual(
+        HexConverter.encode(record.authenticator.signature),
       );
-
-      console.log(
-        'Auth signature matches:',
-        Buffer.compare(retrieved.authenticator.signature, record.authenticator.signature) === 0,
+      expect(HexConverter.encode(retrieved.authenticator.publicKey)).toEqual(
+        HexConverter.encode(record.authenticator.publicKey),
       );
-      console.log(
-        'Auth public key matches:',
-        Buffer.compare(retrieved.authenticator.publicKey, record.authenticator.publicKey) === 0,
+      expect(HexConverter.encode(retrieved.authenticator.state)).toEqual(
+        HexConverter.encode(record.authenticator.state),
       );
-      console.log(
-        'Auth state matches:',
-        Buffer.compare(retrieved.authenticator.state, record.authenticator.state) === 0,
-      );
-      console.log('Auth algorithm matches:', retrieved.authenticator.algorithm === record.authenticator.algorithm);
-      console.log(
-        'Auth hash algorithm matches:',
-        retrieved.authenticator.hashAlgorithm === record.authenticator.hashAlgorithm,
-      );
+      expect(retrieved.authenticator.algorithm).toEqual(record.authenticator.algorithm);
+      expect(retrieved.authenticator.hashAlgorithm).toEqual(record.authenticator.hashAlgorithm);
     } else {
       console.log('Failed to retrieve record');
     }
-  } catch (error) {
-    console.error('Test failed:', error);
-    if (error instanceof Error) {
-      console.error('Error stack:', error.stack);
-    }
-    throw error;
-  } finally {
-    await teardownTestDatabase(container);
-  }
-}
-
-testStorage().catch((error) => {
-  console.error('Test failed:', error);
-  process.exit(1);
+  });
 });

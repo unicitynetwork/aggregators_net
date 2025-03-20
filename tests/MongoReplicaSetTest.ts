@@ -1,10 +1,11 @@
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import mongoose from 'mongoose';
 import { GenericContainer, StartedTestContainer, Wait } from 'testcontainers';
 
 import { Storage } from '../src/database/mongo/Storage.js';
 import { SmtNode } from '../src/smt/SmtNode.js';
 
-interface ReplicaSetMember {
+interface IReplicaSetMember {
   _id: number;
   name: string;
   health: number;
@@ -12,112 +13,39 @@ interface ReplicaSetMember {
   stateStr: string;
 }
 
-interface ReplicaSetStatus {
+interface IReplicaSetStatus {
   ok: number;
-  members?: ReplicaSetMember[];
+  members?: IReplicaSetMember[];
 }
 
-async function setupReplicaSet() {
-  const containers = await Promise.all(
-    [27017, 27018, 27019].map((port) =>
-      new GenericContainer('mongo:7')
-        .withName(`mongo${port}`)
-        .withNetworkMode('host')
-        .withCommand(['mongod', '--replSet', 'rs0', '--port', `${port}`, '--bind_ip', 'localhost'])
-        .withStartupTimeout(120000)
-        .withWaitStrategy(Wait.forLogMessage('Waiting for connections'))
-        .start(),
-    ),
-  );
+interface IReplicaSet {
+  containers: StartedTestContainer[];
+  uri: string;
+}
 
-  console.log('Started MongoDB containers on ports: 27017, 27018, 27019');
-  console.log('Initializing replica set...');
-  const initResult = await containers[0].exec([
-    'mongosh',
-    '--quiet',
-    '--eval',
-    `
-        config = {
-            _id: "rs0",
-            members: [
-                { _id: 0, host: "localhost:27017" },
-                { _id: 1, host: "localhost:27018" },
-                { _id: 2, host: "localhost:27019" }
-            ]
-        };
-        rs.initiate(config);
-        `,
-  ]);
-  console.log('Initiate result:', initResult.output);
+describe('Mongo Replica Set Tests', () => {
+  jest.setTimeout(60000);
 
-  // Wait and verify replica set is ready
-  console.log('Waiting for replica set initialization...');
-  let isReady = false;
-  let lastStatus = '';
-  const maxAttempts = 30;
-  let attempts = 0;
-  const startTime = Date.now();
+  let containers: StartedTestContainer[];
 
-  while (!isReady && attempts < maxAttempts) {
-    try {
-      const status = await containers[0].exec([
-        'mongosh',
-        '--port',
-        '27017',
-        '--quiet',
-        '--eval',
-        'if (rs.status().ok) { print(JSON.stringify(rs.status())); } else { print("{}"); }',
-      ]);
+  beforeAll(async () => {
+    const replicaSet = await setupReplicaSet();
+    containers = replicaSet.containers;
+    process.env.MONGODB_URI = replicaSet.uri;
+  });
 
-      let rsStatus: ReplicaSetStatus;
+  afterAll(async () => {
+    await mongoose.disconnect();
+    for (const container of containers) {
       try {
-        rsStatus = JSON.parse(status.output);
+        await container.stop();
       } catch (e) {
-        console.log('Invalid JSON response:', status.output);
-        rsStatus = { ok: 0 };
+        console.error('Error stopping container:', e);
       }
-
-      if (rsStatus.members?.some((m: ReplicaSetMember) => m.stateStr === 'PRIMARY')) {
-        const primaryNode = rsStatus.members.find((m) => m.stateStr === 'PRIMARY')!;
-        const electionTime = (Date.now() - startTime) / 1000;
-        console.log(`Replica set primary elected after ${electionTime.toFixed(1)}s`);
-        console.log('Initial primary node:', primaryNode.name);
-        isReady = true;
-      } else {
-        const currentStatus = rsStatus.members?.map((m) => m.stateStr).join(',') || '';
-        if (currentStatus !== lastStatus) {
-          console.log('Current replica set status:', currentStatus);
-          lastStatus = currentStatus;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        attempts++;
-      }
-    } catch (error) {
-      console.log('Error checking replica status:', error);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      attempts++;
     }
-  }
+  });
 
-  if (!isReady) {
-    throw new Error('Replica set failed to initialize');
-  }
-
-  const uri =
-    'mongodb://localhost:27017,localhost:27018,localhost:27019/?replicaSet=rs0&serverSelectionTimeoutMS=15000';
-  console.log('Using connection URI:', uri);
-
-  return { containers, uri };
-}
-
-async function testReplicaFailover() {
-  let containers: StartedTestContainer[] = [];
-
-  try {
-    const result = await setupReplicaSet();
-    containers = result.containers;
-    process.env.MONGODB_URI = result.uri;
-
+  it('Replica Failover Test', async () => {
     // Find which container is primary
     const status = await containers[0].exec([
       'mongosh',
@@ -196,9 +124,11 @@ async function testReplicaFailover() {
             break;
           }
         } catch (e) {
+          console.debug(e);
           // No primary elected yet
         }
       } catch (error) {
+        console.debug(error);
         // Ignore errors during election
       }
       console.log(`Waiting for primary election... (${(Date.now() - failoverStart) / 1000}s)`);
@@ -219,29 +149,106 @@ async function testReplicaFailover() {
 
     const retrievedLeaf = leaves[0];
     console.log('\nData verification:');
-    console.log('Path matches:', retrievedLeaf.path === testLeaf.path);
-    console.log('Value matches:', Buffer.compare(retrievedLeaf.value, testLeaf.value) === 0);
+    expect(retrievedLeaf.path).toEqual(testLeaf.path);
+    expect(HexConverter.encode(retrievedLeaf.value)).toEqual(HexConverter.encode(testLeaf.value));
 
     console.log('\nTesting write after failover...');
     const newLeaf = new SmtNode(BigInt(2), new Uint8Array([4, 5, 6]));
     await storage.smt.put(newLeaf);
     console.log('Successfully wrote new leaf after failover');
-  } catch (error) {
-    console.error('Test failed:', error);
-    throw error;
-  } finally {
-    await mongoose.disconnect();
-    for (const container of containers) {
+  });
+});
+
+async function setupReplicaSet(): Promise<IReplicaSet> {
+  const containers = await Promise.all(
+    [27017, 27018, 27019].map((port) =>
+      new GenericContainer('mongo:7')
+        .withName(`mongo${port}`)
+        .withNetworkMode('host')
+        .withCommand(['mongod', '--replSet', 'rs0', '--port', `${port}`, '--bind_ip', 'localhost'])
+        .withStartupTimeout(120000)
+        .withWaitStrategy(Wait.forLogMessage('Waiting for connections'))
+        .start(),
+    ),
+  );
+
+  console.log('Started MongoDB containers on ports: 27017, 27018, 27019');
+  console.log('Initializing replica set...');
+  const initResult = await containers[0].exec([
+    'mongosh',
+    '--quiet',
+    '--eval',
+    `
+        config = {
+            _id: "rs0",
+            members: [
+                { _id: 0, host: "localhost:27017" },
+                { _id: 1, host: "localhost:27018" },
+                { _id: 2, host: "localhost:27019" }
+            ]
+        };
+        rs.initiate(config);
+        `,
+  ]);
+  console.log('Initiate result:', initResult.output);
+
+  // Wait and verify replica set is ready
+  console.log('Waiting for replica set initialization...');
+  let isReady = false;
+  let lastStatus = '';
+  const maxAttempts = 30;
+  let attempts = 0;
+  const startTime = Date.now();
+
+  while (!isReady && attempts < maxAttempts) {
+    try {
+      const status = await containers[0].exec([
+        'mongosh',
+        '--port',
+        '27017',
+        '--quiet',
+        '--eval',
+        'if (rs.status().ok) { print(JSON.stringify(rs.status())); } else { print("{}"); }',
+      ]);
+
+      let rsStatus: IReplicaSetStatus;
       try {
-        await container.stop();
+        rsStatus = JSON.parse(status.output);
       } catch (e) {
-        console.error('Error stopping container:', e);
+        console.log('Invalid JSON response:', status.output);
+        console.debug(e);
+        rsStatus = { ok: 0 };
       }
+
+      if (rsStatus.members?.some((m: IReplicaSetMember) => m.stateStr === 'PRIMARY')) {
+        const primaryNode = rsStatus.members.find((m) => m.stateStr === 'PRIMARY')!;
+        const electionTime = (Date.now() - startTime) / 1000;
+        console.log(`Replica set primary elected after ${electionTime.toFixed(1)}s`);
+        console.log('Initial primary node:', primaryNode.name);
+        isReady = true;
+      } else {
+        const currentStatus = rsStatus.members?.map((m) => m.stateStr).join(',') || '';
+        if (currentStatus !== lastStatus) {
+          console.log('Current replica set status:', currentStatus);
+          lastStatus = currentStatus;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        attempts++;
+      }
+    } catch (error) {
+      console.log('Error checking replica status:', error);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      attempts++;
     }
   }
-}
 
-testReplicaFailover().catch((error) => {
-  console.error('Test failed:', error);
-  process.exit(1);
-});
+  if (!isReady) {
+    throw new Error('Replica set failed to initialize');
+  }
+
+  const uri =
+    'mongodb://localhost:27017,localhost:27018,localhost:27019/?replicaSet=rs0&serverSelectionTimeoutMS=15000';
+  console.log('Using connection URI:', uri);
+
+  return { containers, uri };
+}

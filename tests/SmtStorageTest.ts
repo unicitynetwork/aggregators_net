@@ -1,11 +1,24 @@
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
+import { StartedTestContainer } from 'testcontainers';
+
+import { setupTestDatabase, teardownTestDatabase } from './TestUtils.js';
 import { SmtStorage } from '../src/database/mongo/SmtStorage.js';
-import { setupTestDatabase, teardownTestDatabase } from '../src/database/mongo/tests/TestUtils.js';
 import { SmtNode } from '../src/smt/SmtNode.js';
 
-async function testStorage() {
-  const { container } = await setupTestDatabase();
+describe('SMT Storage Tests', () => {
+  jest.setTimeout(60000);
 
-  try {
+  let container: StartedTestContainer;
+
+  beforeAll(async () => {
+    container = (await setupTestDatabase()).container;
+  });
+
+  afterAll(async () => {
+    await teardownTestDatabase(container);
+  });
+
+  it('Store and retrieve nodes', async () => {
     const storage = new SmtStorage();
 
     const testNodes = [
@@ -33,24 +46,11 @@ async function testStorage() {
 
       if (stored) {
         console.log(`Node ${original.path}:`);
-        console.log('Path matches:', stored.path === original.path);
-        console.log('Value matches:', Buffer.compare(stored.value, original.value) === 0);
+        expect(stored.path).toEqual(original.path);
+        expect(HexConverter.encode(stored.value)).toEqual(HexConverter.encode(original.value));
       } else {
         console.log(`Node ${original.path} not found!`);
       }
     }
-  } catch (error) {
-    console.error('Test failed:', error);
-    if (error instanceof Error) {
-      console.error('Error stack:', error.stack);
-    }
-    throw error;
-  } finally {
-    await teardownTestDatabase(container);
-  }
-}
-
-testStorage().catch((error) => {
-  console.error('Test failed:', error);
-  process.exit(1);
+  });
 });

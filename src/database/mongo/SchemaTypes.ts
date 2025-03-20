@@ -41,5 +41,7 @@ class Uint8ArraySchemaType extends SchemaType {
   }
 }
 
-(mongoose.Schema.Types as any)[SCHEMA_TYPES.BIGINT_BINARY] = BigIntBinarySchemaType;
-(mongoose.Schema.Types as any)[SCHEMA_TYPES.UINT8_ARRAY] = Uint8ArraySchemaType;
+// @ts-expect-error Any type
+mongoose.Schema.Types[SCHEMA_TYPES.BIGINT_BINARY] = BigIntBinarySchemaType;
+// @ts-expect-error Any type
+mongoose.Schema.Types[SCHEMA_TYPES.UINT8_ARRAY] = Uint8ArraySchemaType;
