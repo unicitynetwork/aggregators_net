@@ -2,7 +2,8 @@ import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { SubmitStateTransitionStatus } from '@unicitylabs/commons/lib/api/SubmitStateTransitionStatus.js';
-import { DataHasher, HashAlgorithm } from '@unicitylabs/commons/lib/hash/DataHasher.js';
+import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
+import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 
@@ -74,18 +75,18 @@ export class AggregatorService {
 
   private async verifyAuthenticator(
     requestId: RequestId,
-    payload: Uint8Array,
+    transactionHash: Uint8Array,
     authenticator: Authenticator,
   ): Promise<boolean> {
     const publicKey = authenticator.publicKey;
     const expectedRequestId = await new DataHasher(HashAlgorithm.SHA256)
       .update(publicKey)
-      .update(authenticator.state)
+      .update(authenticator.stateHash)
       .digest();
     if (expectedRequestId !== requestId.encode()) {
       return false;
     }
-    const payloadHash = await new DataHasher(HashAlgorithm.SHA256).update(payload).digest();
+    const payloadHash = await new DataHasher(HashAlgorithm.SHA256).update(transactionHash).digest();
     return await SigningService.verifyWithPublicKey(payloadHash, authenticator.signature, publicKey);
   }
 }

@@ -2,22 +2,23 @@ import http from 'http';
 import https from 'https';
 import { existsSync, readFileSync } from 'node:fs';
 
-import { NetworkIdentifier } from '@alphabill/alphabill-js-sdk/lib/NetworkIdentifier.js';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
-import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/DataHasher.js';
+import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import bodyParser from 'body-parser';
 import cors from 'cors';
+import dotenv from 'dotenv';
 import express from 'express';
-import 'dotenv/config';
 
 import { AggregatorService } from './AggregatorService.js';
 import { AlphabillClient } from './alphabill/AlphabillClient.js';
 import { Storage } from './database/mongo/Storage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
+
+dotenv.config();
 
 const sslCertPath = process.env.SSL_CERT_PATH ?? '';
 const sslKeyPath = process.env.SSL_KEY_PATH ?? '';
@@ -28,7 +29,7 @@ const aggregatorService = await setupAggregatorService();
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
-// @ts-expect-error TODO
+// @ts-expect-error TODO: Add return types
 app.post('/', (req, res) => {
   if (req.body.jsonrpc !== '2.0' || !req.body.params) {
     return res.sendStatus(400);
@@ -62,12 +63,20 @@ async function setupAggregatorService(): Promise<AggregatorService> {
 }
 
 async function setupAlphabillClient(): Promise<AlphabillClient> {
-  const secret = null; // TODO
-  const nonce = null;
-  const signingService = await SigningService.createFromSecret(secret, nonce);
-  const alphabillTokenPartitionUrl = null; // TODO
-  const networkId = NetworkIdentifier.TESTNET; // TODO
-  const alphabillClient = new AlphabillClient(signingService, alphabillTokenPartitionUrl, networkId);
+  const privateKey = process.env.ALPHABILL_PRIVATE_KEY;
+  if (!privateKey) {
+    throw new Error('Alphabill private key must be defined in hex encoding.');
+  }
+  const signingService = new SigningService(HexConverter.decode(privateKey));
+  const alphabillTokenPartitionUrl = process.env.ALPHABILL_TOKEN_PARTITION_URL;
+  if (!alphabillTokenPartitionUrl) {
+    throw new Error('Alphabill token partition URL must be defined.');
+  }
+  const networkId = process.env.ALPHABILL_NETWORK_ID;
+  if (!networkId) {
+    throw new Error('Alphabill network ID must be defined.');
+  }
+  const alphabillClient = new AlphabillClient(signingService, alphabillTokenPartitionUrl, Number(networkId));
   await alphabillClient.initialSetup();
   return alphabillClient;
 }

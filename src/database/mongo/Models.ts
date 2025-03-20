@@ -16,7 +16,7 @@ interface IAggregatorRecord {
     publicKey: Uint8Array;
     algorithm: string;
     signature: Uint8Array;
-    state: Uint8Array;
+    stateHash: Uint8Array;
   };
   txProof: Uint8Array;
 }
@@ -32,7 +32,7 @@ const AggregatorRecordSchema = new mongoose.Schema({
     hashAlgorithm: { required: true, type: String },
     publicKey: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
     signature: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
-    state: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
+    stateHash: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
   },
   previousBlockData: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
   requestId: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY, unique: true },

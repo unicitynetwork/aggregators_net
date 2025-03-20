@@ -3,6 +3,7 @@ import { TypeDataUpdateProofsAuthProof } from '@alphabill/alphabill-js-sdk/lib/t
 import { TransactionRecordWithProof } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionRecordWithProof.js';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
+import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 
 import { AggregatorRecordModel } from './Models.js';
 import { AggregatorRecord } from '../../records/AggregatorRecord.js';
@@ -16,7 +17,7 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
         hashAlgorithm: record.authenticator.hashAlgorithm,
         publicKey: record.authenticator.publicKey,
         signature: record.authenticator.signature,
-        state: record.authenticator.state,
+        stateHash: record.authenticator.stateHash,
       },
       previousBlockData: record.previousBlockData || new Uint8Array(),
       requestId: requestId.encode(),
@@ -44,11 +45,11 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
     );
 
     const authenticator = new Authenticator(
-      stored.authenticator.hashAlgorithm,
+      stored.authenticator.hashAlgorithm as HashAlgorithm,
       stored.authenticator.publicKey,
       stored.authenticator.algorithm,
       stored.authenticator.signature,
-      stored.authenticator.state,
+      stored.authenticator.stateHash,
     );
 
     return new AggregatorRecord(stored.rootHash, stored.previousBlockData || null, authenticator, decodedProof);

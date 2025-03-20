@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2022",
+    "outDir": "./dist",
     "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -11,8 +12,7 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
+    "isolatedModules": true
   },
   "exclude": [
     "node_modules",
