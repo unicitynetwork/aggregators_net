@@ -5,7 +5,7 @@
   "main": "./src/AggregatorGateway.ts",
   "scripts": {
     "build": "webpack",
-    "start": "npm run-script build && node dist/src/AggregatorGateway.js",
+    "start": "npm run build && node dist/aggregator.cjs",
     "docker:mongo": "docker compose -f src/database/mongo/docker/docker-compose.yml up -d",
     "docker:mongo:down": "docker compose -f src/database/mongo/docker/docker-compose.yml down -v",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
@@ -40,16 +40,16 @@
     "@types/express": "5.0.1",
     "@types/jest": "29.5.14",
     "babel-jest": "29.7.0",
+    "babel-loader": "10.0.0",
     "eslint": "9.22.0",
     "eslint-config-prettier": "10.1.1",
     "eslint-plugin-import": "2.31.0",
     "eslint-plugin-prettier": "5.2.3",
     "globals": "16.0.0",
     "jest": "29.7.0",
+    "ts-loader": "9.5.2",
     "typescript-eslint": "8.27.0",
-    "webpack": "^5.98.0",
-    "webpack-cli": "^6.0.1",
-    "ts-loader": "^9.5.2",
-    "babel-loader": "^10.0.0"
+    "webpack": "5.98.0",
+    "webpack-cli": "6.0.1"
   }
 }
