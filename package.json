@@ -4,8 +4,8 @@
   "description": "This repository contains the API definition and JavaScript implementations for communication between the Agent and Aggregation layers on the Unicity blockchain platform.",
   "main": "./src/AggregatorGateway.ts",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/src/AggregatorGateway.js",
+    "build": "webpack",
+    "start": "npm run-script build && node dist/src/AggregatorGateway.js",
     "docker:mongo": "docker compose -f src/database/mongo/docker/docker-compose.yml up -d",
     "docker:mongo:down": "docker compose -f src/database/mongo/docker/docker-compose.yml down -v",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
@@ -46,7 +46,10 @@
     "eslint-plugin-prettier": "5.2.3",
     "globals": "16.0.0",
     "jest": "29.7.0",
-    "tsx": "4.19.3",
-    "typescript-eslint": "8.27.0"
+    "typescript-eslint": "8.27.0",
+    "webpack": "^5.98.0",
+    "webpack-cli": "^6.0.1",
+    "ts-loader": "^9.5.2",
+    "babel-loader": "^10.0.0"
   }
 }
