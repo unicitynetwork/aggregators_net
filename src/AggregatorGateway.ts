@@ -2,10 +2,10 @@ import http from 'http';
 import https from 'https';
 import { existsSync, readFileSync } from 'node:fs';
 
+import { DefaultSigningService } from '@alphabill/alphabill-js-sdk/lib/signing/DefaultSigningService.js';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
-import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import bodyParser from 'body-parser';
@@ -67,7 +67,7 @@ async function setupAlphabillClient(): Promise<AlphabillClient> {
   if (!privateKey) {
     throw new Error('Alphabill private key must be defined in hex encoding.');
   }
-  const signingService = new SigningService(HexConverter.decode(privateKey));
+  const signingService = new DefaultSigningService(HexConverter.decode(privateKey));
   const alphabillTokenPartitionUrl = process.env.ALPHABILL_TOKEN_PARTITION_URL;
   if (!alphabillTokenPartitionUrl) {
     throw new Error('Alphabill token partition URL must be defined.');

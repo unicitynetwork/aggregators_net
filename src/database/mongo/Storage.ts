@@ -19,7 +19,7 @@ export class Storage {
       process.env.MONGODB_URI || 'mongodb://localhost:27017,localhost:27018,localhost:27019/?replicaSet=rs0';
 
     try {
-      console.log('Connecting to MongoDB...');
+      console.log('Connecting to MongoDB URI %s', mongoUri);
       await mongoose.connect(mongoUri, {
         connectTimeoutMS: 15000,
         heartbeatFrequencyMS: 1000,

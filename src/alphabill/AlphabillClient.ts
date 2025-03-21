@@ -77,9 +77,10 @@ export class AlphabillClient {
   public async initialSetup(): Promise<void> {
     const units = await this.tokenClient.getUnitsByOwnerId(this.signingService.publicKey);
     if (units.nonFungibleTokens.length > 0) {
-      // NFT already exists, initial setup not needed
+      console.log('NFT already exists, skipping initial Alphabill setup.');
       return;
     }
+    console.log('Setting up Alphabill client...');
     const feeCredits = units.feeCreditRecords;
     if (feeCredits.length == 0) {
       throw new Error('No fee credits found.');
@@ -138,5 +139,10 @@ export class AlphabillClient {
     );
     const createNftTxStatus = createNonFungibleTokenProof.transactionRecord.serverMetadata.successIndicator;
     console.log(`Create NFT transaction status - ${TransactionStatus[createNftTxStatus]}.`);
+    if (TransactionStatus[createNftTxStatus]) {
+      console.log('Alphabill client setup successful.');
+    } else {
+      console.log('Alphabill client setup failed.');
+    }
   }
 }
