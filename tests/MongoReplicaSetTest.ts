@@ -45,6 +45,7 @@ describe('Mongo Replica Set Tests', () => {
     }
   });
 
+  // NB: Enable host networking on Docker.
   it('Replica Failover Test', async () => {
     // Find which container is primary
     const status = await containers[0].exec([
