@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { DefaultSigningService } from '@alphabill/alphabill-js-sdk/lib/signing/DefaultSigningService.js';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
+import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
@@ -31,13 +32,15 @@ app.post('/', (req, res) => {
   }
   switch (req.body.method) {
     case 'submit_transaction': {
-      const requestId: RequestId = RequestId.createFromBytes(HexConverter.decode(req.body.params.requestId));
-      const payload: Uint8Array = HexConverter.decode(req.body.params.payload);
+      const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
+      const transactionHash: DataHash = DataHash.fromDto(req.body.params.transactionHash);
       const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
-      return res.send(JSON.stringify(aggregatorService.submitStateTransition(requestId, payload, authenticator)));
+      return res.send(
+        JSON.stringify(aggregatorService.submitStateTransition(requestId, transactionHash, authenticator)),
+      );
     }
     case 'get_inclusion_proof': {
-      const requestId: RequestId = RequestId.createFromBytes(HexConverter.decode(req.body.params.requestId));
+      const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
       return res.send(JSON.stringify(aggregatorService.getInclusionProof(requestId)));
     }
     case 'get_no_deletion_proof': {

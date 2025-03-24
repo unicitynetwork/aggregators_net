@@ -15,6 +15,7 @@ import { AlwaysTrueProofFactory } from '@alphabill/alphabill-js-sdk/lib/transact
 import { type IProofFactory } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/IProofFactory.js';
 import { PayToPublicKeyHashProofFactory } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/PayToPublicKeyHashProofFactory.js';
 import { TransactionStatus } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionStatus.js';
+import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 
 import { SubmitHashResponse } from './SubmitHashResponse.js';
 
@@ -33,7 +34,7 @@ export class AlphabillClient {
     this.alwaysTrueProofFactory = new AlwaysTrueProofFactory();
   }
 
-  public async submitHash(rootHash: Uint8Array): Promise<SubmitHashResponse> {
+  public async submitHash(transactionHash: DataHash): Promise<SubmitHashResponse> {
     const units = await this.tokenClient.getUnitsByOwnerId(this.signingService.publicKey);
     const feeCredits = units.feeCreditRecords;
     if (feeCredits.length == 0) {
@@ -42,7 +43,7 @@ export class AlphabillClient {
     const feeCreditRecordId = feeCredits.at(0)!;
     const round = (await this.tokenClient.getRoundInfo()).roundNumber;
 
-    const updatedNftData = NonFungibleTokenData.create(rootHash);
+    const updatedNftData = NonFungibleTokenData.create(transactionHash.data);
 
     const nonFungibleTokens = units.nonFungibleTokens;
     if (!nonFungibleTokens) {
@@ -139,7 +140,7 @@ export class AlphabillClient {
     );
     const createNftTxStatus = createNonFungibleTokenProof.transactionRecord.serverMetadata.successIndicator;
     console.log(`Create NFT transaction status - ${TransactionStatus[createNftTxStatus]}.`);
-    if (TransactionStatus[createNftTxStatus]) {
+    if (createNftTxStatus === TransactionStatus.Successful) {
       console.log('Alphabill client setup successful.');
     } else {
       console.log('Alphabill client setup failed.');
