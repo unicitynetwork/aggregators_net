@@ -20,14 +20,14 @@ import {
 import { UnitId } from '@alphabill/alphabill-js-sdk/lib/UnitId.js';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
+import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
+import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { StartedTestContainer } from 'testcontainers';
 
 import { setupTestDatabase, teardownTestDatabase } from './TestUtils.js';
 import { AggregatorRecordStorage } from '../src/database/mongo/AggregatorRecordStorage.js';
 import { AggregatorRecord } from '../src/records/AggregatorRecord.js';
-import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
-import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 
 describe('Aggregator Record Storage Tests', () => {
   jest.setTimeout(60000);
@@ -44,7 +44,10 @@ describe('Aggregator Record Storage Tests', () => {
 
   it('Store and retrieve record', async () => {
     const storage = new AggregatorRecordStorage();
-    const testRequestId = await RequestId.create(new Uint8Array([1, 2, 3, 4]), new DataHash(HashAlgorithm.SHA256, new Uint8Array([5, 6, 7, 8])));
+    const testRequestId = await RequestId.create(
+      new Uint8Array([1, 2, 3, 4]),
+      new DataHash(HashAlgorithm.SHA256, new Uint8Array([5, 6, 7, 8])),
+    );
     console.log('Using requestId:', testRequestId.toString());
 
     const attributes = new UpdateNonFungibleTokenAttributes({ bytes: new Uint8Array([1, 2, 3]) }, BigInt(1));
