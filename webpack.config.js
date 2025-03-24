@@ -31,5 +31,10 @@ export default {
       }
     ]
   },
+  /* Uncomment to improve stack trace for debugging.
+  optimization: {
+    minimize: false,
+  },
+  */
   target: 'node'
 };

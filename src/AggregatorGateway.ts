@@ -20,11 +20,6 @@ import { ISmtStorage } from './smt/ISmtStorage.js';
 
 dotenv.config();
 
-const sslCertPath = process.env.SSL_CERT_PATH ?? '';
-const sslKeyPath = process.env.SSL_KEY_PATH ?? '';
-const port =
-  process.env.PORT || (sslCertPath && sslKeyPath && existsSync(sslCertPath) && existsSync(sslKeyPath)) ? 443 : 80;
-
 const aggregatorService = await setupAggregatorService();
 const app = express();
 app.use(cors());
@@ -53,7 +48,7 @@ app.post('/', (req, res) => {
     }
   }
 });
-startServer(sslCertPath, sslKeyPath, port);
+startServer();
 
 async function setupAggregatorService(): Promise<AggregatorService> {
   const alphabillClient = await setupAlphabillClient();
@@ -63,21 +58,27 @@ async function setupAggregatorService(): Promise<AggregatorService> {
 }
 
 async function setupAlphabillClient(): Promise<AlphabillClient> {
-  const privateKey = process.env.ALPHABILL_PRIVATE_KEY;
-  if (!privateKey) {
-    throw new Error('Alphabill private key must be defined in hex encoding.');
+  let alphabillClient;
+  try {
+    const privateKey = process.env.ALPHABILL_PRIVATE_KEY;
+    if (!privateKey) {
+      throw new Error('Alphabill private key must be defined in hex encoding.');
+    }
+    const signingService = new DefaultSigningService(HexConverter.decode(privateKey));
+    const alphabillTokenPartitionUrl = process.env.ALPHABILL_TOKEN_PARTITION_URL;
+    if (!alphabillTokenPartitionUrl) {
+      throw new Error('Alphabill token partition URL must be defined.');
+    }
+    const networkId = process.env.ALPHABILL_NETWORK_ID;
+    if (!networkId) {
+      throw new Error('Alphabill network ID must be defined.');
+    }
+    alphabillClient = new AlphabillClient(signingService, alphabillTokenPartitionUrl, Number(networkId));
+    await alphabillClient.initialSetup();
+  } catch (error) {
+    console.error('Failed to initialize Alphabill client:', error);
+    process.exit(1);
   }
-  const signingService = new DefaultSigningService(HexConverter.decode(privateKey));
-  const alphabillTokenPartitionUrl = process.env.ALPHABILL_TOKEN_PARTITION_URL;
-  if (!alphabillTokenPartitionUrl) {
-    throw new Error('Alphabill token partition URL must be defined.');
-  }
-  const networkId = process.env.ALPHABILL_NETWORK_ID;
-  if (!networkId) {
-    throw new Error('Alphabill network ID must be defined.');
-  }
-  const alphabillClient = new AlphabillClient(signingService, alphabillTokenPartitionUrl, Number(networkId));
-  await alphabillClient.initialSetup();
   return alphabillClient;
 }
 
@@ -93,7 +94,12 @@ async function setupSmt(smtStorage: ISmtStorage): Promise<SparseMerkleTree> {
   return smt;
 }
 
-function startServer(sslCertPath: string, sslKeyPath: string, port: number): void {
+function startServer(): void {
+  const sslCertPath = process.env.SSL_CERT_PATH ?? '';
+  const sslKeyPath = process.env.SSL_KEY_PATH ?? '';
+  const port =
+    process.env.PORT || (sslCertPath && sslKeyPath && existsSync(sslCertPath) && existsSync(sslKeyPath)) ? 443 : 80;
+
   if (sslCertPath && sslKeyPath && existsSync(sslCertPath) && existsSync(sslKeyPath)) {
     const options = {
       cert: readFileSync(sslCertPath),
