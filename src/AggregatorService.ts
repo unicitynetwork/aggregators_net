@@ -7,7 +7,7 @@ import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 
-import { AlphabillClient } from './alphabill/AlphabillClient.js';
+import { IAlphabillClient } from './alphabill/IAlphabillClient.js';
 import { AggregatorRecord } from './records/AggregatorRecord.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { SmtNode } from './smt/SmtNode.js';
@@ -15,7 +15,7 @@ import { SubmitStateTransitionResponse } from './SubmitStateTransitionResponse.j
 
 export class AggregatorService {
   public constructor(
-    public readonly alphabillClient: AlphabillClient,
+    public readonly alphabillClient: IAlphabillClient,
     public readonly smt: SparseMerkleTree,
     public readonly recordStorage: IAggregatorRecordStorage,
   ) {}

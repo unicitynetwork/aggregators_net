@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { Db } from 'mongodb';
 
 import { AggregatorRecordStorage } from './AggregatorRecordStorage.js';
 import { SmtStorage } from './SmtStorage.js';
@@ -8,10 +9,17 @@ import { ISmtStorage } from '../../smt/ISmtStorage.js';
 export class Storage {
   public readonly smt: ISmtStorage;
   public readonly records: IAggregatorRecordStorage;
+  public readonly db: Db;
 
   private constructor() {
     this.smt = new SmtStorage();
     this.records = new AggregatorRecordStorage();
+    
+    if (!mongoose.connection.db) {
+      throw new Error('MongoDB connection not initialized');
+    }
+    // Use type assertion to handle version mismatch between mongoose's mongodb and direct mongodb import
+    this.db = mongoose.connection.db as unknown as Db;
   }
 
   public static async init(): Promise<Storage> {
