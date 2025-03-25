@@ -20,6 +20,8 @@ import {
 import { UnitId } from '@alphabill/alphabill-js-sdk/lib/UnitId.js';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
+import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
+import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { StartedTestContainer } from 'testcontainers';
 
@@ -42,7 +44,10 @@ describe('Aggregator Record Storage Tests', () => {
 
   it('Store and retrieve record', async () => {
     const storage = new AggregatorRecordStorage();
-    const testRequestId = await RequestId.create(new Uint8Array([1, 2, 3, 4]), new Uint8Array([5, 6, 7, 8]));
+    const testRequestId = await RequestId.create(
+      new Uint8Array([1, 2, 3, 4]),
+      new DataHash(HashAlgorithm.SHA256, new Uint8Array([5, 6, 7, 8])),
+    );
     console.log('Using requestId:', testRequestId.toString());
 
     const attributes = new UpdateNonFungibleTokenAttributes({ bytes: new Uint8Array([1, 2, 3]) }, BigInt(1));
@@ -87,15 +92,14 @@ describe('Aggregator Record Storage Tests', () => {
     const recordWithProof = new TransactionRecordWithProof(transactionRecord, txProof);
 
     const authenticator = new Authenticator(
-      'SHA-256',
       new Uint8Array([1, 2, 3]),
       'ECDSA',
       new Uint8Array([4, 5, 6]),
-      new Uint8Array([7, 8, 9]),
+      new DataHash(HashAlgorithm.SHA256, new Uint8Array([7, 8, 9])),
     );
 
     const record = new AggregatorRecord(
-      new Uint8Array([1, 2, 3, 4]),
+      new DataHash(HashAlgorithm.SHA256, new Uint8Array([1, 2, 3, 4])),
       new Uint8Array([5, 6, 7, 8]),
       authenticator,
       recordWithProof,
@@ -111,7 +115,7 @@ describe('Aggregator Record Storage Tests', () => {
     if (retrieved) {
       console.log('Retrieved successfully');
       console.log('Data comparison:');
-      expect(HexConverter.encode(retrieved.rootHash)).toEqual(HexConverter.encode(record.rootHash));
+      expect(retrieved.rootHash.equals(record.rootHash)).toBeTruthy();
       if (retrieved.previousBlockData && record.previousBlockData) {
         expect(HexConverter.encode(retrieved.previousBlockData)).toEqual(HexConverter.encode(record.previousBlockData));
       }
@@ -131,11 +135,8 @@ describe('Aggregator Record Storage Tests', () => {
       expect(HexConverter.encode(retrieved.authenticator.publicKey)).toEqual(
         HexConverter.encode(record.authenticator.publicKey),
       );
-      expect(HexConverter.encode(retrieved.authenticator.state)).toEqual(
-        HexConverter.encode(record.authenticator.state),
-      );
+      expect(retrieved.authenticator.stateHash.equals(record.authenticator.stateHash)).toBeTruthy();
       expect(retrieved.authenticator.algorithm).toEqual(record.authenticator.algorithm);
-      expect(retrieved.authenticator.hashAlgorithm).toEqual(record.authenticator.hashAlgorithm);
     } else {
       console.log('Failed to retrieve record');
     }
