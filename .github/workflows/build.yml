@@ -25,4 +25,4 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          tags: ghcr.io/aggregator:latest
+          tags: ghcr.io/${{ github.repository }}:${{ github.sha }}
