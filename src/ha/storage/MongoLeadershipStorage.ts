@@ -27,7 +27,7 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
    * @param options Configuration options for the storage
    */
   constructor(
-    db: Db,
+    private readonly db: Db,
     options: MongoLeadershipStorageOptions
   ) {
     this.COLLECTION_NAME = options.collectionName || 'leader_election';
@@ -40,10 +40,14 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
    * @param expirySeconds Seconds after which a lock without heartbeat will be deleted
    */
   async setupTTLIndex(expirySeconds: number): Promise<void> {
-    await this.lockCollection.createIndex(
-      { lastHeartbeat: 1 },
-      { expireAfterSeconds: expirySeconds }
-    );
+    try {
+      await this.lockCollection.createIndex(
+        { lastHeartbeat: 1 },
+        { expireAfterSeconds: expirySeconds }
+      );
+    } catch (error) {
+      console.error('Error setting up TTL index:', error);
+    }
   }
 
   /**
@@ -57,26 +61,31 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
       const now = new Date();
       const expiredTime = new Date(now.getTime() - this.TTL_SECONDS * 1000);
       
-      const result = await this.lockCollection.findOneAndUpdate(
+      const validLock = await this.lockCollection.findOne({ 
+        _id: lockId,
+        lastHeartbeat: { $gte: expiredTime }
+      });
+    
+      if (validLock) {
+        return false;
+      }
+      
+      // either update an expired lock or insert a new one if none exists
+      const updateResult = await this.lockCollection.updateOne(
         {
           _id: lockId,
-          $or: [
-            { lastHeartbeat: { $lt: expiredTime } },
-            { lastHeartbeat: { $exists: false } }
-          ]
+          lastHeartbeat: { $lt: expiredTime }
         },
         {
           $set: {
-            _id: lockId,
             leaderId: serverId,
             lastHeartbeat: now
           }
         },
         { upsert: true }
       );
-
-      // If we got a result, we acquired leadership
-      return !!result;
+      
+      return updateResult.modifiedCount > 0 || updateResult.upsertedCount > 0;
     } catch (error) {
       console.error('Error acquiring lock:', error);
       return false;

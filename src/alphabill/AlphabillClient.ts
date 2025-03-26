@@ -18,8 +18,9 @@ import { TransactionStatus } from '@alphabill/alphabill-js-sdk/lib/transaction/r
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 
 import { SubmitHashResponse } from './SubmitHashResponse.js';
+import { IAlphabillClient } from './IAlphabillClient.js';
 
-export class AlphabillClient {
+export class AlphabillClient implements IAlphabillClient {
   private readonly signingService: ISigningService;
   private readonly tokenClient: TokenPartitionJsonRpcClient;
   private readonly networkId: number;

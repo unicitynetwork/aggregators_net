@@ -11,10 +11,10 @@ import { AggregatorRecord } from './records/AggregatorRecord.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { SmtNode } from './smt/SmtNode.js';
 import { SubmitStateTransitionResponse } from './SubmitStateTransitionResponse.js';
-
+import { IAlphabillClient } from './alphabill/IAlphabillClient.js';
 export class AggregatorService {
   public constructor(
-    public readonly alphabillClient: AlphabillClient,
+    public readonly alphabillClient: IAlphabillClient,
     public readonly smt: SparseMerkleTree,
     public readonly recordStorage: IAggregatorRecordStorage,
   ) {}

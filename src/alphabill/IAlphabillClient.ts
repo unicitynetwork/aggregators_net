@@ -1,6 +1,7 @@
+import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { SubmitHashResponse } from './SubmitHashResponse.js';
 
 export interface IAlphabillClient {
-  submitHash(rootHash: Uint8Array): Promise<SubmitHashResponse>;
+  submitHash(transactionHash: DataHash): Promise<SubmitHashResponse>;
   initialSetup(): Promise<void>;
 } 

@@ -22,13 +22,10 @@ export class Storage {
     this.db = mongoose.connection.db as unknown as Db;
   }
 
-  public static async init(): Promise<Storage> {
-    const mongoUri =
-      process.env.MONGODB_URI || 'mongodb://localhost:27017,localhost:27018,localhost:27019/?replicaSet=rs0';
-
+  public static async init(uri: string): Promise<Storage> {
     try {
-      console.log('Connecting to MongoDB URI %s', mongoUri);
-      await mongoose.connect(mongoUri, {
+      console.log('Connecting to MongoDB URI %s', uri);
+      await mongoose.connect(uri, {
         connectTimeoutMS: 15000,
         heartbeatFrequencyMS: 1000,
         serverSelectionTimeoutMS: 30000,

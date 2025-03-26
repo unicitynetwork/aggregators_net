@@ -20,7 +20,7 @@ export class LeaderElection {
   private readonly HEARTBEAT_INTERVAL: number;
   private readonly ELECTION_POLLING_INTERVAL: number;
   private readonly LOCK_TTL_SECONDS: number;
-  private readonly SERVER_ID = uuidv4(); // Simple unique ID
+  private readonly SERVER_ID = uuidv4();
   
   private isLeader = false;
   private heartbeatInterval?: NodeJS.Timeout;
@@ -57,8 +57,6 @@ export class LeaderElection {
     if (this.isRunning) return;
     this.isRunning = true;
     
-    console.log(`Starting leader election process`);
-    
     // First attempt to acquire leadership
     await this.tryAcquireLeadership();
     
@@ -75,7 +73,6 @@ export class LeaderElection {
 
       if (acquired) {
         if (!this.isLeader) {
-          console.log(`Server became leader`);
           this.isLeader = true;
           this.startHeartbeat();
           
@@ -86,7 +83,6 @@ export class LeaderElection {
         return true;
       } else if (this.isLeader) {
         // We thought we were leader but we're not
-        console.log(`Server lost leadership`);
         this.stepDown();
       }
       
@@ -164,25 +160,34 @@ export class LeaderElection {
    * Gracefully shutdown the leader election process
    */
   async shutdown(): Promise<void> {
+    // First set running to false to prevent any new timer callbacks
     this.isRunning = false;
     
+    // Immediately clear any existing timers
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = undefined;
     }
+    
     if (this.electionPollingInterval) {
       clearInterval(this.electionPollingInterval);
       this.electionPollingInterval = undefined;
     }
 
+    // Only try to release the lock if we're the leader
     if (this.isLeader) {
       try {
         await this.storage.releaseLock(this.LOCK_ID, this.SERVER_ID);
-        this.isLeader = false;
       } catch (error) {
         console.error('Error releasing leadership lock:', error);
+        // Don't let this error block the shutdown
+      } finally {
+        // Always clear leadership status even if the release fails
+        this.isLeader = false;
       }
     }
+    
+    console.log('Leader election process shutdown completed');
   }
 
   /**
