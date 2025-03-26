@@ -76,7 +76,16 @@ async function setupAlphabillClient(): Promise<AlphabillClient> {
     if (!networkId) {
       throw new Error('Alphabill network ID must be defined.');
     }
-    alphabillClient = new AlphabillClient(signingService, alphabillTokenPartitionUrl, Number(networkId));
+    const partitionId = process.env.ALPHABILL_PARTITION_ID;
+    if (!partitionId) {
+      throw new Error('Alphabill partition ID must be defined.');
+    }
+    alphabillClient = new AlphabillClient(
+      signingService,
+      alphabillTokenPartitionUrl,
+      Number(networkId),
+      Number(partitionId),
+    );
     await alphabillClient.initialSetup();
   } catch (error) {
     console.error('Failed to initialize Alphabill client:', error);
