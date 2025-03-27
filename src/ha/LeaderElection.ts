@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { ILeadershipStorage } from './ILeadershipStorage.js';
 
-interface LeaderElectionOptions {
+interface ILeaderElectionOptions {
   heartbeatIntervalMs: number; // How often to send heartbeats
   electionPollingIntervalMs: number; // How often to try to acquire leadership
   lockTtlSeconds: number; // How long a lock can be held without heartbeat
@@ -36,9 +36,9 @@ export class LeaderElection {
    * @param storage Storage for leadership operations
    * @param options Configuration options for leader election
    */
-  constructor(
+  public constructor(
     private readonly storage: ILeadershipStorage,
-    options: LeaderElectionOptions,
+    options: ILeaderElectionOptions,
   ) {
     this.LOCK_ID = options.lockId || 'leader_lock';
     this.HEARTBEAT_INTERVAL = options.heartbeatIntervalMs;
@@ -56,7 +56,7 @@ export class LeaderElection {
   /**
    * Start the leader election process
    */
-  async start(): Promise<void> {
+  public async start(): Promise<void> {
     if (this.isRunning) return;
     this.isRunning = true;
 
@@ -166,7 +166,7 @@ export class LeaderElection {
   /**
    * Gracefully shutdown the leader election process
    */
-  async shutdown(): Promise<void> {
+  public async shutdown(): Promise<void> {
     // First set running to false to prevent any new timer callbacks
     this.isRunning = false;
 
@@ -197,7 +197,7 @@ export class LeaderElection {
   /**
    * Check if this instance is currently the leader
    */
-  isCurrentLeader(): boolean {
+  public isCurrentLeader(): boolean {
     return this.isLeader;
   }
 }

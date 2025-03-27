@@ -24,13 +24,20 @@ export class AlphabillClient implements IAlphabillClient {
   private readonly signingService: ISigningService;
   private readonly tokenClient: TokenPartitionJsonRpcClient;
   private readonly networkId: number;
+  private readonly partitionId: number;
   private readonly proofFactory: IProofFactory;
   private readonly alwaysTrueProofFactory: IProofFactory;
 
-  public constructor(signingService: ISigningService, alphabillTokenPartitionUrl: string, networkId: number) {
+  public constructor(
+    signingService: ISigningService,
+    tokenPartitionUrl: string,
+    tokenPartitionId: number,
+    networkId: number,
+  ) {
     this.signingService = signingService;
-    this.tokenClient = createTokenClient({ transport: http(alphabillTokenPartitionUrl) });
+    this.tokenClient = createTokenClient({ transport: http(tokenPartitionUrl) });
     this.networkId = networkId;
+    this.partitionId = tokenPartitionId;
     this.proofFactory = new PayToPublicKeyHashProofFactory(this.signingService);
     this.alwaysTrueProofFactory = new AlwaysTrueProofFactory();
   }
@@ -61,6 +68,7 @@ export class AlphabillClient implements IAlphabillClient {
       data: updatedNftData,
       metadata: new ClientMetadata(round + 60n, 5n, feeCreditRecordId, null),
       networkIdentifier: this.networkId,
+      partitionIdentifier: this.partitionId,
       stateLock: null,
       stateUnlock: new AlwaysTruePredicate(),
       token: token,
@@ -100,13 +108,14 @@ export class AlphabillClient implements IAlphabillClient {
       name: 'Unicity Trust Anchor',
       networkIdentifier: this.networkId,
       parentTypeId: null,
+      partitionIdentifier: this.partitionId,
       stateLock: null,
       stateUnlock: new AlwaysTruePredicate(),
       subTypeCreationPredicate: new AlwaysTruePredicate(),
       symbol: 'Unicity',
       tokenMintingPredicate: new AlwaysTruePredicate(),
       tokenTypeOwnerPredicate: new AlwaysTruePredicate(),
-      type: { unitId: tokenTypeUnitId },
+      typeId: tokenTypeUnitId,
       version: 1n,
     }).sign(this.proofFactory, []);
     const createNonFungibleTokenTypeHash = await this.tokenClient.sendTransaction(
@@ -128,9 +137,10 @@ export class AlphabillClient implements IAlphabillClient {
       networkIdentifier: this.networkId,
       nonce: 0n,
       ownerPredicate: PayToPublicKeyHashPredicate.create(this.signingService.publicKey),
+      partitionIdentifier: this.partitionId,
       stateLock: null,
       stateUnlock: new AlwaysTruePredicate(),
-      type: { unitId: tokenTypeUnitId },
+      typeId: tokenTypeUnitId,
       uri: 'https://github.com/unicitynetwork',
       version: 1n,
     }).sign(this.alwaysTrueProofFactory, this.proofFactory);
