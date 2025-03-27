@@ -6,12 +6,11 @@ import { SubmitStateTransitionStatus } from '@unicitylabs/commons/lib/api/Submit
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 
-import { AlphabillClient } from './alphabill/AlphabillClient.js';
+import { IAlphabillClient } from './alphabill/IAlphabillClient.js';
 import { AggregatorRecord } from './records/AggregatorRecord.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { SmtNode } from './smt/SmtNode.js';
 import { SubmitStateTransitionResponse } from './SubmitStateTransitionResponse.js';
-import { IAlphabillClient } from './alphabill/IAlphabillClient.js';
 export class AggregatorService {
   public constructor(
     public readonly alphabillClient: IAlphabillClient,

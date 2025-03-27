@@ -1,13 +1,15 @@
 import { v4 as uuidv4 } from 'uuid';
+
 import { ILeadershipStorage } from './ILeadershipStorage.js';
 
 interface LeaderElectionOptions {
-  heartbeatIntervalMs: number;      // How often to send heartbeats
+  heartbeatIntervalMs: number; // How often to send heartbeats
   electionPollingIntervalMs: number; // How often to try to acquire leadership
-  lockTtlSeconds: number;           // How long a lock can be held without heartbeat
-  lockId?: string;                  // Optional custom lock ID
-  onBecomeLeader?: () => void;      // Optional callback when becoming leader
-  onLoseLeadership?: () => void;    // Optional callback when losing leadership
+  lockTtlSeconds: number; // How long a lock can be held without heartbeat
+  lockId?: string; // Optional custom lock ID
+  onBecomeLeader?: () => void; // Optional callback when becoming leader
+  onLoseLeadership?: () => void; // Optional callback when losing leadership
+  serverId?: string; // Optional custom server ID for logging
 }
 
 /**
@@ -20,8 +22,8 @@ export class LeaderElection {
   private readonly HEARTBEAT_INTERVAL: number;
   private readonly ELECTION_POLLING_INTERVAL: number;
   private readonly LOCK_TTL_SECONDS: number;
-  private readonly SERVER_ID = uuidv4();
-  
+  private readonly SERVER_ID: string;
+
   private isLeader = false;
   private heartbeatInterval?: NodeJS.Timeout;
   private electionPollingInterval?: NodeJS.Timeout;
@@ -36,16 +38,17 @@ export class LeaderElection {
    */
   constructor(
     private readonly storage: ILeadershipStorage,
-    options: LeaderElectionOptions
+    options: LeaderElectionOptions,
   ) {
     this.LOCK_ID = options.lockId || 'leader_lock';
     this.HEARTBEAT_INTERVAL = options.heartbeatIntervalMs;
     this.ELECTION_POLLING_INTERVAL = options.electionPollingIntervalMs;
     this.LOCK_TTL_SECONDS = options.lockTtlSeconds;
-    
+    this.SERVER_ID = options.serverId || uuidv4();
+
     this.onBecomeLeaderCallback = options.onBecomeLeader;
     this.onLoseLeadershipCallback = options.onLoseLeadership;
-    this.storage.setupTTLIndex(this.LOCK_TTL_SECONDS).catch(error => {
+    this.storage.setupTTLIndex(this.LOCK_TTL_SECONDS).catch((error) => {
       console.error('Failed to setup TTL index for leader election:', error);
     });
   }
@@ -56,10 +59,14 @@ export class LeaderElection {
   async start(): Promise<void> {
     if (this.isRunning) return;
     this.isRunning = true;
-    
+
     // First attempt to acquire leadership
-    await this.tryAcquireLeadership();
-    
+    const initialLeadershipAcquired = await this.tryAcquireLeadership();
+
+    if (!initialLeadershipAcquired) {
+      console.log(`Server ${this.SERVER_ID} failed to acquire leadership lock, running in standby mode`);
+    }
+
     // Start polling for leadership
     this.startElectionPolling();
   }
@@ -75,7 +82,7 @@ export class LeaderElection {
         if (!this.isLeader) {
           this.isLeader = true;
           this.startHeartbeat();
-          
+
           if (this.onBecomeLeaderCallback) {
             this.onBecomeLeaderCallback();
           }
@@ -85,7 +92,7 @@ export class LeaderElection {
         // We thought we were leader but we're not
         this.stepDown();
       }
-      
+
       return false;
     } catch (error) {
       console.error('Error during leader election:', error);
@@ -142,14 +149,14 @@ export class LeaderElection {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = undefined;
     }
-    
+
     const wasLeader = this.isLeader;
     this.isLeader = false;
-    
+
     if (wasLeader && this.onLoseLeadershipCallback) {
       this.onLoseLeadershipCallback();
     }
-    
+
     // Ensure election polling is active
     if (!this.electionPollingInterval && this.isRunning) {
       this.startElectionPolling();
@@ -162,31 +169,28 @@ export class LeaderElection {
   async shutdown(): Promise<void> {
     // First set running to false to prevent any new timer callbacks
     this.isRunning = false;
-    
+
     // Immediately clear any existing timers
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = undefined;
     }
-    
+
     if (this.electionPollingInterval) {
       clearInterval(this.electionPollingInterval);
       this.electionPollingInterval = undefined;
     }
 
-    // Only try to release the lock if we're the leader
     if (this.isLeader) {
       try {
         await this.storage.releaseLock(this.LOCK_ID, this.SERVER_ID);
       } catch (error) {
         console.error('Error releasing leadership lock:', error);
-        // Don't let this error block the shutdown
       } finally {
-        // Always clear leadership status even if the release fails
         this.isLeader = false;
       }
     }
-    
+
     console.log('Leader election process shutdown completed');
   }
 
@@ -196,4 +200,4 @@ export class LeaderElection {
   isCurrentLeader(): boolean {
     return this.isLeader;
   }
-} 
+}

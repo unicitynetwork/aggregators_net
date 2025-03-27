@@ -1,4 +1,5 @@
 import { Collection, Db } from 'mongodb';
+
 import { ILeadershipStorage } from '../ILeadershipStorage.js';
 
 interface LockDocument {
@@ -28,7 +29,7 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
    */
   constructor(
     private readonly db: Db,
-    options: MongoLeadershipStorageOptions
+    options: MongoLeadershipStorageOptions,
   ) {
     this.COLLECTION_NAME = options.collectionName || 'leader_election';
     this.TTL_SECONDS = options.ttlSeconds;
@@ -41,10 +42,7 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
    */
   async setupTTLIndex(expirySeconds: number): Promise<void> {
     try {
-      await this.lockCollection.createIndex(
-        { lastHeartbeat: 1 },
-        { expireAfterSeconds: expirySeconds }
-      );
+      await this.lockCollection.createIndex({ lastHeartbeat: 1 }, { expireAfterSeconds: expirySeconds });
     } catch (error) {
       console.error('Error setting up TTL index:', error);
     }
@@ -60,31 +58,31 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
     try {
       const now = new Date();
       const expiredTime = new Date(now.getTime() - this.TTL_SECONDS * 1000);
-      
-      const validLock = await this.lockCollection.findOne({ 
+
+      const validLock = await this.lockCollection.findOne({
         _id: lockId,
-        lastHeartbeat: { $gte: expiredTime }
+        lastHeartbeat: { $gte: expiredTime },
       });
-    
+
       if (validLock) {
         return false;
       }
-      
+
       // either update an expired lock or insert a new one if none exists
       const updateResult = await this.lockCollection.updateOne(
         {
           _id: lockId,
-          lastHeartbeat: { $lt: expiredTime }
+          lastHeartbeat: { $lt: expiredTime },
         },
         {
           $set: {
             leaderId: serverId,
-            lastHeartbeat: now
-          }
+            lastHeartbeat: now,
+          },
         },
-        { upsert: true }
+        { upsert: true },
       );
-      
+
       return updateResult.modifiedCount > 0 || updateResult.upsertedCount > 0;
     } catch (error) {
       console.error('Error acquiring lock:', error);
@@ -101,18 +99,18 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
   async updateHeartbeat(lockId: string, serverId: string): Promise<boolean> {
     try {
       const now = new Date();
-      
+
       const result = await this.lockCollection.findOneAndUpdate(
         {
           _id: lockId,
-          leaderId: serverId
+          leaderId: serverId,
         },
         {
           $set: {
-            lastHeartbeat: now
-          }
+            lastHeartbeat: now,
+          },
         },
-        { upsert: true }
+        { upsert: true },
       );
 
       return !!result;
@@ -131,11 +129,11 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
     try {
       await this.lockCollection.deleteOne({
         _id: lockId,
-        leaderId: serverId
+        leaderId: serverId,
       });
     } catch (error) {
       console.error('Error releasing lock:', error);
       throw error;
     }
   }
-} 
+}

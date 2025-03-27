@@ -1,5 +1,5 @@
-import mongoose from 'mongoose';
 import { Db } from 'mongodb';
+import mongoose from 'mongoose';
 
 import { AggregatorRecordStorage } from './AggregatorRecordStorage.js';
 import { SmtStorage } from './SmtStorage.js';
@@ -14,7 +14,7 @@ export class Storage {
   private constructor() {
     this.smt = new SmtStorage();
     this.records = new AggregatorRecordStorage();
-    
+
     if (!mongoose.connection.db) {
       throw new Error('MongoDB connection not initialized');
     }

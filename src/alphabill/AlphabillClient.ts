@@ -17,8 +17,8 @@ import { PayToPublicKeyHashProofFactory } from '@alphabill/alphabill-js-sdk/lib/
 import { TransactionStatus } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionStatus.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 
-import { SubmitHashResponse } from './SubmitHashResponse.js';
 import { IAlphabillClient } from './IAlphabillClient.js';
+import { SubmitHashResponse } from './SubmitHashResponse.js';
 
 export class AlphabillClient implements IAlphabillClient {
   private readonly signingService: ISigningService;
