@@ -26,7 +26,7 @@ import { IAlphabillClient } from '../../src/alphabill/IAlphabillClient.js';
 import { SubmitHashResponse } from '../../src/alphabill/SubmitHashResponse.js';
 
 class MockSigningService implements ISigningService {
-  publicKey = new Uint8Array([1, 2, 3, 4]);
+  public publicKey = new Uint8Array([1, 2, 3, 4]);
 
   async sign(message: Uint8Array): Promise<Uint8Array> {
     return new Uint8Array([5, 6, 7, 8]);
@@ -46,7 +46,7 @@ export class MockAlphabillClient implements IAlphabillClient {
 
   private previousData: Uint8Array[] = [];
 
-  constructor() {
+  public constructor() {
     this.signingService = new MockSigningService();
     this.tokenClient = {} as TokenPartitionJsonRpcClient;
     this.networkId = 1;

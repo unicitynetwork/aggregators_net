@@ -4,7 +4,7 @@ import { AggregatorGateway } from './AggregatorGateway.js';
 
 dotenv.config();
 
-async function main() {
+async function main(): Promise<void> {
   console.log('Starting Aggregator Gateway...');
 
   const gateway = new AggregatorGateway({

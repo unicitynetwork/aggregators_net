@@ -54,7 +54,6 @@ export default [
         },
       ],
       'require-await': 'error',
-      'sort-keys': ['error', 'asc', { minKeys: 2, natural: true }],
     },
   },
 ];

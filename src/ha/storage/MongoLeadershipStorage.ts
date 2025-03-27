@@ -2,13 +2,13 @@ import { Collection, Db } from 'mongodb';
 
 import { ILeadershipStorage } from '../ILeadershipStorage.js';
 
-interface LockDocument {
+interface ILockDocument {
   _id: string;
   leaderId: string;
   lastHeartbeat: Date;
 }
 
-interface MongoLeadershipStorageOptions {
+interface IMongoLeadershipStorageOptions {
   ttlSeconds: number;
   collectionName?: string;
 }
@@ -20,27 +20,27 @@ interface MongoLeadershipStorageOptions {
 export class MongoLeadershipStorage implements ILeadershipStorage {
   private readonly COLLECTION_NAME: string;
   private readonly TTL_SECONDS: number;
-  private lockCollection: Collection<LockDocument>;
+  private lockCollection: Collection<ILockDocument>;
 
   /**
    * Creates a new MongoLeadershipStorage
    * @param db MongoDB database instance
    * @param options Configuration options for the storage
    */
-  constructor(
+  public constructor(
     private readonly db: Db,
-    options: MongoLeadershipStorageOptions,
+    options: IMongoLeadershipStorageOptions,
   ) {
     this.COLLECTION_NAME = options.collectionName || 'leader_election';
     this.TTL_SECONDS = options.ttlSeconds;
-    this.lockCollection = db.collection<LockDocument>(this.COLLECTION_NAME);
+    this.lockCollection = db.collection<ILockDocument>(this.COLLECTION_NAME);
   }
 
   /**
    * Sets up a TTL index on lastHeartbeat to automatically expire locks
    * @param expirySeconds Seconds after which a lock without heartbeat will be deleted
    */
-  async setupTTLIndex(expirySeconds: number): Promise<void> {
+  public async setupTTLIndex(expirySeconds: number): Promise<void> {
     try {
       await this.lockCollection.createIndex({ lastHeartbeat: 1 }, { expireAfterSeconds: expirySeconds });
     } catch (error) {
@@ -54,7 +54,7 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
    * @param serverId The unique ID of the server trying to acquire leadership
    * @returns true if leadership was acquired, false otherwise
    */
-  async tryAcquireLock(lockId: string, serverId: string): Promise<boolean> {
+  public async tryAcquireLock(lockId: string, serverId: string): Promise<boolean> {
     try {
       const now = new Date();
       const expiredTime = new Date(now.getTime() - this.TTL_SECONDS * 1000);
@@ -96,7 +96,7 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
    * @param serverId The unique ID of the server updating its heartbeat
    * @returns true if heartbeat was updated, false if leadership was lost
    */
-  async updateHeartbeat(lockId: string, serverId: string): Promise<boolean> {
+  public async updateHeartbeat(lockId: string, serverId: string): Promise<boolean> {
     try {
       const now = new Date();
 
@@ -125,7 +125,7 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
    * @param lockId The identifier for the lock
    * @param serverId The unique ID of the server releasing leadership
    */
-  async releaseLock(lockId: string, serverId: string): Promise<void> {
+  public async releaseLock(lockId: string, serverId: string): Promise<void> {
     try {
       await this.lockCollection.deleteOne({
         _id: lockId,

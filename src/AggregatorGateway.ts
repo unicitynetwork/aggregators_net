@@ -23,7 +23,7 @@ import { MongoLeadershipStorage } from './ha/storage/MongoLeadershipStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { MockAlphabillClient } from '../tests/mocks/MockAlphabillClient.js';
 
-export interface GatewayConfig {
+export interface IGatewayConfig {
   port?: number;
   sslCertPath?: string;
   sslKeyPath?: string;
@@ -44,12 +44,12 @@ export class AggregatorGateway {
   private server: Server | null = null;
   private aggregatorService: AggregatorService | null = null;
   private leaderElection: LeaderElection | null = null;
-  private config: GatewayConfig;
+  private config: IGatewayConfig;
   private storage: Storage | null = null;
   private serverId: string;
   private isRunning = false;
 
-  constructor(config: GatewayConfig = {}) {
+  public constructor(config: IGatewayConfig = {}) {
     this.config = {
       port: config.port || 80,
       sslCertPath: config.sslCertPath || '',
