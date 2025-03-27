@@ -37,6 +37,44 @@ Unicity's infrastructure comprises a decentralized Agent layer interacting with 
 - **Output:**
   - `nonDeletionProof` (object): Zero-knowledge proof confirming no deletion has occurred since the genesis.
 
+## High Availability
+
+The Unicity Aggregator implements a high availability system ensuring service continuity when individual server instances fail.
+
+### Leader Election System
+
+The gateway uses a MongoDB-based leader election mechanism to ensure only one server processes requests at any time:
+
+- **Single Active Server**: Only one server is designated as leader
+- **Automatic Failover**: Standby servers automatically take over if the leader fails
+- **Conflict Prevention**: MongoDB's atomic operations prevent split-brain scenarios
+
+### How It Works
+
+1. **Distributed Lock**: Servers compete for a lock document in MongoDB
+2. **Heartbeats**: The active leader periodically updates its lock to maintain leadership
+3. **Automatic Expiration**: If the leader fails, its lock expires after a configurable timeout
+4. **Continuous Monitoring**: Standby servers regularly check for leadership opportunities
+
+### Configuration
+
+Configure the HA system through environment variables:
+
+| Variable | Description | Default |
+|---|---|---|
+| `ENABLE_HIGH_AVAILABILITY` | Enable/disable HA mode | `false` |
+| `LOCK_TTL_SECONDS` | Lock validity period | `30` |
+| `LEADER_HEARTBEAT_INTERVAL_MS` | Leader heartbeat frequency | `10000` (10s) |
+| `LEADER_ELECTION_POLLING_INTERVAL_MS` | Standby polling frequency | `5000` (5s) |
+
+### Health Endpoint
+
+The `/health` endpoint returns different status codes based on server role:
+- `200 OK`: Server is active leader (or standalone mode)
+- `503 Service Unavailable`: Server is in standby mode
+
+This allows load balancers to route traffic only to the active server.
+
 ## SDK, Transport-Agnostic JavaScript Functions
 The `AggregatorAPI` class provides transport-agnostic functions for submitting requests and fetching proofs.
 ### Constructor
