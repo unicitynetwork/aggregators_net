@@ -30,14 +30,14 @@ export class AlphabillClient implements IAlphabillClient {
 
   public constructor(
     signingService: ISigningService,
-    alphabillTokenPartitionUrl: string,
+    tokenPartitionUrl: string,
+    tokenPartitionId: number,
     networkId: number,
-    partitionId: number,
   ) {
     this.signingService = signingService;
-    this.tokenClient = createTokenClient({ transport: http(alphabillTokenPartitionUrl) });
+    this.tokenClient = createTokenClient({ transport: http(tokenPartitionUrl) });
     this.networkId = networkId;
-    this.partitionId = partitionId;
+    this.partitionId = tokenPartitionId;
     this.proofFactory = new PayToPublicKeyHashProofFactory(this.signingService);
     this.alwaysTrueProofFactory = new AlwaysTrueProofFactory();
   }

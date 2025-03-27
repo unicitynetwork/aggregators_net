@@ -16,6 +16,7 @@ async function main() {
     useAlphabillMock: process.env.USE_MOCK_ALPHABILL === 'true',
     alphabillPrivateKey: process.env.ALPHABILL_PRIVATE_KEY || '',
     alphabillTokenPartitionUrl: process.env.ALPHABILL_TOKEN_PARTITION_URL || '',
+    alphabillTokenPartitionId: process.env.ALPHABILL_TOKEN_PARTITION_ID || '',
     alphabillNetworkId: process.env.ALPHABILL_NETWORK_ID || '',
     lockTtlSeconds: process.env.LOCK_TTL_SECONDS ? parseInt(process.env.LOCK_TTL_SECONDS) : 30,
     leaderHeartbeatIntervalMs: process.env.LEADER_HEARTBEAT_INTERVAL_MS

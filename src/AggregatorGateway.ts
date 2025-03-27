@@ -31,6 +31,7 @@ export interface GatewayConfig {
   useAlphabillMock?: boolean;
   alphabillPrivateKey?: string;
   alphabillTokenPartitionUrl?: string;
+  alphabillTokenPartitionId?: string;
   alphabillNetworkId?: string;
   lockTtlSeconds?: number;
   leaderHeartbeatIntervalMs?: number;
@@ -57,6 +58,7 @@ export class AggregatorGateway {
       useAlphabillMock: config.useAlphabillMock !== undefined ? config.useAlphabillMock : false,
       alphabillPrivateKey: config.alphabillPrivateKey,
       alphabillTokenPartitionUrl: config.alphabillTokenPartitionUrl,
+      alphabillTokenPartitionId: config.alphabillTokenPartitionId,
       alphabillNetworkId: config.alphabillNetworkId,
       lockTtlSeconds: config.lockTtlSeconds || 30,
       leaderHeartbeatIntervalMs: config.leaderHeartbeatIntervalMs || 10000,
@@ -279,7 +281,7 @@ export class AggregatorGateway {
   }
 
   private async setupAlphabillClient(): Promise<IAlphabillClient> {
-    const { useAlphabillMock, alphabillPrivateKey, alphabillTokenPartitionUrl, alphabillNetworkId } = this.config;
+    const { useAlphabillMock, alphabillPrivateKey, alphabillTokenPartitionUrl, alphabillTokenPartitionId, alphabillNetworkId } = this.config;
 
     if (useAlphabillMock) {
       console.log(`Server ${this.serverId} using mock AlphabillClient`);
@@ -296,11 +298,15 @@ export class AggregatorGateway {
       throw new Error('Alphabill token partition URL must be defined.');
     }
 
+    if (!alphabillTokenPartitionId) {
+      throw new Error('Alphabill token partition ID must be defined.');
+    }
+
     if (!alphabillNetworkId) {
       throw new Error('Alphabill network ID must be defined.');
     }
 
-    const alphabillClient = new AlphabillClient(signingService, alphabillTokenPartitionUrl, Number(alphabillNetworkId));
+    const alphabillClient = new AlphabillClient(signingService, alphabillTokenPartitionUrl, Number(alphabillTokenPartitionId), Number(alphabillNetworkId));
     await alphabillClient.initialSetup();
     return alphabillClient;
   }
