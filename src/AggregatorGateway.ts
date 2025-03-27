@@ -61,7 +61,7 @@ export class AggregatorGateway {
       lockTtlSeconds: config.lockTtlSeconds || 30,
       leaderHeartbeatIntervalMs: config.leaderHeartbeatIntervalMs || 10000,
       leaderElectionPollingIntervalMs: config.leaderElectionPollingIntervalMs || 5000,
-      mongoUri: config.mongoUri || 'mongodb://localhost:27017/alphabill-aggregator',
+      mongoUri: config.mongoUri || 'mongodb://localhost:27017/',
     };
 
     this.serverId = 'server-' + Math.random().toString(36).substring(2, 10);
@@ -123,24 +123,24 @@ export class AggregatorGateway {
       try {
         switch (req.body.method) {
           case 'submit_transaction': {
-            const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
-            const transactionHash: DataHash = DataHash.fromDto(req.body.params.transactionHash);
-            const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
-            return res.send(
-              JSON.stringify(this.aggregatorService.submitStateTransition(requestId, transactionHash, authenticator)),
-            );
-          }
-          case 'get_inclusion_proof': {
-            const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
-            return res.send(JSON.stringify(this.aggregatorService.getInclusionProof(requestId)));
-          }
-          case 'get_no_deletion_proof': {
-            return res.send(JSON.stringify(this.aggregatorService.getNodeletionProof()));
-          }
-          default: {
-            return res.sendStatus(400);
-          }
+          const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
+          const transactionHash: DataHash = DataHash.fromDto(req.body.params.transactionHash);
+          const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
+          return res.send(
+            JSON.stringify(this.aggregatorService.submitStateTransition(requestId, transactionHash, authenticator)),
+          );
         }
+        case 'get_inclusion_proof': {
+          const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
+          return res.send(JSON.stringify(this.aggregatorService.getInclusionProof(requestId)));
+        }
+        case 'get_no_deletion_proof': {
+          return res.send(JSON.stringify(this.aggregatorService.getNodeletionProof()));
+        }
+        default: {
+          return res.sendStatus(400);
+        }
+      }
       } catch (error) {
         console.error(`Error processing ${req.body.method}:`, error);
         return res.status(500).json({
@@ -159,7 +159,7 @@ export class AggregatorGateway {
    * Initialize the gateway by setting up storage, clients, and services
    */
   public async init(): Promise<void> {
-    const mongoUri = this.config.mongoUri || 'mongodb://localhost:27017/alphabill-aggregator';
+    const mongoUri = this.config.mongoUri || 'mongodb://localhost:27017/';
     this.storage = await Storage.init(mongoUri);
 
     const alphabillClient = await this.setupAlphabillClient();
@@ -178,15 +178,20 @@ export class AggregatorGateway {
         collectionName: 'leader_election',
       });
 
-      this.leaderElection = new LeaderElection(leadershipStorage, {
-        heartbeatIntervalMs: this.config.leaderHeartbeatIntervalMs as number,
-        electionPollingIntervalMs: this.config.leaderElectionPollingIntervalMs as number,
-        lockTtlSeconds: this.config.lockTtlSeconds as number,
-        lockId: 'aggregator_leader_lock',
-        onBecomeLeader: () => this.onBecomeLeader(),
-        onLoseLeadership: () => this.onLoseLeadership(),
-        serverId: this.serverId,
-      });
+      this.leaderElection = new LeaderElection(
+        leadershipStorage,
+        {
+          heartbeatIntervalMs: this.config.leaderHeartbeatIntervalMs as number,
+          electionPollingIntervalMs: this.config.leaderElectionPollingIntervalMs as number,
+          lockTtlSeconds: this.config.lockTtlSeconds as number,
+          lockId: 'aggregator_leader_lock',
+          onBecomeLeader: () => this.onBecomeLeader(),
+          onLoseLeadership: () => this.onLoseLeadership(),
+          serverId: this.serverId
+        }
+      );
+    } else {
+      console.log('High availability mode is disabled');
     }
   }
 

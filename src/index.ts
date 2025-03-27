@@ -11,7 +11,7 @@ async function main() {
     port: process.env.PORT ? parseInt(process.env.PORT) : 80,
     sslCertPath: process.env.SSL_CERT_PATH || '',
     sslKeyPath: process.env.SSL_KEY_PATH || '',
-    mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/alphabill-aggregator',
+    mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/',
     enableHA: process.env.ENABLE_HIGH_AVAILABILITY === 'true',
     useAlphabillMock: process.env.USE_MOCK_ALPHABILL === 'true',
     alphabillPrivateKey: process.env.ALPHABILL_PRIVATE_KEY || '',
