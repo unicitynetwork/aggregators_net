@@ -5,10 +5,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default {
-  entry: './src/AggregatorGateway.ts',
+  entry: './src/index.ts',
   mode: 'production',
   output: {
-    filename: 'aggregator.cjs',
+    filename: 'index.cjs',
     path: path.resolve(__dirname, 'dist')
   },
   resolve: {
