@@ -125,24 +125,24 @@ export class AggregatorGateway {
       try {
         switch (req.body.method) {
           case 'submit_transaction': {
-          const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
-          const transactionHash: DataHash = DataHash.fromDto(req.body.params.transactionHash);
-          const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
-          return res.send(
-            JSON.stringify(this.aggregatorService.submitStateTransition(requestId, transactionHash, authenticator)),
-          );
+            const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
+            const transactionHash: DataHash = DataHash.fromDto(req.body.params.transactionHash);
+            const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
+            return res.send(
+              JSON.stringify(this.aggregatorService.submitStateTransition(requestId, transactionHash, authenticator)),
+            );
+          }
+          case 'get_inclusion_proof': {
+            const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
+            return res.send(JSON.stringify(this.aggregatorService.getInclusionProof(requestId)));
+          }
+          case 'get_no_deletion_proof': {
+            return res.send(JSON.stringify(this.aggregatorService.getNodeletionProof()));
+          }
+          default: {
+            return res.sendStatus(400);
+          }
         }
-        case 'get_inclusion_proof': {
-          const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
-          return res.send(JSON.stringify(this.aggregatorService.getInclusionProof(requestId)));
-        }
-        case 'get_no_deletion_proof': {
-          return res.send(JSON.stringify(this.aggregatorService.getNodeletionProof()));
-        }
-        default: {
-          return res.sendStatus(400);
-        }
-      }
       } catch (error) {
         console.error(`Error processing ${req.body.method}:`, error);
         return res.status(500).json({
@@ -180,18 +180,15 @@ export class AggregatorGateway {
         collectionName: 'leader_election',
       });
 
-      this.leaderElection = new LeaderElection(
-        leadershipStorage,
-        {
-          heartbeatIntervalMs: this.config.leaderHeartbeatIntervalMs as number,
-          electionPollingIntervalMs: this.config.leaderElectionPollingIntervalMs as number,
-          lockTtlSeconds: this.config.lockTtlSeconds as number,
-          lockId: 'aggregator_leader_lock',
-          onBecomeLeader: () => this.onBecomeLeader(),
-          onLoseLeadership: () => this.onLoseLeadership(),
-          serverId: this.serverId
-        }
-      );
+      this.leaderElection = new LeaderElection(leadershipStorage, {
+        heartbeatIntervalMs: this.config.leaderHeartbeatIntervalMs as number,
+        electionPollingIntervalMs: this.config.leaderElectionPollingIntervalMs as number,
+        lockTtlSeconds: this.config.lockTtlSeconds as number,
+        lockId: 'aggregator_leader_lock',
+        onBecomeLeader: () => this.onBecomeLeader(),
+        onLoseLeadership: () => this.onLoseLeadership(),
+        serverId: this.serverId,
+      });
     } else {
       console.log('High availability mode is disabled');
     }
@@ -281,7 +278,13 @@ export class AggregatorGateway {
   }
 
   private async setupAlphabillClient(): Promise<IAlphabillClient> {
-    const { useAlphabillMock, alphabillPrivateKey, alphabillTokenPartitionUrl, alphabillTokenPartitionId, alphabillNetworkId } = this.config;
+    const {
+      useAlphabillMock,
+      alphabillPrivateKey,
+      alphabillTokenPartitionUrl,
+      alphabillTokenPartitionId,
+      alphabillNetworkId,
+    } = this.config;
 
     if (useAlphabillMock) {
       console.log(`Server ${this.serverId} using mock AlphabillClient`);
@@ -306,7 +309,12 @@ export class AggregatorGateway {
       throw new Error('Alphabill network ID must be defined.');
     }
 
-    const alphabillClient = new AlphabillClient(signingService, alphabillTokenPartitionUrl, Number(alphabillTokenPartitionId), Number(alphabillNetworkId));
+    const alphabillClient = new AlphabillClient(
+      signingService,
+      alphabillTokenPartitionUrl,
+      Number(alphabillTokenPartitionId),
+      Number(alphabillNetworkId),
+    );
     await alphabillClient.initialSetup();
     return alphabillClient;
   }
