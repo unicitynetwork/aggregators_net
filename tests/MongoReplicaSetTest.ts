@@ -61,7 +61,10 @@ describe('Mongo Replica Set Tests', () => {
 
     console.log(`Current primary is on port ${primaryPort}`);
 
-    const storage = await Storage.init();
+    if (!process.env.MONGODB_URI) {
+      throw new Error('MongoDB URI not set in environment');
+    }
+    const storage = await Storage.init(process.env.MONGODB_URI);
 
     console.log('\nStoring test data...');
     const testLeaf = new SmtNode(BigInt(1), new Uint8Array([1, 2, 3]));

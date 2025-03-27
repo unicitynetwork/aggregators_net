@@ -4,7 +4,8 @@ export default {
     '^.+\\.[tj]sx?$': 'babel-jest'
   },
   moduleNameMapper: {
-    '^(.*)\\.js$': '$1',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^(@unicitylabs/.*|@alphabill/.*)\\.js$': '$1'
   },
   testMatch: ['<rootDir>/tests/**/*Test.ts'],
   collectCoverage: true,
@@ -12,4 +13,5 @@ export default {
   transformIgnorePatterns: [
     '/node_modules/(?!@alphabill|@unicitylabs)'
   ],
+  extensionsToTreatAsEsm: ['.ts'],
 };
