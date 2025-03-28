@@ -49,7 +49,7 @@ export class LeaderElection {
     this.onBecomeLeaderCallback = options.onBecomeLeader;
     this.onLoseLeadershipCallback = options.onLoseLeadership;
     this.storage.setupTTLIndex(this.LOCK_TTL_SECONDS).catch((error) => {
-      console.error('Failed to setup TTL index for leader election:', error);
+      console.warn('Failed to setup TTL index for leader election:', error);
     });
   }
 
