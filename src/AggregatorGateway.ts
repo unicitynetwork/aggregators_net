@@ -31,8 +31,8 @@ export interface IGatewayConfig {
   useAlphabillMock?: boolean;
   alphabillPrivateKey?: string;
   alphabillTokenPartitionUrl?: string;
-  alphabillTokenPartitionId?: string;
-  alphabillNetworkId?: string;
+  alphabillTokenPartitionId?: number;
+  alphabillNetworkId?: number;
   lockTtlSeconds?: number;
   leaderHeartbeatIntervalMs?: number;
   leaderElectionPollingIntervalMs?: number;
@@ -40,7 +40,7 @@ export interface IGatewayConfig {
 }
 
 export class AggregatorGateway {
-  private app: Express;
+  private readonly app: Express;
   private server: Server | null = null;
   private aggregatorService: AggregatorService | null = null;
   private leaderElection: LeaderElection | null = null;
@@ -312,8 +312,8 @@ export class AggregatorGateway {
     const alphabillClient = new AlphabillClient(
       signingService,
       alphabillTokenPartitionUrl,
-      Number(alphabillTokenPartitionId),
-      Number(alphabillNetworkId),
+      alphabillTokenPartitionId,
+      alphabillNetworkId,
     );
     await alphabillClient.initialSetup();
     return alphabillClient;
