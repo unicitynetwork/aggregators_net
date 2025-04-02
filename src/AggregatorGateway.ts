@@ -12,7 +12,7 @@ import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import bodyParser from 'body-parser';
 import cors from 'cors';
-import express, { Express, Request, Response } from 'express';
+import express, { Request, Response } from 'express';
 
 import { AggregatorService } from './AggregatorService.js';
 import { AlphabillClient } from './alphabill/AlphabillClient.js';
@@ -24,72 +24,123 @@ import { ISmtStorage } from './smt/ISmtStorage.js';
 import { MockAlphabillClient } from '../tests/mocks/MockAlphabillClient.js';
 
 export interface IGatewayConfig {
-  port?: number;
   sslCertPath?: string;
   sslKeyPath?: string;
-  enableHA?: boolean;
-  useAlphabillMock?: boolean;
-  alphabillPrivateKey?: string;
-  alphabillTokenPartitionUrl?: string;
-  alphabillTokenPartitionId?: string;
-  alphabillNetworkId?: string;
+  port?: number;
+  alphabill?: IAlphabillConfig;
+  highAvailability?: IHighAvailabilityConfig;
+  storage?: IStorageConfig;
+}
+
+export interface IAlphabillConfig {
+  useMock?: boolean;
+  privateKey?: string;
+  tokenPartitionUrl?: string;
+  tokenPartitionId?: number;
+  networkId?: number;
+}
+
+export interface IHighAvailabilityConfig {
+  enabled?: boolean;
   lockTtlSeconds?: number;
-  leaderHeartbeatIntervalMs?: number;
-  leaderElectionPollingIntervalMs?: number;
-  mongoUri?: string;
+  leaderHeartbeatInterval?: number;
+  leaderElectionPollingInterval?: number;
+}
+
+export interface IStorageConfig {
+  uri?: string;
 }
 
 export class AggregatorGateway {
-  private app: Express;
-  private server: Server | null = null;
-  private aggregatorService: AggregatorService | null = null;
-  private leaderElection: LeaderElection | null = null;
-  private config: IGatewayConfig;
-  private storage: Storage | null = null;
   private serverId: string;
-  private isRunning = false;
+  private server: Server;
+  private leaderElection: LeaderElection | null;
 
-  public constructor(config: IGatewayConfig = {}) {
-    this.config = {
+  private constructor(serverId: string, server: Server, leaderElection: LeaderElection | null) {
+    this.serverId = serverId;
+    this.server = server;
+    this.leaderElection = leaderElection;
+  }
+
+  public static async create(config: IGatewayConfig = {}): Promise<AggregatorGateway> {
+    config = {
       port: config.port || 80,
       sslCertPath: config.sslCertPath || '',
       sslKeyPath: config.sslKeyPath || '',
-      enableHA: config.enableHA !== undefined ? config.enableHA : false,
-      useAlphabillMock: config.useAlphabillMock !== undefined ? config.useAlphabillMock : false,
-      alphabillPrivateKey: config.alphabillPrivateKey,
-      alphabillTokenPartitionUrl: config.alphabillTokenPartitionUrl,
-      alphabillTokenPartitionId: config.alphabillTokenPartitionId,
-      alphabillNetworkId: config.alphabillNetworkId,
-      lockTtlSeconds: config.lockTtlSeconds || 30,
-      leaderHeartbeatIntervalMs: config.leaderHeartbeatIntervalMs || 10000,
-      leaderElectionPollingIntervalMs: config.leaderElectionPollingIntervalMs || 5000,
-      mongoUri: config.mongoUri || 'mongodb://localhost:27017/',
+      highAvailability: {
+        enabled: config.highAvailability?.enabled ?? false,
+        lockTtlSeconds: config.highAvailability?.lockTtlSeconds || 30,
+        leaderHeartbeatInterval: config.highAvailability?.leaderHeartbeatInterval || 10000,
+        leaderElectionPollingInterval: config.highAvailability?.leaderElectionPollingInterval || 5000,
+      },
+      alphabill: {
+        useMock: config.alphabill?.useMock ?? false,
+        networkId: config.alphabill?.networkId,
+        tokenPartitionId: config.alphabill?.tokenPartitionId,
+        tokenPartitionUrl: config.alphabill?.tokenPartitionUrl,
+        privateKey: config.alphabill?.privateKey,
+      },
+      storage: {
+        uri: config.storage?.uri || 'mongodb://localhost:27017/',
+      },
     };
+    const serverId = 'server-' + Math.random().toString(36).substring(2, 10);
+    const mongoUri = config.storage?.uri || 'mongodb://localhost:27017/';
+    const storage = await Storage.init(mongoUri);
 
-    this.serverId = 'server-' + Math.random().toString(36).substring(2, 10);
+    const alphabillClient = await AggregatorGateway.setupAlphabillClient(config.alphabill ?? {}, serverId);
+    const smt = await AggregatorGateway.setupSmt(storage.smt, serverId);
+    const aggregatorService = new AggregatorService(alphabillClient, smt, storage.records);
 
-    this.app = express();
-    this.app.use(cors());
-    this.app.use(bodyParser.json());
+    let leaderElection: LeaderElection | null = null;
+    if (config.highAvailability?.enabled) {
+      const { leaderHeartbeatInterval, leaderElectionPollingInterval, lockTtlSeconds } = config.highAvailability;
+      if (!storage.db) {
+        throw new Error('MongoDB database connection not available for leader election.');
+      }
 
-    this.app.get('/health', ((req: Request, res: Response) => {
-      if (!this.config.enableHA || (this.leaderElection && this.leaderElection.isCurrentLeader())) {
+      const leadershipStorage = new MongoLeadershipStorage(storage.db, {
+        ttlSeconds: lockTtlSeconds!,
+        collectionName: 'leader_election',
+      });
+
+      leaderElection = new LeaderElection(leadershipStorage, {
+        heartbeatInterval: leaderHeartbeatInterval!,
+        electionPollingInterval: leaderElectionPollingInterval!,
+        lockTtlSeconds: lockTtlSeconds!,
+        lockId: 'aggregator_leader_lock',
+        onBecomeLeader(): void {
+          return AggregatorGateway.onBecomeLeader(serverId);
+        },
+        onLoseLeadership(): void {
+          return AggregatorGateway.onLoseLeadership(serverId);
+        },
+        serverId: serverId,
+      });
+    } else {
+      console.log('High availability mode is disabled.');
+    }
+    const app = express();
+    app.use(cors());
+    app.use(bodyParser.json());
+
+    app.get('/health', (req: Request, res: Response): any => {
+      if (!config.highAvailability?.enabled || (leaderElection && leaderElection.isCurrentLeader())) {
         return res.status(200).json({
           status: 'ok',
-          role: this.config.enableHA ? 'leader' : 'standalone',
-          serverId: this.serverId,
+          role: config.highAvailability?.enabled ? 'leader' : 'standalone',
+          serverId: serverId,
         });
       }
       return res.status(503).json({
         status: 'standby',
         role: 'standby',
-        serverId: this.serverId,
+        serverId: serverId,
       });
-    }) as any);
+    });
 
-    // Setup JSON-RPC endpoint
-    this.app.post('/', ((req: Request, res: Response) => {
-      if (!this.aggregatorService) {
+    app.post('/', async (req: Request, res: Response): Promise<any> => {
+      if (!aggregatorService) {
         return res.status(500).json({
           jsonrpc: '2.0',
           error: {
@@ -111,7 +162,7 @@ export class AggregatorGateway {
         });
       }
 
-      if (this.config.enableHA && this.leaderElection && !this.leaderElection.isCurrentLeader()) {
+      if (config.highAvailability?.enabled && leaderElection && !leaderElection.isCurrentLeader()) {
         return res.status(503).json({
           jsonrpc: '2.0',
           error: {
@@ -128,16 +179,17 @@ export class AggregatorGateway {
             const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
             const transactionHash: DataHash = DataHash.fromDto(req.body.params.transactionHash);
             const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
-            return res.send(
-              JSON.stringify(this.aggregatorService.submitStateTransition(requestId, transactionHash, authenticator)),
-            );
+            const response = await aggregatorService.submitStateTransition(requestId, transactionHash, authenticator);
+            return res.send(JSON.stringify(response));
           }
           case 'get_inclusion_proof': {
             const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
-            return res.send(JSON.stringify(this.aggregatorService.getInclusionProof(requestId)));
+            const inclusionProof = await aggregatorService.getInclusionProof(requestId);
+            return res.send(JSON.stringify(inclusionProof));
           }
           case 'get_no_deletion_proof': {
-            return res.send(JSON.stringify(this.aggregatorService.getNodeletionProof()));
+            const nodeletionProof = await aggregatorService.getNodeletionProof();
+            return res.send(JSON.stringify(nodeletionProof));
           }
           default: {
             return res.sendStatus(400);
@@ -154,180 +206,93 @@ export class AggregatorGateway {
           id: req.body.id,
         });
       }
-    }) as any);
-  }
-
-  /**
-   * Initialize the gateway by setting up storage, clients, and services
-   */
-  public async init(): Promise<void> {
-    const mongoUri = this.config.mongoUri || 'mongodb://localhost:27017/';
-    this.storage = await Storage.init(mongoUri);
-
-    const alphabillClient = await this.setupAlphabillClient();
-    const smt = await this.setupSmt(this.storage.smt);
-
-    this.aggregatorService = new AggregatorService(alphabillClient, smt, this.storage.records);
-
-    // Setup high availability if enabled
-    if (this.config.enableHA) {
-      if (!this.storage.db) {
-        throw new Error('MongoDB database connection not available for leader election');
-      }
-
-      const leadershipStorage = new MongoLeadershipStorage(this.storage.db, {
-        ttlSeconds: this.config.lockTtlSeconds as number,
-        collectionName: 'leader_election',
-      });
-
-      this.leaderElection = new LeaderElection(leadershipStorage, {
-        heartbeatIntervalMs: this.config.leaderHeartbeatIntervalMs as number,
-        electionPollingIntervalMs: this.config.leaderElectionPollingIntervalMs as number,
-        lockTtlSeconds: this.config.lockTtlSeconds as number,
-        lockId: 'aggregator_leader_lock',
-        onBecomeLeader: () => this.onBecomeLeader(),
-        onLoseLeadership: () => this.onLoseLeadership(),
-        serverId: this.serverId,
-      });
-    } else {
-      console.log('High availability mode is disabled');
-    }
-  }
-
-  public async start(): Promise<void> {
-    if (!this.aggregatorService) {
-      throw new Error('Gateway not initialized. Call init() first.');
-    }
-
-    if (this.isRunning) return;
-
-    this.isRunning = true;
-
-    this.startHttpServer();
-
-    if (this.config.enableHA && this.leaderElection) {
-      await this.leaderElection.start();
-      console.log(`Leader election process started for server ${this.serverId}`);
-    }
-  }
-
-  /**
-   * Stop the gateway
-   */
-  public async stop(): Promise<void> {
-    if (!this.isRunning) return;
-
-    this.isRunning = false;
-
-    if (this.config.enableHA && this.leaderElection) {
-      await this.leaderElection.shutdown();
-    }
-
-    if (this.server) {
-      await new Promise<void>((resolve) => {
-        this.server?.close(() => {
-          this.server = null;
-          resolve();
-        });
-      });
-    }
-  }
-
-  /**
-   * Check if this instance is the current leader
-   */
-  public isLeader(): boolean {
-    return !this.config.enableHA || this.leaderElection?.isCurrentLeader() || false;
-  }
-
-  /**
-   * Get the server ID of this instance
-   */
-  public getServerId(): string {
-    return this.serverId;
-  }
-
-  private onBecomeLeader(): void {
-    console.log(`Server ${this.serverId} became the leader`);
-  }
-
-  private onLoseLeadership(): void {
-    console.log(`Server ${this.serverId} lost leadership`);
-  }
-
-  private startHttpServer(): void {
-    if (this.server) return;
-
-    const { sslCertPath, sslKeyPath, port } = this.config;
-
-    this.server =
-      sslCertPath && sslKeyPath && existsSync(sslCertPath) && existsSync(sslKeyPath)
-        ? https.createServer(
-            {
-              cert: readFileSync(sslCertPath),
-              key: readFileSync(sslKeyPath),
-            },
-            this.app,
-          )
-        : http.createServer(this.app);
-
-    this.server.listen(port, () => {
-      const protocol = this.server instanceof https.Server ? 'HTTPS' : 'HTTP';
-      console.log(`Unicity Aggregator (${protocol}) listening on port ${port} with server ID ${this.serverId}`);
     });
+
+    const { sslCertPath, sslKeyPath, port } = config;
+
+    const server =
+      sslCertPath && sslKeyPath && existsSync(sslCertPath) && existsSync(sslKeyPath)
+        ? https.createServer({ cert: readFileSync(sslCertPath), key: readFileSync(sslKeyPath) }, app)
+        : http.createServer(app);
+
+    server.listen(port, () => {
+      const protocol = server instanceof https.Server ? 'HTTPS' : 'HTTP';
+      console.log(`Unicity Aggregator (${protocol}) listening on port ${port} with server ID ${serverId}`);
+    });
+
+    if (config.highAvailability?.enabled && leaderElection) {
+      await leaderElection.start();
+      console.log(`Leader election process started for server ${serverId}.`);
+    }
+
+    return new AggregatorGateway(serverId, server, leaderElection);
   }
 
-  private async setupAlphabillClient(): Promise<IAlphabillClient> {
-    const {
-      useAlphabillMock,
-      alphabillPrivateKey,
-      alphabillTokenPartitionUrl,
-      alphabillTokenPartitionId,
-      alphabillNetworkId,
-    } = this.config;
+  private static onBecomeLeader(aggregatorServerId: string): void {
+    console.log(`Server ${aggregatorServerId} became the leader.`);
+  }
 
-    if (useAlphabillMock) {
-      console.log(`Server ${this.serverId} using mock AlphabillClient`);
+  private static onLoseLeadership(aggregatorServerId: string): void {
+    console.log(`Server ${aggregatorServerId} lost leadership.`);
+  }
+
+  private static async setupAlphabillClient(
+    config: IAlphabillConfig,
+    aggregatorServerId: string,
+  ): Promise<IAlphabillClient> {
+    const { useMock, privateKey, tokenPartitionUrl, tokenPartitionId, networkId } = config;
+    if (useMock) {
+      console.log(`Server ${aggregatorServerId} using mock AlphabillClient.`);
       return new MockAlphabillClient();
     }
-
-    console.log(`Server ${this.serverId} using real AlphabillClient`);
-    if (!alphabillPrivateKey) {
+    console.log(`Server ${aggregatorServerId} using real AlphabillClient.`);
+    if (!privateKey) {
       throw new Error('Alphabill private key must be defined in hex encoding.');
     }
-    const signingService = new DefaultSigningService(HexConverter.decode(alphabillPrivateKey));
-
-    if (!alphabillTokenPartitionUrl) {
+    const signingService = new DefaultSigningService(HexConverter.decode(privateKey));
+    if (!tokenPartitionUrl) {
       throw new Error('Alphabill token partition URL must be defined.');
     }
-
-    if (!alphabillTokenPartitionId) {
+    if (!tokenPartitionId) {
       throw new Error('Alphabill token partition ID must be defined.');
     }
-
-    if (!alphabillNetworkId) {
+    if (!networkId) {
       throw new Error('Alphabill network ID must be defined.');
     }
-
-    const alphabillClient = new AlphabillClient(
-      signingService,
-      alphabillTokenPartitionUrl,
-      Number(alphabillTokenPartitionId),
-      Number(alphabillNetworkId),
-    );
-    await alphabillClient.initialSetup();
-    return alphabillClient;
+    return await AlphabillClient.create(signingService, tokenPartitionUrl, tokenPartitionId, networkId);
   }
 
-  private async setupSmt(smtStorage: ISmtStorage): Promise<SparseMerkleTree> {
+  private static async setupSmt(smtStorage: ISmtStorage, aggregatorServerId: string): Promise<SparseMerkleTree> {
     const smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
     const smtLeaves = await smtStorage.getAll();
     if (smtLeaves.length > 0) {
-      console.log(`Server ${this.serverId} found %s leaves from storage.`, smtLeaves.length);
+      console.log(`Server ${aggregatorServerId} found %s leaves from storage.`, smtLeaves.length);
       console.log('Constructing tree...');
       smtLeaves.forEach((leaf) => smt.addLeaf(leaf.path, leaf.value));
       console.log('Tree with root hash %s constructed successfully.', smt.rootHash.toString());
     }
     return smt;
+  }
+
+  /**
+   * Stop the services started by aggregator.
+   */
+  public async stop(): Promise<void> {
+    await this.leaderElection?.shutdown();
+    this.server?.close();
+  }
+
+  /**
+   * Check if this instance is the current leader.
+   */
+  public isLeader(): boolean {
+    return this.leaderElection?.isCurrentLeader() || false;
+  }
+
+  /**
+   * Get the server ID of this instance.
+   */
+  public getServerId(): string {
+    return this.serverId;
   }
 }

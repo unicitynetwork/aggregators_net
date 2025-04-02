@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type AxiosResponse } from 'axios';
 import { MongoClient, Db } from 'mongodb';
 import mongoose from 'mongoose';
 import { GenericContainer, StartedTestContainer } from 'testcontainers';
@@ -59,49 +59,26 @@ describe('High Availability Tests', () => {
 
   it('Should elect a single leader among multiple server instances', async () => {
     console.log('\n----- TEST 1: Leader Election -----');
-    const gateway1 = new AggregatorGateway({
-      port: 3001,
-      enableHA: true,
-      useAlphabillMock: true,
-      lockTtlSeconds: 10,
-      leaderHeartbeatIntervalMs: 2000,
-      leaderElectionPollingIntervalMs: 3000,
-      mongoUri: mongoUri,
-    });
-
-    const gateway2 = new AggregatorGateway({
-      port: 3002,
-      enableHA: true,
-      useAlphabillMock: true,
-      lockTtlSeconds: 10,
-      leaderHeartbeatIntervalMs: 2000,
-      leaderElectionPollingIntervalMs: 3000,
-      mongoUri: mongoUri,
-    });
-
-    const gateway3 = new AggregatorGateway({
-      port: 3003,
-      enableHA: true,
-      useAlphabillMock: true,
-      lockTtlSeconds: 10,
-      leaderHeartbeatIntervalMs: 2000,
-      leaderElectionPollingIntervalMs: 3000,
-      mongoUri: mongoUri,
-    });
+    const gatewayConfiguration = {
+      highAvailability: {
+        enabled: true,
+        lockTtlSeconds: 10,
+        leaderHeartbeatInterval: 2000,
+        leaderElectionPollingInterval: 3000,
+      },
+      alphabill: {
+        useMock: true,
+      },
+      storage: {
+        uri: mongoUri,
+      },
+    };
+    console.log('Starting gateways...');
+    const gateway1 = await AggregatorGateway.create({ port: 3001, ...gatewayConfiguration });
+    const gateway2 = await AggregatorGateway.create({ port: 3002, ...gatewayConfiguration });
+    const gateway3 = await AggregatorGateway.create({ port: 3003, ...gatewayConfiguration });
 
     gateways.push(gateway1, gateway2, gateway3);
-
-    await gateway1.init();
-    await gateway2.init();
-    await gateway3.init();
-
-    console.log('Starting gateways with staggered delays...');
-    await gateway1.start();
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    await gateway2.start();
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    await gateway3.start();
-
     console.log('Starting initial leader election...');
 
     let hasLeader = false;
@@ -129,6 +106,9 @@ describe('High Availability Tests', () => {
       axios.get('http://localhost:3003/health').catch((e) => e.response || { status: 0, data: null }),
     ]);
 
+    console.log(response1);
+    console.log(response2);
+    console.log(response3);
     const leaders = [response1, response2, response3].filter(
       (response) => response && response.status === 200 && response.data?.role === 'leader',
     );
@@ -197,7 +177,7 @@ describe('High Availability Tests', () => {
         gateways[2] !== currentLeader
           ? axios.get('http://localhost:3003/health').catch((e) => e.response || { status: 0, data: null })
           : null,
-      ].filter(Boolean) as Promise<any>[],
+      ].filter(Boolean) as Promise<AxiosResponse>[],
     );
 
     const newLeaders = remainingResponses.filter(

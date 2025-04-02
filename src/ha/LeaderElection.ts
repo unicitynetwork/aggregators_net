@@ -3,8 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { ILeadershipStorage } from './ILeadershipStorage.js';
 
 interface ILeaderElectionOptions {
-  heartbeatIntervalMs: number; // How often to send heartbeats
-  electionPollingIntervalMs: number; // How often to try to acquire leadership
+  heartbeatInterval: number; // How often to send heartbeats
+  electionPollingInterval: number; // How often to try to acquire leadership
   lockTtlSeconds: number; // How long a lock can be held without heartbeat
   lockId?: string; // Optional custom lock ID
   onBecomeLeader?: () => void; // Optional callback when becoming leader
@@ -41,8 +41,8 @@ export class LeaderElection {
     options: ILeaderElectionOptions,
   ) {
     this.LOCK_ID = options.lockId || 'leader_lock';
-    this.HEARTBEAT_INTERVAL = options.heartbeatIntervalMs;
-    this.ELECTION_POLLING_INTERVAL = options.electionPollingIntervalMs;
+    this.HEARTBEAT_INTERVAL = options.heartbeatInterval;
+    this.ELECTION_POLLING_INTERVAL = options.electionPollingInterval;
     this.LOCK_TTL_SECONDS = options.lockTtlSeconds;
     this.SERVER_ID = options.serverId || uuidv4();
 
@@ -54,7 +54,7 @@ export class LeaderElection {
   }
 
   /**
-   * Start the leader election process
+   * Start the leader election process.
    */
   public async start(): Promise<void> {
     if (this.isRunning) return;
@@ -72,7 +72,45 @@ export class LeaderElection {
   }
 
   /**
-   * Try to acquire leadership
+   * Gracefully shutdown the leader election process.
+   */
+  public async shutdown(): Promise<void> {
+    // First set running to false to prevent any new timer callbacks
+    this.isRunning = false;
+
+    // Immediately clear any existing timers
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = undefined;
+    }
+
+    if (this.electionPollingInterval) {
+      clearInterval(this.electionPollingInterval);
+      this.electionPollingInterval = undefined;
+    }
+
+    if (this.isLeader) {
+      try {
+        await this.storage.releaseLock(this.LOCK_ID, this.SERVER_ID);
+      } catch (error) {
+        console.error('Error releasing leadership lock:', error);
+      } finally {
+        this.isLeader = false;
+      }
+    }
+
+    console.log('Leader election process shutdown completed.');
+  }
+
+  /**
+   * Check if this instance is currently the leader.
+   */
+  public isCurrentLeader(): boolean {
+    return this.isLeader;
+  }
+
+  /**
+   * Try to acquire leadership.
    */
   private async tryAcquireLeadership(): Promise<boolean> {
     try {
@@ -104,7 +142,7 @@ export class LeaderElection {
   }
 
   /**
-   * Start sending heartbeats to maintain leadership
+   * Start sending heartbeats to maintain leadership.
    */
   private startHeartbeat(): void {
     if (this.heartbeatInterval) {
@@ -116,7 +154,7 @@ export class LeaderElection {
         const success = await this.storage.updateHeartbeat(this.LOCK_ID, this.SERVER_ID);
 
         if (!success) {
-          console.log('Lost leadership during heartbeat, stepping down');
+          console.log('Lost leadership during heartbeat, stepping down.');
           this.stepDown();
         }
       } catch (error) {
@@ -142,7 +180,7 @@ export class LeaderElection {
   }
 
   /**
-   * Step down from leadership
+   * Step down from leadership.
    */
   private stepDown(): void {
     if (this.heartbeatInterval) {
@@ -161,43 +199,5 @@ export class LeaderElection {
     if (!this.electionPollingInterval && this.isRunning) {
       this.startElectionPolling();
     }
-  }
-
-  /**
-   * Gracefully shutdown the leader election process
-   */
-  public async shutdown(): Promise<void> {
-    // First set running to false to prevent any new timer callbacks
-    this.isRunning = false;
-
-    // Immediately clear any existing timers
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = undefined;
-    }
-
-    if (this.electionPollingInterval) {
-      clearInterval(this.electionPollingInterval);
-      this.electionPollingInterval = undefined;
-    }
-
-    if (this.isLeader) {
-      try {
-        await this.storage.releaseLock(this.LOCK_ID, this.SERVER_ID);
-      } catch (error) {
-        console.error('Error releasing leadership lock:', error);
-      } finally {
-        this.isLeader = false;
-      }
-    }
-
-    console.log('Leader election process shutdown completed');
-  }
-
-  /**
-   * Check if this instance is currently the leader
-   */
-  public isCurrentLeader(): boolean {
-    return this.isLeader;
   }
 }

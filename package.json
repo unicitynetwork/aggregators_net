@@ -6,12 +6,14 @@
   "scripts": {
     "build": "webpack",
     "start": "npm run build && node dist/index.cjs",
-    "docker:mongo": "docker compose -f src/database/mongo/docker/docker-compose.yml up -d",
-    "docker:mongo:down": "docker compose -f src/database/mongo/docker/docker-compose.yml down -v",
+    "docker:mongo": "docker compose -f tests/docker/storage/mongo/docker-compose.yml up -d",
+    "docker:mongo:down": "docker compose -f tests/docker/storage/mongo/docker-compose.yml down -v",
+    "docker:alphabill": "docker compose -f tests/docker/alphabill/docker-compose.yml up -d",
+    "docker:alphabill:down": "docker compose -f tests/docker/alphabill/docker-compose.yml down -v",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --fix",
-    "test": "jest tests/",
-    "test:ci": "jest tests/ --ci --reporters=default"
+    "test": "jest tests/ --runInBand",
+    "test:ci": "jest tests/ --runInBand --ci --reporters=default"
   },
   "type": "module",
   "repository": {
@@ -37,6 +39,7 @@
     "@types/cors": "2.8.17",
     "@types/express": "5.0.1",
     "@types/jest": "29.5.14",
+    "axios": "1.8.4",
     "babel-jest": "29.7.0",
     "babel-loader": "10.0.0",
     "eslint": "9.23.0",
@@ -45,6 +48,7 @@
     "eslint-plugin-prettier": "5.2.3",
     "globals": "16.0.0",
     "jest": "29.7.0",
+    "testcontainers": "10.23.0",
     "ts-loader": "9.5.2",
     "typescript-eslint": "8.28.0",
     "webpack": "5.98.0",

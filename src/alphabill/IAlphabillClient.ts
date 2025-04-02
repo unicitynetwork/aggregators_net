@@ -4,5 +4,4 @@ import { SubmitHashResponse } from './SubmitHashResponse.js';
 
 export interface IAlphabillClient {
   submitHash(transactionHash: DataHash): Promise<SubmitHashResponse>;
-  initialSetup(): Promise<void>;
 }
