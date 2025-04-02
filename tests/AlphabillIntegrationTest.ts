@@ -1,5 +1,3 @@
-import assert from 'node:assert';
-
 import { AddFeeCredit } from '@alphabill/alphabill-js-sdk/lib/fees/transactions/AddFeeCredit.js';
 import { TransferFeeCredit } from '@alphabill/alphabill-js-sdk/lib/fees/transactions/TransferFeeCredit.js';
 import { Bill } from '@alphabill/alphabill-js-sdk/lib/money/Bill.js';
@@ -7,12 +5,8 @@ import { DefaultSigningService } from '@alphabill/alphabill-js-sdk/lib/signing/D
 import { createMoneyClient, createTokenClient, http } from '@alphabill/alphabill-js-sdk/lib/StateApiClientFactory.js';
 import { ClientMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/ClientMetadata.js';
 import { AlwaysTruePredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/AlwaysTruePredicate.js';
-import {
-  PayToPublicKeyHashPredicate
-} from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/PayToPublicKeyHashPredicate.js';
-import {
-  PayToPublicKeyHashProofFactory
-} from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/PayToPublicKeyHashProofFactory.js';
+import { PayToPublicKeyHashPredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/PayToPublicKeyHashPredicate.js';
+import { PayToPublicKeyHashProofFactory } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/PayToPublicKeyHashProofFactory.js';
 import { TransactionStatus } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionStatus.js';
 import { Base16Converter } from '@alphabill/alphabill-js-sdk/lib/util/Base16Converter.js';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
@@ -45,12 +39,14 @@ describe('Alphabill Client Integration Tests', () => {
   let aggregatorEnvironment: StartedDockerComposeEnvironment;
 
   beforeAll(async () => {
+    console.log('Setting up test environment with Alphabill root nodes, token and money partitions and MongoDB...');
     aggregatorEnvironment = await new DockerComposeEnvironment(composeFilePath, [composeAlphabill, composeMongo])
       .withBuild()
       .withWaitStrategy('alphabill-money-1', Wait.forHealthCheck())
       .withWaitStrategy('alphabill-tokens-1', Wait.forHealthCheck())
       .withStartupTimeout(15000)
       .up();
+    console.log('Setup successful.');
     requestId = await RequestId.create(new Uint8Array(), stateHash);
   });
 
@@ -60,10 +56,10 @@ describe('Alphabill Client Integration Tests', () => {
 
   it('Add fee credit', async () => {
     const moneyClient = createMoneyClient({
-      transport: http(moneyPartitionUrl)
+      transport: http(moneyPartitionUrl),
     });
     const tokenClient = createTokenClient({
-      transport: http(tokenPartitionUrl)
+      transport: http(tokenPartitionUrl),
     });
 
     const ownerPredicate = PayToPublicKeyHashPredicate.create(publicKey);
@@ -85,21 +81,21 @@ describe('Alphabill Client Integration Tests', () => {
       targetPartitionIdentifier: tokenPartitionId,
       latestAdditionTime: round + 60n,
       feeCreditRecord: {
-        ownerPredicate: ownerPredicate
+        ownerPredicate: ownerPredicate,
       },
       bill: bill!,
       stateLock: null,
       metadata: new ClientMetadata(round + 60n, 5n, null, new Uint8Array()),
       stateUnlock: new AlwaysTruePredicate(),
       networkIdentifier: networkId,
-      partitionIdentifier: moneyPartitionId
+      partitionIdentifier: moneyPartitionId,
     }).sign(proofFactory);
 
     const transferFeeCreditHash = await moneyClient.sendTransaction(transferFeeCreditTransactionOrder);
 
     const transferFeeCreditProof = await moneyClient.waitTransactionProof(transferFeeCreditHash, TransferFeeCredit);
     expect(transferFeeCreditProof.transactionRecord.serverMetadata.successIndicator).toEqual(
-      TransactionStatus.Successful
+      TransactionStatus.Successful,
     );
     console.log('Transfer to fee credit successful.');
     const feeCreditRecordId = transferFeeCreditTransactionOrder.payload.attributes.targetUnitId;
@@ -115,32 +111,30 @@ describe('Alphabill Client Integration Tests', () => {
       metadata: new ClientMetadata(round + 60n, 5n, null, new Uint8Array()),
       stateUnlock: new AlwaysTruePredicate(),
       networkIdentifier: networkId,
-      partitionIdentifier: tokenPartitionId
+      partitionIdentifier: tokenPartitionId,
     }).sign(proofFactory);
 
     const addFeeCreditHash = await tokenClient.sendTransaction(addFeeCreditTransactionOrder);
     const addFeeCreditProof = await tokenClient.waitTransactionProof(addFeeCreditHash, AddFeeCredit);
-    expect(addFeeCreditProof.transactionRecord.serverMetadata.successIndicator).toEqual(
-      TransactionStatus.Successful
-    );
+    expect(addFeeCreditProof.transactionRecord.serverMetadata.successIndicator).toEqual(TransactionStatus.Successful);
     console.log('Adding fee credit successful.');
   });
 
   it('Submit hash and get inclusion proof', async () => {
-    const aggregator = new AggregatorGateway({
-      alphabillPrivateKey: privateKey,
-      alphabillNetworkId: networkId,
-      alphabillTokenPartitionUrl: tokenPartitionUrl,
-      alphabillTokenPartitionId: tokenPartitionId
+    const aggregator = await AggregatorGateway.create({
+      alphabill: {
+        privateKey: privateKey,
+        networkId: networkId,
+        tokenPartitionUrl: tokenPartitionUrl,
+        tokenPartitionId: tokenPartitionId,
+      },
     });
-    await aggregator.init();
-    await aggregator.start();
     const transactionHash: DataHash = new DataHash(HashAlgorithm.SHA256, new Uint8Array());
     const authenticator: Authenticator = new Authenticator(
       signingService.publicKey,
       'SHA-256',
       new Uint8Array(),
-      stateHash
+      stateHash,
     );
     const submitTransactionResponse = await fetch('http://localhost:80', {
       method: 'POST',
@@ -151,13 +145,13 @@ describe('Alphabill Client Integration Tests', () => {
         params: {
           requestId: requestId.toDto(),
           transactionHash: transactionHash.toDto(),
-          authenticator: authenticator.toDto()
-        }
-      })
+          authenticator: authenticator.toDto(),
+        },
+      }),
     });
     const submitTransactionData = await submitTransactionResponse.json();
     expect(submitTransactionData).not.toBeNull();
-    console.log(submitTransactionData);
+    console.log('Submit transaction response: ' + JSON.stringify(submitTransactionData, null, 2));
 
     const getInclusionProofResponse = await fetch('http://localhost:80', {
       method: 'POST',
@@ -166,12 +160,13 @@ describe('Alphabill Client Integration Tests', () => {
         jsonrpc: '2.0',
         method: 'get_inclusion_proof',
         params: {
-          requestId: requestId.toDto()
-        }
-      })
+          requestId: requestId.toDto(),
+        },
+      }),
     });
     const inclusionProofData = await getInclusionProofResponse.json();
     expect(inclusionProofData).not.toBeNull();
-    console.log(inclusionProofData);
+    console.log('Get inclusion proof response: ' + JSON.stringify(inclusionProofData, null, 2));
+    await aggregator.stop();
   });
 });

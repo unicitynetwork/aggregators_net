@@ -15,9 +15,9 @@ import { TransactionRecordWithProof } from '@alphabill/alphabill-js-sdk/lib/tran
 import {
   InputRecord,
   ShardTreeCertificate,
-  UnicityTreeCertificate,
-  UnicitySeal,
   UnicityCertificate,
+  UnicitySeal,
+  UnicityTreeCertificate,
 } from '@alphabill/alphabill-js-sdk/lib/unit/UnicityCertificate.js';
 import { UnitId } from '@alphabill/alphabill-js-sdk/lib/UnitId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
@@ -28,12 +28,8 @@ import { SubmitHashResponse } from '../../src/alphabill/SubmitHashResponse.js';
 class MockSigningService implements ISigningService {
   public publicKey = new Uint8Array([1, 2, 3, 4]);
 
-  async sign(message: Uint8Array): Promise<Uint8Array> {
+  public async sign(message: Uint8Array): Promise<Uint8Array> {
     return new Uint8Array([5, 6, 7, 8]);
-  }
-
-  async verify(message: Uint8Array, signature: Uint8Array): Promise<boolean> {
-    return true;
   }
 }
 
@@ -63,10 +59,6 @@ export class MockAlphabillClient implements IAlphabillClient {
 
     console.log('Mock Alphabill client: submitting hash successfully');
     return new SubmitHashResponse(previousData, txProof);
-  }
-
-  public async initialSetup(): Promise<void> {
-    console.log('Mock Alphabill client setup completed successfully');
   }
 
   private createMockTransactionProof(
@@ -104,24 +96,9 @@ export class MockAlphabillClient implements IAlphabillClient {
       },
     } as unknown as UpdateNonFungibleTokenTransactionOrder;
 
-    const serverMetadata = {
-      roundNumber: 1n,
-      fee: 1n,
-      actualFee: 1n,
-      successIndicator: 0,
-      blockNumber: 1n,
-      feeCreditRecordId: null,
-      hash: new Uint8Array([7, 8, 9]),
-      rpcErrors: null,
-      _targetUnitIds: [],
-      _processingDetails: null,
-      targetUnitIds: [],
-      processingDetails: null,
-    } as unknown as ServerMetadata;
-
     const transactionRecord = {
       transactionOrder: updateOrder,
-      serverMetadata: serverMetadata,
+      serverMetadata: new ServerMetadata(1n, [], 0, null),
     } as TransactionRecord<UpdateNonFungibleTokenTransactionOrder>;
 
     const inputRecord = new InputRecord(1n, 1n, 1n, null, null, new Uint8Array([1]), 1n, null, 1n);
