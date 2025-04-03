@@ -1,18 +1,19 @@
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
-import { IInclusionProofDto, InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
-import { ISubmitStateTransitionResponseDto } from '@unicitylabs/commons/lib/api/ISubmitStateTransitionResponseDto.js';
+import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
-import { SubmitStateTransitionStatus } from '@unicitylabs/commons/lib/api/SubmitStateTransitionStatus.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 
+import { IAggregatorConfig } from './AggregatorGateway.js';
 import { IAlphabillClient } from './alphabill/IAlphabillClient.js';
 import { AggregatorRecord } from './records/AggregatorRecord.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { SmtNode } from './smt/SmtNode.js';
-import { SubmitStateTransitionResponse } from './SubmitStateTransitionResponse.js';
+import { SubmitStateTransitionResponse, SubmitStateTransitionStatus } from './SubmitStateTransitionResponse.js';
+
 export class AggregatorService {
   public constructor(
+    public readonly config: IAggregatorConfig,
     public readonly alphabillClient: IAlphabillClient,
     public readonly smt: SparseMerkleTree,
     public readonly recordStorage: IAggregatorRecordStorage,
@@ -22,7 +23,7 @@ export class AggregatorService {
     requestId: RequestId,
     transactionHash: DataHash,
     authenticator: Authenticator,
-  ): Promise<ISubmitStateTransitionResponseDto> {
+  ): Promise<SubmitStateTransitionResponse> {
     const existingRecord = await this.recordStorage.get(requestId);
     if (existingRecord != null) {
       if (existingRecord.rootHash.equals(transactionHash)) {
@@ -31,19 +32,31 @@ export class AggregatorService {
         return new SubmitStateTransitionResponse(
           new InclusionProof(merkleTreePath, existingRecord.authenticator, existingRecord.rootHash),
           SubmitStateTransitionStatus.SUCCESS,
-        ).toDto();
+        );
       }
-      throw new Error('Request ID already exists with different transaction hash.');
+      return new SubmitStateTransitionResponse(null, SubmitStateTransitionStatus.REQUEST_ID_EXISTS);
     }
 
-    if (!authenticator.verify(transactionHash)) {
-      throw new Error('Authenticator verification failed.');
+    if (!(await authenticator.verify(transactionHash))) {
+      return new SubmitStateTransitionResponse(null, SubmitStateTransitionStatus.AUTHENTICATOR_VERIFICATION_FAILED);
     }
 
     const submitHashResponse = await this.alphabillClient.submitHash(transactionHash);
     const txProof = submitHashResponse.txProof;
-    const previousBlockData = submitHashResponse.previousBlockData;
-    const record = new AggregatorRecord(transactionHash, previousBlockData, authenticator, txProof);
+    const previousBlockHash = submitHashResponse.previousBlockHash;
+    const blockNumber = 1n; // TODO add block number
+    const record = new AggregatorRecord(
+      this.config.chainId!,
+      this.config.version!,
+      this.config.forkId!,
+      blockNumber,
+      txProof.transactionProof.unicityCertificate.unicitySeal.timestamp,
+      txProof,
+      previousBlockHash,
+      transactionHash,
+      null, // TODO add noDeletionProof
+      authenticator,
+    );
     await this.recordStorage.put(requestId, record);
 
     const leaf = new SmtNode(requestId.toBigInt(), transactionHash.data);
@@ -55,16 +68,16 @@ export class AggregatorService {
     return new SubmitStateTransitionResponse(
       new InclusionProof(merkleTreePath, record.authenticator, newRootHash),
       SubmitStateTransitionStatus.SUCCESS,
-    ).toDto();
+    );
   }
 
-  public async getInclusionProof(requestId: RequestId): Promise<IInclusionProofDto> {
+  public async getInclusionProof(requestId: RequestId): Promise<InclusionProof | null> {
     const record = await this.recordStorage.get(requestId);
     if (!record) {
-      throw new Error('Record not found by request ID ' + requestId.toString());
+      return null;
     }
     const merkleTreePath = this.smt.getPath(requestId.toBigInt());
-    return new InclusionProof(merkleTreePath, record.authenticator, record.rootHash).toDto();
+    return new InclusionProof(merkleTreePath, record.authenticator, record.rootHash);
   }
 
   public getNodeletionProof(): Promise<void> {

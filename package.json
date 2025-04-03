@@ -12,7 +12,7 @@
     "docker:alphabill:down": "docker compose -f tests/docker/alphabill/docker-compose.yml down -v",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --fix",
-    "test": "jest tests/ --runInBand",
+    "test": "jest tests/ --runInBand --detectOpenHandles",
     "test:ci": "jest tests/ --runInBand --ci --reporters=default"
   },
   "type": "module",

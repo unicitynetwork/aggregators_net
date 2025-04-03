@@ -7,24 +7,41 @@ import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
 export class AggregatorRecord {
   public constructor(
-    public readonly rootHash: DataHash,
-    private readonly _previousBlockData: Uint8Array | null,
-    public readonly authenticator: Authenticator,
+    public readonly chainId: number,
+    public readonly version: number,
+    public readonly forkId: number,
+    public readonly index: bigint,
+    public readonly timestamp: bigint,
     public readonly txProof: TransactionRecordWithProof<UpdateNonFungibleTokenTransactionOrder>,
+    private readonly _previousBlockHash: Uint8Array | null,
+    public readonly rootHash: DataHash,
+    private readonly _noDeletionProofHash: Uint8Array | null,
+    public readonly authenticator: Authenticator,
   ) {
-    this._previousBlockData = _previousBlockData ? new Uint8Array(_previousBlockData) : null;
+    this._previousBlockHash = _previousBlockHash ? new Uint8Array(_previousBlockHash) : null;
+    this._noDeletionProofHash = _noDeletionProofHash ? new Uint8Array(_noDeletionProofHash) : null;
   }
 
-  public get previousBlockData(): Uint8Array | null {
-    return this._previousBlockData ? new Uint8Array(this._previousBlockData) : null;
+  public get previousBlockHash(): Uint8Array | null {
+    return this._previousBlockHash ? new Uint8Array(this._previousBlockHash) : null;
+  }
+
+  public get noDeletionProofHash(): Uint8Array | null {
+    return this._noDeletionProofHash ? new Uint8Array(this._noDeletionProofHash) : null;
   }
 
   public toString(): string {
     return dedent`
       Aggregator Record
-        Root Hash: ${this.rootHash.toString()}
-        Previous Block Data: ${this._previousBlockData ? HexConverter.encode(this._previousBlockData) : 'null'}
-        ${this.authenticator.toString()}
-        ${this.txProof.toString()}`;
+        Chain ID: ${this.chainId}
+        Version: ${this.version}
+        Fork ID: ${this.forkId}
+        Index: ${this.index}
+        Timestamp: ${this.timestamp}
+        ${this.txProof.toString()}
+        Previous Block Hash: ${this._previousBlockHash ? HexConverter.encode(this._previousBlockHash) : 'null'}
+        SMT Root Hash: ${this.rootHash.toString()}
+        No Deletion Proof: ${this._noDeletionProofHash ? HexConverter.encode(this._noDeletionProofHash) : 'null'}
+        ${this.authenticator.toString()}`;
   }
 }

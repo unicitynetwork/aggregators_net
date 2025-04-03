@@ -8,16 +8,22 @@ interface ISMTNode {
 }
 
 interface IAggregatorRecord {
+  chainId: number;
+  version: number;
+  forkId: number;
+  index: bigint;
+  timestamp: bigint;
   requestId: bigint;
   rootHash: Uint8Array;
-  previousBlockData: Uint8Array;
+  previousBlockHash: Uint8Array | null;
+  txProof: Uint8Array;
+  noDeletionProof: Uint8Array | null;
   authenticator: {
     publicKey: Uint8Array;
     algorithm: string;
     signature: Uint8Array;
     stateHash: Uint8Array;
   };
-  txProof: Uint8Array;
 }
 
 const LeafSchema = new mongoose.Schema({
@@ -26,17 +32,22 @@ const LeafSchema = new mongoose.Schema({
 });
 
 const AggregatorRecordSchema = new mongoose.Schema({
+  requestId: { required: true, type: SCHEMA_TYPES.BIGINT_BINARY, unique: true },
+  chainId: { required: true, type: Number },
+  version: { required: true, type: Number },
+  forkId: { required: true, type: Number },
+  index: { required: true, type: SCHEMA_TYPES.BIGINT_BINARY },
+  txProof: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
+  previousBlockHash: { required: false, type: SCHEMA_TYPES.UINT8_ARRAY },
+  rootHash: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
+  noDeletionProofHash: { required: false, type: SCHEMA_TYPES.UINT8_ARRAY },
   authenticator: {
     algorithm: { required: true, type: String },
     publicKey: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
     signature: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
     stateHash: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
   },
-  previousBlockData: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
-  requestId: { required: true, type: SCHEMA_TYPES.BIGINT_BINARY, unique: true },
-  rootHash: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
-  txProof: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
 });
 
-export const LeafModel = mongoose.model<ISMTNode>('Leaf', LeafSchema);
+export const LeafModel = model<ISMTNode>('Leaf', LeafSchema);
 export const AggregatorRecordModel = model<IAggregatorRecord>('AggregatorRecord', AggregatorRecordSchema);

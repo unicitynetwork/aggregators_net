@@ -74,9 +74,9 @@ describe('High Availability Tests', () => {
       },
     };
     console.log('Starting gateways...');
-    const gateway1 = await AggregatorGateway.create({ port: 3001, ...gatewayConfiguration });
-    const gateway2 = await AggregatorGateway.create({ port: 3002, ...gatewayConfiguration });
-    const gateway3 = await AggregatorGateway.create({ port: 3003, ...gatewayConfiguration });
+    const gateway1 = await AggregatorGateway.create({ aggregatorConfig: { port: 3001 }, ...gatewayConfiguration });
+    const gateway2 = await AggregatorGateway.create({ aggregatorConfig: { port: 3002 }, ...gatewayConfiguration });
+    const gateway3 = await AggregatorGateway.create({ aggregatorConfig: { port: 3003 }, ...gatewayConfiguration });
 
     gateways.push(gateway1, gateway2, gateway3);
     console.log('Starting initial leader election...');

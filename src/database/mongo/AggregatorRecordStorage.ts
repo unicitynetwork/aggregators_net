@@ -13,16 +13,22 @@ import { IAggregatorRecordStorage } from '../../records/IAggregatorRecordStorage
 export class AggregatorRecordStorage implements IAggregatorRecordStorage {
   public async put(requestId: RequestId, record: AggregatorRecord): Promise<boolean> {
     await new AggregatorRecordModel({
+      requestId: requestId.toBigInt(),
+      chainId: record.chainId,
+      version: record.version,
+      forkId: record.forkId,
+      index: record.index,
+      timestamp: record.timestamp,
+      txProof: record.txProof.encode(),
+      previousBlockHash: record.previousBlockHash ?? new Uint8Array(),
+      rootHash: record.rootHash.imprint,
+      noDeletionProofHash: record.noDeletionProofHash,
       authenticator: {
         algorithm: record.authenticator.algorithm,
         publicKey: record.authenticator.publicKey,
         signature: record.authenticator.signature,
         stateHash: record.authenticator.stateHash.imprint,
       },
-      previousBlockData: record.previousBlockData || new Uint8Array(),
-      requestId: requestId.toBigInt(),
-      rootHash: record.rootHash.imprint,
-      txProof: record.txProof.encode(),
     }).save();
     return true;
   }
@@ -42,7 +48,19 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
       DataHash.fromImprint(stored.authenticator.stateHash),
     );
     const decodedProof = this.decodeTxProof(stored.txProof);
-    return new AggregatorRecord(rootHash, stored.previousBlockData || null, authenticator, decodedProof);
+    const timestamp = decodedProof.transactionProof.unicityCertificate.unicitySeal.timestamp;
+    return new AggregatorRecord(
+      stored.chainId,
+      stored.version,
+      stored.forkId,
+      stored.index,
+      timestamp,
+      decodedProof,
+      stored.previousBlockHash ?? null,
+      rootHash,
+      null, // TODO Add noDeletionProof
+      authenticator,
+    );
   }
 
   private decodeTxProof(txProofBytes: Uint8Array): TransactionRecordWithProof<UpdateNonFungibleTokenTransactionOrder> {

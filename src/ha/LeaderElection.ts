@@ -40,11 +40,11 @@ export class LeaderElection {
     private readonly storage: ILeadershipStorage,
     options: ILeaderElectionOptions,
   ) {
-    this.LOCK_ID = options.lockId || 'leader_lock';
+    this.LOCK_ID = options.lockId ?? 'leader_lock';
     this.HEARTBEAT_INTERVAL = options.heartbeatInterval;
     this.ELECTION_POLLING_INTERVAL = options.electionPollingInterval;
     this.LOCK_TTL_SECONDS = options.lockTtlSeconds;
-    this.SERVER_ID = options.serverId || uuidv4();
+    this.SERVER_ID = options.serverId ?? uuidv4();
 
     this.onBecomeLeaderCallback = options.onBecomeLeader;
     this.onLoseLeadershipCallback = options.onLoseLeadership;
