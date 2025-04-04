@@ -1,8 +1,5 @@
-import { AddFeeCredit } from '@alphabill/alphabill-js-sdk/lib/fees/transactions/AddFeeCredit.js';
-import { TransferFeeCredit } from '@alphabill/alphabill-js-sdk/lib/fees/transactions/TransferFeeCredit.js';
-import { Bill } from '@alphabill/alphabill-js-sdk/lib/money/Bill.js';
 import { DefaultSigningService } from '@alphabill/alphabill-js-sdk/lib/signing/DefaultSigningService.js';
-import { createMoneyClient, createTokenClient, http } from '@alphabill/alphabill-js-sdk/lib/StateApiClientFactory.js';
+import { createTokenClient, http } from '@alphabill/alphabill-js-sdk/lib/StateApiClientFactory.js';
 import { ClientMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/ClientMetadata.js';
 import { AlwaysTruePredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/AlwaysTruePredicate.js';
 import { PayToPublicKeyHashPredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/PayToPublicKeyHashPredicate.js';
@@ -20,6 +17,7 @@ import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 
 
 import { AggregatorGateway } from '../../../src/AggregatorGateway.js';
 import { SubmitStateTransitionStatus } from '../../../src/SubmitStateTransitionResponse.js';
+import { SetFeeCredit } from '@alphabill/alphabill-js-sdk/lib/fees/transactions/SetFeeCredit.js';
 
 describe('Alphabill Client Integration Tests', () => {
   jest.setTimeout(60000);
@@ -31,10 +29,8 @@ describe('Alphabill Client Integration Tests', () => {
   const privateKey = '1DE87F189C3C9E42F93C90C95E2AC761BE9D0EB2FD1CA0FF3A9CE165C3DE96A9';
   const alphabillSigningService = new DefaultSigningService(Base16Converter.decode(privateKey));
   const proofFactory = new PayToPublicKeyHashProofFactory(alphabillSigningService);
-  const moneyPartitionUrl = 'http://localhost:8001/rpc';
   const tokenPartitionUrl = 'http://localhost:9001/rpc';
   const networkId = 3;
-  const moneyPartitionId = 1;
   const tokenPartitionId = 2;
 
   let stateHash: DataHash;
@@ -45,10 +41,9 @@ describe('Alphabill Client Integration Tests', () => {
   let unicitySigningService: SigningService;
 
   beforeAll(async () => {
-    console.log('Setting up test environment with Alphabill root nodes, token and money partitions and MongoDB...');
+    console.log('Setting up test environment with Alphabill root nodes, permissioned token partition and MongoDB...');
     aggregatorEnvironment = await new DockerComposeEnvironment(composeFilePath, [composeAlphabill, composeMongo])
       .withBuild()
-      .withWaitStrategy('alphabill-money-1', Wait.forHealthCheck())
       .withWaitStrategy('alphabill-tokens-1', Wait.forHealthCheck())
       .withStartupTimeout(15000)
       .up();
@@ -75,70 +70,28 @@ describe('Alphabill Client Integration Tests', () => {
     await aggregatorEnvironment.down();
   });
 
-  it('Add fee credit', async () => {
-    const moneyClient = createMoneyClient({
-      transport: http(moneyPartitionUrl),
-    });
-    const tokenClient = createTokenClient({
-      transport: http(tokenPartitionUrl),
-    });
-
+  // Can be skipped as docker script already assigns fee credit to admin key. Leaving it here for reference.
+  it.skip('Set fee credit on permissioned Alphabill token partition', async () => {
+    console.log('Setting fee credit...');
+    const tokenClient = createTokenClient({ transport: http(tokenPartitionUrl) });
     const ownerPredicate = PayToPublicKeyHashPredicate.create(alphabillSigningService.publicKey);
-    const unitIds = (await moneyClient.getUnitsByOwnerId(alphabillSigningService.publicKey)).bills;
-    expect(unitIds.length).toBeGreaterThan(0);
-
-    const bill = await moneyClient.getUnit(unitIds[0], false, Bill);
-    expect(bill).not.toBeNull();
-
-    const amountToFeeCredit = 100n;
-    expect(bill!.value).toBeGreaterThan(amountToFeeCredit);
-
     const round = (await tokenClient.getRoundInfo()).roundNumber;
-
-    console.log('Transferring to fee credit...');
-    const transferFeeCreditTransactionOrder = await TransferFeeCredit.create({
-      version: 1n,
-      amount: amountToFeeCredit,
-      targetPartitionIdentifier: tokenPartitionId,
-      latestAdditionTime: round + 60n,
-      feeCreditRecord: {
-        ownerPredicate: ownerPredicate,
-      },
-      bill: bill!,
-      stateLock: null,
-      metadata: new ClientMetadata(round + 60n, 5n, null, new Uint8Array()),
-      stateUnlock: new AlwaysTruePredicate(),
-      networkIdentifier: networkId,
-      partitionIdentifier: moneyPartitionId,
-    }).sign(proofFactory);
-
-    const transferFeeCreditHash = await moneyClient.sendTransaction(transferFeeCreditTransactionOrder);
-
-    const transferFeeCreditProof = await moneyClient.waitTransactionProof(transferFeeCreditHash, TransferFeeCredit);
-    expect(transferFeeCreditProof.transactionRecord.serverMetadata.successIndicator).toEqual(
-      TransactionStatus.Successful,
-    );
-    console.log('Transfer to fee credit successful.');
-    const feeCreditRecordId = transferFeeCreditTransactionOrder.payload.attributes.targetUnitId;
-
-    console.log('Adding fee credit...');
-    const addFeeCreditTransactionOrder = await AddFeeCredit.create({
-      version: 1n,
+    const setFeeCreditTransactionOrder = await SetFeeCredit.create({
       targetPartitionIdentifier: tokenPartitionId,
       ownerPredicate: ownerPredicate,
-      proof: transferFeeCreditProof,
-      feeCreditRecord: { unitId: feeCreditRecordId },
-      stateLock: null,
-      metadata: new ClientMetadata(round + 60n, 5n, null, new Uint8Array()),
-      stateUnlock: new AlwaysTruePredicate(),
+      amount: 100n,
+      feeCreditRecord: { unitId: null, counter: null },
+      version: 1n,
       networkIdentifier: networkId,
       partitionIdentifier: tokenPartitionId,
+      stateLock: null,
+      metadata: new ClientMetadata(round + 60n, 5n, null, null),
+      stateUnlock: new AlwaysTruePredicate(),
     }).sign(proofFactory);
-
-    const addFeeCreditHash = await tokenClient.sendTransaction(addFeeCreditTransactionOrder);
-    const addFeeCreditProof = await tokenClient.waitTransactionProof(addFeeCreditHash, AddFeeCredit);
-    expect(addFeeCreditProof.transactionRecord.serverMetadata.successIndicator).toEqual(TransactionStatus.Successful);
-    console.log('Adding fee credit successful.');
+    const setFeeCreditHash = await tokenClient.sendTransaction(setFeeCreditTransactionOrder);
+    const setFeeCreditProof = await tokenClient.waitTransactionProof(setFeeCreditHash, SetFeeCredit);
+    expect(setFeeCreditProof.transactionRecord.serverMetadata.successIndicator).toEqual(TransactionStatus.Successful);
+    console.log('Setting fee credit successful.')
   });
 
   it('Submit transaction to aggregator', async () => {

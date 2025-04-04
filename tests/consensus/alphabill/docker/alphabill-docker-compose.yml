@@ -56,28 +56,6 @@ services:
       interval: 2s
     networks:
       - default
-  alphabill-money:
-    extends:
-      file: alphabill-docker-services.yml
-      service: alphabill-money
-    volumes:
-      - ./.genesis/money:/genesis
-      - ./.genesis:/genesis-nodes
-    depends_on:
-      alphabill-root1:
-        condition: service_healthy
-      alphabill-root2:
-        condition: service_healthy
-      alphabill-root3:
-        condition: service_healthy
-    ports:
-      - 8001:8001
-      - 8011:8002
-    healthcheck:
-      test: [ "CMD", "nc", "-zv", "alphabill-money", "8001" ]
-      interval: 2s
-    networks:
-      - default
   alphabill-tokens:
     extends:
       file: alphabill-docker-services.yml
@@ -108,8 +86,6 @@ services:
     volumes:
       - ./.genesis/root1:/genesis
     depends_on:
-      generate-money-genesis:
-        condition: service_completed_successfully
       generate-tokens-genesis:
         condition: service_completed_successfully
   generate-root-genesis2:
@@ -119,8 +95,6 @@ services:
     volumes:
       - ./.genesis/root2:/genesis
     depends_on:
-      generate-money-genesis:
-        condition: service_completed_successfully
       generate-tokens-genesis:
         condition: service_completed_successfully
   generate-root-genesis3:
@@ -130,8 +104,6 @@ services:
     volumes:
       - ./.genesis/root3:/genesis
     depends_on:
-      generate-money-genesis:
-        condition: service_completed_successfully
       generate-tokens-genesis:
         condition: service_completed_successfully
   combine-root-genesis1:
@@ -212,11 +184,5 @@ services:
       service: generate-tokens-genesis
     volumes:
       - ./.genesis/tokens:/genesis
-  generate-money-genesis:
-    extends:
-      file: alphabill-docker-services.yml
-      service: generate-money-genesis
-    volumes:
-      - ./.genesis/money:/genesis
 networks:
   default:
