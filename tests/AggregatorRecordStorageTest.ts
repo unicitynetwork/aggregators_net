@@ -105,7 +105,7 @@ describe('Aggregator Record Storage Tests', () => {
       1,
       1,
       1,
-      1n,
+      await storage.getNextBlockNumber(),
       txProof.unicityCertificate.unicitySeal.timestamp,
       recordWithProof,
       new Uint8Array([5, 6, 7, 8]),
@@ -127,7 +127,8 @@ describe('Aggregator Record Storage Tests', () => {
     expect(retrieved.chainId).toEqual(record.chainId);
     expect(retrieved.version).toEqual(record.version);
     expect(retrieved.forkId).toEqual(record.forkId);
-    expect(retrieved.index).toEqual(record.index);
+    expect(retrieved.blockNumber).toEqual(record.blockNumber);
+    expect(retrieved.blockNumber).toEqual(1n);
     expect(retrieved.timestamp).toEqual(record.timestamp);
     const originalProof = record.txProof;
     const retrievedProof = retrieved.txProof;
@@ -155,5 +156,7 @@ describe('Aggregator Record Storage Tests', () => {
     );
     expect(retrieved.authenticator.stateHash.equals(record.authenticator.stateHash)).toBeTruthy();
     expect(retrieved.authenticator.algorithm).toEqual(record.authenticator.algorithm);
+    const nextBlockNumber = await storage.getNextBlockNumber();
+    expect(nextBlockNumber).toEqual(2n);
   });
 });

@@ -11,7 +11,7 @@ interface IAggregatorRecord {
   chainId: number;
   version: number;
   forkId: number;
-  index: bigint;
+  blockNumber: bigint;
   timestamp: bigint;
   requestId: bigint;
   rootHash: Uint8Array;
@@ -36,7 +36,7 @@ const AggregatorRecordSchema = new mongoose.Schema({
   chainId: { required: true, type: Number },
   version: { required: true, type: Number },
   forkId: { required: true, type: Number },
-  index: { required: true, type: SCHEMA_TYPES.BIGINT_BINARY },
+  blockNumber: { index: true, required: true, type: SCHEMA_TYPES.BIGINT_BINARY },
   txProof: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
   previousBlockHash: { required: false, type: SCHEMA_TYPES.UINT8_ARRAY },
   rootHash: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },

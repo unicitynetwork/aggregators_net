@@ -18,7 +18,7 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
       chainId: record.chainId,
       version: record.version,
       forkId: record.forkId,
-      index: record.index,
+      blockNumber: record.blockNumber,
       timestamp: record.timestamp,
       txProof: record.txProof.encode(),
       previousBlockHash: record.previousBlockHash ?? new Uint8Array(),
@@ -54,7 +54,7 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
       stored.chainId,
       stored.version,
       stored.forkId,
-      stored.index,
+      stored.blockNumber,
       timestamp,
       decodedProof,
       stored.previousBlockHash ?? null,
@@ -62,6 +62,14 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
       null, // TODO Add noDeletionProof
       authenticator,
     );
+  }
+
+  public async getNextBlockNumber(): Promise<bigint> {
+    const stored = await AggregatorRecordModel.findOne({}, null, { sort: { blockNumber: -1 } });
+    if (!stored) {
+      return 1n;
+    }
+    return BigInt(stored.blockNumber) + 1n;
   }
 
   private decodeTxProof(txProofBytes: Uint8Array): TransactionRecordWithProof<UpdateNonFungibleTokenTransactionOrder> {

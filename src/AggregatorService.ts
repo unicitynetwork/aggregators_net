@@ -36,7 +36,7 @@ export class AggregatorService {
     const submitHashResponse = await this.alphabillClient.submitHash(transactionHash);
     const txProof = submitHashResponse.txProof;
     const previousBlockHash = submitHashResponse.previousBlockHash;
-    const blockNumber = 1n; // TODO add block number
+    const blockNumber = await this.recordStorage.getNextBlockNumber();
     const record = new AggregatorRecord(
       this.config.chainId!,
       this.config.version!,

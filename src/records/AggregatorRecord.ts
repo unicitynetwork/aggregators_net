@@ -10,7 +10,7 @@ export class AggregatorRecord {
     public readonly chainId: number,
     public readonly version: number,
     public readonly forkId: number,
-    public readonly index: bigint,
+    public readonly blockNumber: bigint,
     public readonly timestamp: bigint,
     public readonly txProof: TransactionRecordWithProof<UpdateNonFungibleTokenTransactionOrder>,
     private readonly _previousBlockHash: Uint8Array | null,
@@ -36,7 +36,7 @@ export class AggregatorRecord {
         Chain ID: ${this.chainId}
         Version: ${this.version}
         Fork ID: ${this.forkId}
-        Index: ${this.index}
+        Block Number: ${this.blockNumber}
         Timestamp: ${this.timestamp}
         ${this.txProof.toString()}
         Previous Block Hash: ${this._previousBlockHash ? HexConverter.encode(this._previousBlockHash) : 'null'}
