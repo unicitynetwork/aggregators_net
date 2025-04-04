@@ -21,15 +21,23 @@ import { Storage } from './database/mongo/Storage.js';
 import { LeaderElection } from './ha/LeaderElection.js';
 import { MongoLeadershipStorage } from './ha/storage/MongoLeadershipStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
+import { SubmitStateTransitionStatus } from './SubmitStateTransitionResponse.js';
 import { MockAlphabillClient } from '../tests/mocks/MockAlphabillClient.js';
 
 export interface IGatewayConfig {
-  sslCertPath?: string;
-  sslKeyPath?: string;
-  port?: number;
+  aggregatorConfig?: IAggregatorConfig;
   alphabill?: IAlphabillConfig;
   highAvailability?: IHighAvailabilityConfig;
   storage?: IStorageConfig;
+}
+
+export interface IAggregatorConfig {
+  chainId?: number;
+  version?: number;
+  forkId?: number;
+  sslCertPath?: string;
+  sslKeyPath?: string;
+  port?: number;
 }
 
 export interface IAlphabillConfig {
@@ -64,14 +72,19 @@ export class AggregatorGateway {
 
   public static async create(config: IGatewayConfig = {}): Promise<AggregatorGateway> {
     config = {
-      port: config.port || 80,
-      sslCertPath: config.sslCertPath || '',
-      sslKeyPath: config.sslKeyPath || '',
+      aggregatorConfig: {
+        chainId: config.aggregatorConfig?.chainId ?? 1,
+        version: config.aggregatorConfig?.version ?? 1,
+        forkId: config.aggregatorConfig?.forkId ?? 1,
+        port: config.aggregatorConfig?.port ?? 80,
+        sslCertPath: config.aggregatorConfig?.sslCertPath ?? '',
+        sslKeyPath: config.aggregatorConfig?.sslKeyPath ?? '',
+      },
       highAvailability: {
         enabled: config.highAvailability?.enabled ?? false,
-        lockTtlSeconds: config.highAvailability?.lockTtlSeconds || 30,
-        leaderHeartbeatInterval: config.highAvailability?.leaderHeartbeatInterval || 10000,
-        leaderElectionPollingInterval: config.highAvailability?.leaderElectionPollingInterval || 5000,
+        lockTtlSeconds: config.highAvailability?.lockTtlSeconds ?? 30,
+        leaderHeartbeatInterval: config.highAvailability?.leaderHeartbeatInterval ?? 10000,
+        leaderElectionPollingInterval: config.highAvailability?.leaderElectionPollingInterval ?? 5000,
       },
       alphabill: {
         useMock: config.alphabill?.useMock ?? false,
@@ -81,16 +94,16 @@ export class AggregatorGateway {
         privateKey: config.alphabill?.privateKey,
       },
       storage: {
-        uri: config.storage?.uri || 'mongodb://localhost:27017/',
+        uri: config.storage?.uri ?? 'mongodb://localhost:27017/',
       },
     };
     const serverId = 'server-' + Math.random().toString(36).substring(2, 10);
-    const mongoUri = config.storage?.uri || 'mongodb://localhost:27017/';
+    const mongoUri = config.storage?.uri ?? 'mongodb://localhost:27017/';
     const storage = await Storage.init(mongoUri);
 
-    const alphabillClient = await AggregatorGateway.setupAlphabillClient(config.alphabill ?? {}, serverId);
+    const alphabillClient = await AggregatorGateway.setupAlphabillClient(config.alphabill!, serverId);
     const smt = await AggregatorGateway.setupSmt(storage.smt, serverId);
-    const aggregatorService = new AggregatorService(alphabillClient, smt, storage.records);
+    const aggregatorService = new AggregatorService(config.aggregatorConfig!, alphabillClient, smt, storage.records);
 
     let leaderElection: LeaderElection | null = null;
     if (config.highAvailability?.enabled) {
@@ -180,16 +193,25 @@ export class AggregatorGateway {
             const transactionHash: DataHash = DataHash.fromDto(req.body.params.transactionHash);
             const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
             const response = await aggregatorService.submitStateTransition(requestId, transactionHash, authenticator);
-            return res.send(JSON.stringify(response));
+            if (response.status !== SubmitStateTransitionStatus.SUCCESS) {
+              return res.status(400).send(response.toDto());
+            }
+            return res.send(JSON.stringify(response.toDto()));
           }
           case 'get_inclusion_proof': {
             const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
             const inclusionProof = await aggregatorService.getInclusionProof(requestId);
-            return res.send(JSON.stringify(inclusionProof));
+            if (inclusionProof == null) {
+              return res.sendStatus(404);
+            }
+            return res.send(JSON.stringify(inclusionProof.toDto()));
           }
           case 'get_no_deletion_proof': {
-            const nodeletionProof = await aggregatorService.getNodeletionProof();
-            return res.send(JSON.stringify(nodeletionProof));
+            const noDeletionProof = await aggregatorService.getNodeletionProof();
+            if (noDeletionProof == null) {
+              return res.sendStatus(404);
+            }
+            return res.send(JSON.stringify(noDeletionProof));
           }
           default: {
             return res.sendStatus(400);
@@ -208,7 +230,7 @@ export class AggregatorGateway {
       }
     });
 
-    const { sslCertPath, sslKeyPath, port } = config;
+    const { sslCertPath, sslKeyPath, port } = config.aggregatorConfig!;
 
     const server =
       sslCertPath && sslKeyPath && existsSync(sslCertPath) && existsSync(sslKeyPath)

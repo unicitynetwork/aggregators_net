@@ -12,10 +12,14 @@ import { Base16Converter } from '@alphabill/alphabill-js-sdk/lib/util/Base16Conv
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
+import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 'testcontainers';
 
 import { AggregatorGateway } from '../src/AggregatorGateway.js';
+import { SubmitStateTransitionStatus } from '../src/SubmitStateTransitionResponse.js';
 
 describe('Alphabill Client Integration Tests', () => {
   jest.setTimeout(60000);
@@ -34,9 +38,10 @@ describe('Alphabill Client Integration Tests', () => {
   const moneyPartitionId = 1;
   const tokenPartitionId = 2;
 
-  const stateHash: DataHash = new DataHash(HashAlgorithm.SHA256, new Uint8Array());
+  let stateHash: DataHash;
   let requestId: RequestId;
   let aggregatorEnvironment: StartedDockerComposeEnvironment;
+  let aggregator: AggregatorGateway;
 
   beforeAll(async () => {
     console.log('Setting up test environment with Alphabill root nodes, token and money partitions and MongoDB...');
@@ -47,11 +52,24 @@ describe('Alphabill Client Integration Tests', () => {
       .withStartupTimeout(15000)
       .up();
     console.log('Setup successful.');
-    requestId = await RequestId.create(new Uint8Array(), stateHash);
+
+    console.log('Starting aggregator...');
+    aggregator = await AggregatorGateway.create({
+      alphabill: {
+        privateKey: privateKey,
+        networkId: networkId,
+        tokenPartitionUrl: tokenPartitionUrl,
+        tokenPartitionId: tokenPartitionId,
+      },
+    });
+    console.log('Aggregator running.');
+    stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2])).digest();
+    requestId = await RequestId.create(signingService.publicKey, stateHash);
   });
 
   afterAll(async () => {
     await aggregatorEnvironment.down();
+    await aggregator.stop();
   });
 
   it('Add fee credit', async () => {
@@ -120,22 +138,12 @@ describe('Alphabill Client Integration Tests', () => {
     console.log('Adding fee credit successful.');
   });
 
-  it('Submit hash and get inclusion proof', async () => {
-    const aggregator = await AggregatorGateway.create({
-      alphabill: {
-        privateKey: privateKey,
-        networkId: networkId,
-        tokenPartitionUrl: tokenPartitionUrl,
-        tokenPartitionId: tokenPartitionId,
-      },
-    });
-    const transactionHash: DataHash = new DataHash(HashAlgorithm.SHA256, new Uint8Array());
-    const authenticator: Authenticator = new Authenticator(
-      signingService.publicKey,
-      'SHA-256',
-      new Uint8Array(),
-      stateHash,
-    );
+  it('Submit transaction to aggregator', async () => {
+    const transactionHash: DataHash = await new DataHasher(HashAlgorithm.SHA256)
+      .update(new Uint8Array([1, 2]))
+      .digest();
+    const unicitySigningService = new SigningService(HexConverter.decode(privateKey));
+    const authenticator: Authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
     const submitTransactionResponse = await fetch('http://localhost:80', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -149,10 +157,13 @@ describe('Alphabill Client Integration Tests', () => {
         },
       }),
     });
+    expect(submitTransactionResponse.status).toEqual(200);
     const submitTransactionData = await submitTransactionResponse.json();
     expect(submitTransactionData).not.toBeNull();
     console.log('Submit transaction response: ' + JSON.stringify(submitTransactionData, null, 2));
+  });
 
+  it('Get inclusion proof', async () => {
     const getInclusionProofResponse = await fetch('http://localhost:80', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -164,9 +175,35 @@ describe('Alphabill Client Integration Tests', () => {
         },
       }),
     });
+    expect(getInclusionProofResponse.status).toEqual(200);
     const inclusionProofData = await getInclusionProofResponse.json();
     expect(inclusionProofData).not.toBeNull();
     console.log('Get inclusion proof response: ' + JSON.stringify(inclusionProofData, null, 2));
-    await aggregator.stop();
+  });
+
+  it('Re-submit transaction to aggregator with non-unique requestID', async () => {
+    const transactionHash: DataHash = await new DataHasher(HashAlgorithm.SHA256)
+      .update(new Uint8Array([1, 2]))
+      .digest();
+    const unicitySigningService = new SigningService(HexConverter.decode(privateKey));
+    const authenticator: Authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
+    const submitTransactionResponse = await fetch('http://localhost:80', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'submit_transaction',
+        params: {
+          requestId: requestId.toDto(),
+          transactionHash: transactionHash.toDto(),
+          authenticator: authenticator.toDto(),
+        },
+      }),
+    });
+    expect(submitTransactionResponse.status).toEqual(400);
+    const submitTransactionData = await submitTransactionResponse.json();
+    expect(submitTransactionData).not.toBeNull();
+    expect(submitTransactionData.status).toEqual(SubmitStateTransitionStatus.REQUEST_ID_EXISTS);
+    console.log('Submit transaction response: ' + JSON.stringify(submitTransactionData, null, 2));
   });
 });

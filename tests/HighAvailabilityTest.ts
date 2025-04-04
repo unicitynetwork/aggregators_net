@@ -74,9 +74,9 @@ describe('High Availability Tests', () => {
       },
     };
     console.log('Starting gateways...');
-    const gateway1 = await AggregatorGateway.create({ port: 3001, ...gatewayConfiguration });
-    const gateway2 = await AggregatorGateway.create({ port: 3002, ...gatewayConfiguration });
-    const gateway3 = await AggregatorGateway.create({ port: 3003, ...gatewayConfiguration });
+    const gateway1 = await AggregatorGateway.create({ aggregatorConfig: { port: 3001 }, ...gatewayConfiguration });
+    const gateway2 = await AggregatorGateway.create({ aggregatorConfig: { port: 3002 }, ...gatewayConfiguration });
+    const gateway3 = await AggregatorGateway.create({ aggregatorConfig: { port: 3003 }, ...gatewayConfiguration });
 
     gateways.push(gateway1, gateway2, gateway3);
     console.log('Starting initial leader election...');
@@ -106,9 +106,9 @@ describe('High Availability Tests', () => {
       axios.get('http://localhost:3003/health').catch((e) => e.response || { status: 0, data: null }),
     ]);
 
-    console.log(response1);
-    console.log(response2);
-    console.log(response3);
+    console.log(response1.data);
+    console.log(response2.data);
+    console.log(response3.data);
     const leaders = [response1, response2, response3].filter(
       (response) => response && response.status === 200 && response.data?.role === 'leader',
     );

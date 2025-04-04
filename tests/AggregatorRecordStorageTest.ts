@@ -1,3 +1,5 @@
+import assert from 'assert';
+
 import { BitString } from '@alphabill/alphabill-js-sdk/lib/codec/cbor/BitString.js';
 import { UpdateNonFungibleTokenAttributes } from '@alphabill/alphabill-js-sdk/lib/tokens/attributes/UpdateNonFungibleTokenAttributes.js';
 import { ClientMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/ClientMetadata.js';
@@ -22,6 +24,7 @@ import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { StartedTestContainer } from 'testcontainers';
 
@@ -94,15 +97,21 @@ describe('Aggregator Record Storage Tests', () => {
     const authenticator = new Authenticator(
       new Uint8Array([1, 2, 3]),
       'ECDSA',
-      new Uint8Array([4, 5, 6]),
+      new Signature(new Uint8Array(64), 0),
       new DataHash(HashAlgorithm.SHA256, new Uint8Array([7, 8, 9])),
     );
 
     const record = new AggregatorRecord(
-      new DataHash(HashAlgorithm.SHA256, new Uint8Array([1, 2, 3, 4])),
-      new Uint8Array([5, 6, 7, 8]),
-      authenticator,
+      1,
+      1,
+      1,
+      await storage.getNextBlockNumber(),
+      txProof.unicityCertificate.unicitySeal.timestamp,
       recordWithProof,
+      new Uint8Array([5, 6, 7, 8]),
+      new DataHash(HashAlgorithm.SHA256, new Uint8Array([1, 2, 3, 4])),
+      null,
+      authenticator,
     );
 
     console.log('Storing record...');
@@ -111,34 +120,43 @@ describe('Aggregator Record Storage Tests', () => {
 
     console.log('Retrieving record...');
     const retrieved = await storage.get(testRequestId);
-
-    if (retrieved) {
-      console.log('Retrieved successfully');
-      console.log('Data comparison:');
-      expect(retrieved.rootHash.equals(record.rootHash)).toBeTruthy();
-      if (retrieved.previousBlockData && record.previousBlockData) {
-        expect(HexConverter.encode(retrieved.previousBlockData)).toEqual(HexConverter.encode(record.previousBlockData));
-      }
-
-      const originalProof = record.txProof;
-      const retrievedProof = retrieved.txProof;
-      console.log('Transaction proof comparison:');
-      expect(originalProof.transactionRecord.transactionOrder.payload.type).toEqual(
-        retrievedProof.transactionRecord.transactionOrder.payload.type,
-      );
-      expect(
-        HexConverter.encode(originalProof.transactionRecord.transactionOrder.payload.attributes.data.bytes),
-      ).toEqual(HexConverter.encode(retrievedProof.transactionRecord.transactionOrder.payload.attributes.data.bytes));
-      expect(HexConverter.encode(retrieved.authenticator.signature)).toEqual(
-        HexConverter.encode(record.authenticator.signature),
-      );
-      expect(HexConverter.encode(retrieved.authenticator.publicKey)).toEqual(
-        HexConverter.encode(record.authenticator.publicKey),
-      );
-      expect(retrieved.authenticator.stateHash.equals(record.authenticator.stateHash)).toBeTruthy();
-      expect(retrieved.authenticator.algorithm).toEqual(record.authenticator.algorithm);
-    } else {
-      console.log('Failed to retrieve record');
+    expect(retrieved).not.toBeNull();
+    assert(retrieved);
+    console.log('Retrieved successfully');
+    console.log('Data comparison:');
+    expect(retrieved.chainId).toEqual(record.chainId);
+    expect(retrieved.version).toEqual(record.version);
+    expect(retrieved.forkId).toEqual(record.forkId);
+    expect(retrieved.blockNumber).toEqual(record.blockNumber);
+    expect(retrieved.blockNumber).toEqual(1n);
+    expect(retrieved.timestamp).toEqual(record.timestamp);
+    const originalProof = record.txProof;
+    const retrievedProof = retrieved.txProof;
+    console.log('Transaction proof comparison:');
+    expect(originalProof.transactionRecord.transactionOrder.payload.type).toEqual(
+      retrievedProof.transactionRecord.transactionOrder.payload.type,
+    );
+    expect(HexConverter.encode(originalProof.transactionRecord.transactionOrder.payload.attributes.data.bytes)).toEqual(
+      HexConverter.encode(retrievedProof.transactionRecord.transactionOrder.payload.attributes.data.bytes),
+    );
+    if (retrieved.previousBlockHash && record.previousBlockHash) {
+      expect(HexConverter.encode(retrieved.previousBlockHash)).toEqual(HexConverter.encode(record.previousBlockHash));
     }
+    expect(retrieved.rootHash.equals(record.rootHash)).toBeTruthy();
+    if (retrieved.noDeletionProofHash && record.noDeletionProofHash) {
+      expect(HexConverter.encode(retrieved.noDeletionProofHash)).toEqual(
+        HexConverter.encode(record.noDeletionProofHash),
+      );
+    }
+    expect(HexConverter.encode(retrieved.authenticator.signature.encode())).toEqual(
+      HexConverter.encode(record.authenticator.signature.encode()),
+    );
+    expect(HexConverter.encode(retrieved.authenticator.publicKey)).toEqual(
+      HexConverter.encode(record.authenticator.publicKey),
+    );
+    expect(retrieved.authenticator.stateHash.equals(record.authenticator.stateHash)).toBeTruthy();
+    expect(retrieved.authenticator.algorithm).toEqual(record.authenticator.algorithm);
+    const nextBlockNumber = await storage.getNextBlockNumber();
+    expect(nextBlockNumber).toEqual(2n);
   });
 });

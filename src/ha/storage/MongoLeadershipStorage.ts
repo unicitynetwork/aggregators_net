@@ -31,7 +31,7 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
     private readonly db: Db,
     options: IMongoLeadershipStorageOptions,
   ) {
-    this.COLLECTION_NAME = options.collectionName || 'leader_election';
+    this.COLLECTION_NAME = options.collectionName ?? 'leader_election';
     this.TTL_SECONDS = options.ttlSeconds;
     this.lockCollection = db.collection<ILockDocument>(this.COLLECTION_NAME);
   }
