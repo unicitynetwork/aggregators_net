@@ -37,7 +37,7 @@ describe('Alphabill Client Integration Tests', () => {
   const moneyPartitionId = 1;
   const tokenPartitionId = 2;
 
-  const stateHash: DataHash = new DataHash(HashAlgorithm.SHA256, new Uint8Array([1, 2]));
+  let stateHash: DataHash;
   let requestId: RequestId;
   let aggregatorEnvironment: StartedDockerComposeEnvironment;
   let aggregator: AggregatorGateway;
@@ -62,6 +62,7 @@ describe('Alphabill Client Integration Tests', () => {
       },
     });
     console.log('Aggregator running.');
+    stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2])).digest();
     requestId = await RequestId.create(signingService.publicKey, stateHash);
   });
 
