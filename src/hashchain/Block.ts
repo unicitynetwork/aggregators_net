@@ -5,12 +5,12 @@ import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
-export class AggregatorRecord {
+export class Block {
   public constructor(
+    public readonly index: bigint,
     public readonly chainId: number,
     public readonly version: number,
     public readonly forkId: number,
-    public readonly blockNumber: bigint,
     public readonly timestamp: bigint,
     public readonly txProof: TransactionRecordWithProof<UpdateNonFungibleTokenTransactionOrder>,
     private readonly _previousBlockHash: Uint8Array | null,
@@ -32,11 +32,11 @@ export class AggregatorRecord {
 
   public toString(): string {
     return dedent`
-      Aggregator Record
+      Block
+        Index: ${this.index}
         Chain ID: ${this.chainId}
         Version: ${this.version}
         Fork ID: ${this.forkId}
-        Block Number: ${this.blockNumber}
         Timestamp: ${this.timestamp}
         ${this.txProof.toString()}
         Previous Block Hash: ${this._previousBlockHash ? HexConverter.encode(this._previousBlockHash) : 'null'}

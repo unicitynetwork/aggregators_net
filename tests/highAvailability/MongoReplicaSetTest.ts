@@ -2,8 +2,8 @@ import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import mongoose from 'mongoose';
 import { GenericContainer, StartedTestContainer, Wait } from 'testcontainers';
 
-import { Storage } from '../src/database/mongo/Storage.js';
-import { SmtNode } from '../src/smt/SmtNode.js';
+import { AggregatorStorage } from '../../src/AggregatorStorage.js';
+import { SmtNode } from '../../src/smt/SmtNode.js';
 
 interface IReplicaSetMember {
   _id: number;
@@ -64,13 +64,13 @@ describe('Mongo Replica Set Tests', () => {
     if (!process.env.MONGODB_URI) {
       throw new Error('MongoDB URI not set in environment');
     }
-    const storage = await Storage.init(process.env.MONGODB_URI);
+    const storage = await AggregatorStorage.init(process.env.MONGODB_URI);
 
     console.log('\nStoring test data...');
     const testLeaf = new SmtNode(BigInt(1), new Uint8Array([1, 2, 3]));
-    await storage.smt.put(testLeaf);
+    await storage.smtStorage.put(testLeaf);
     console.log('Test data stored successfully');
-    const initialLeaves = await storage.smt.getAll();
+    const initialLeaves = await storage.smtStorage.getAll();
     console.log(`Initially stored ${initialLeaves.length} leaves`);
 
     console.log('\nStopping primary node to simulate failure...');
@@ -144,7 +144,7 @@ describe('Mongo Replica Set Tests', () => {
     }
 
     console.log('\nReading data after primary failure...');
-    const leaves = await storage.smt.getAll();
+    const leaves = await storage.smtStorage.getAll();
     console.log(`Successfully retrieved ${leaves.length} leaves after failover`);
 
     if (leaves.length === 0) {
@@ -158,7 +158,7 @@ describe('Mongo Replica Set Tests', () => {
 
     console.log('\nTesting write after failover...');
     const newLeaf = new SmtNode(BigInt(2), new Uint8Array([4, 5, 6]));
-    await storage.smt.put(newLeaf);
+    await storage.smtStorage.put(newLeaf);
     console.log('Successfully wrote new leaf after failover');
   });
 });

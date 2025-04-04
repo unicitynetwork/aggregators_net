@@ -18,20 +18,19 @@ import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 'testcontainers';
 
-import { AggregatorGateway } from '../src/AggregatorGateway.js';
-import { SubmitStateTransitionStatus } from '../src/SubmitStateTransitionResponse.js';
+import { AggregatorGateway } from '../../../src/AggregatorGateway.js';
+import { SubmitStateTransitionStatus } from '../../../src/SubmitStateTransitionResponse.js';
 
 describe('Alphabill Client Integration Tests', () => {
   jest.setTimeout(60000);
 
-  const composeFilePath = 'tests/docker';
-  const composeAlphabill = 'alphabill/docker-compose.yml';
-  const composeMongo = 'storage/mongo/docker-compose.yml';
+  const composeFilePath = 'tests';
+  const composeAlphabill = 'consensus/alphabill/docker/alphabill-docker-compose.yml';
+  const composeMongo = 'docker/mongodb-docker-compose.yml';
 
   const privateKey = '1DE87F189C3C9E42F93C90C95E2AC761BE9D0EB2FD1CA0FF3A9CE165C3DE96A9';
-  const signingService = new DefaultSigningService(Base16Converter.decode(privateKey));
-  const proofFactory = new PayToPublicKeyHashProofFactory(signingService);
-  const publicKey = signingService.publicKey;
+  const alphabillSigningService = new DefaultSigningService(Base16Converter.decode(privateKey));
+  const proofFactory = new PayToPublicKeyHashProofFactory(alphabillSigningService);
   const moneyPartitionUrl = 'http://localhost:8001/rpc';
   const tokenPartitionUrl = 'http://localhost:9001/rpc';
   const networkId = 3;
@@ -39,9 +38,11 @@ describe('Alphabill Client Integration Tests', () => {
   const tokenPartitionId = 2;
 
   let stateHash: DataHash;
+  let transactionHash: DataHash;
   let requestId: RequestId;
   let aggregatorEnvironment: StartedDockerComposeEnvironment;
   let aggregator: AggregatorGateway;
+  let unicitySigningService: SigningService;
 
   beforeAll(async () => {
     console.log('Setting up test environment with Alphabill root nodes, token and money partitions and MongoDB...');
@@ -64,12 +65,14 @@ describe('Alphabill Client Integration Tests', () => {
     });
     console.log('Aggregator running.');
     stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2])).digest();
-    requestId = await RequestId.create(signingService.publicKey, stateHash);
+    transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2])).digest()
+    requestId = await RequestId.create(alphabillSigningService.publicKey, stateHash);
+    unicitySigningService = new SigningService(HexConverter.decode(privateKey));
   });
 
   afterAll(async () => {
-    await aggregatorEnvironment.down();
     await aggregator.stop();
+    await aggregatorEnvironment.down();
   });
 
   it('Add fee credit', async () => {
@@ -80,8 +83,8 @@ describe('Alphabill Client Integration Tests', () => {
       transport: http(tokenPartitionUrl),
     });
 
-    const ownerPredicate = PayToPublicKeyHashPredicate.create(publicKey);
-    const unitIds = (await moneyClient.getUnitsByOwnerId(publicKey)).bills;
+    const ownerPredicate = PayToPublicKeyHashPredicate.create(alphabillSigningService.publicKey);
+    const unitIds = (await moneyClient.getUnitsByOwnerId(alphabillSigningService.publicKey)).bills;
     expect(unitIds.length).toBeGreaterThan(0);
 
     const bill = await moneyClient.getUnit(unitIds[0], false, Bill);
@@ -139,10 +142,6 @@ describe('Alphabill Client Integration Tests', () => {
   });
 
   it('Submit transaction to aggregator', async () => {
-    const transactionHash: DataHash = await new DataHasher(HashAlgorithm.SHA256)
-      .update(new Uint8Array([1, 2]))
-      .digest();
-    const unicitySigningService = new SigningService(HexConverter.decode(privateKey));
     const authenticator: Authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
     const submitTransactionResponse = await fetch('http://localhost:80', {
       method: 'POST',
@@ -182,10 +181,6 @@ describe('Alphabill Client Integration Tests', () => {
   });
 
   it('Re-submit transaction to aggregator with non-unique requestID', async () => {
-    const transactionHash: DataHash = await new DataHasher(HashAlgorithm.SHA256)
-      .update(new Uint8Array([1, 2]))
-      .digest();
-    const unicitySigningService = new SigningService(HexConverter.decode(privateKey));
     const authenticator: Authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
     const submitTransactionResponse = await fetch('http://localhost:80', {
       method: 'POST',

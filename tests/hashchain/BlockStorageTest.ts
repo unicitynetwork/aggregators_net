@@ -28,25 +28,25 @@ import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { StartedTestContainer } from 'testcontainers';
 
-import { setupTestDatabase, teardownTestDatabase } from './TestUtils.js';
-import { AggregatorRecordStorage } from '../src/database/mongo/AggregatorRecordStorage.js';
-import { AggregatorRecord } from '../src/records/AggregatorRecord.js';
+import { Block } from '../../src/hashchain/Block.js';
+import { BlockStorage } from '../../src/hashchain/BlockStorage.js';
+import { startMongoDb, stopMongoDb } from '../TestContainers.js';
 
-describe('Aggregator Record Storage Tests', () => {
+describe('Block Storage Tests', () => {
   jest.setTimeout(60000);
 
   let container: StartedTestContainer;
 
   beforeAll(async () => {
-    container = (await setupTestDatabase()).container;
+    container = await startMongoDb();
   });
 
   afterAll(async () => {
-    await teardownTestDatabase(container);
+    await stopMongoDb(container);
   });
 
-  it('Store and retrieve record', async () => {
-    const storage = new AggregatorRecordStorage();
+  it('Store and retrieve block', async () => {
+    const storage = new BlockStorage();
     const testRequestId = await RequestId.create(
       new Uint8Array([1, 2, 3, 4]),
       new DataHash(HashAlgorithm.SHA256, new Uint8Array([5, 6, 7, 8])),
@@ -96,16 +96,16 @@ describe('Aggregator Record Storage Tests', () => {
 
     const authenticator = new Authenticator(
       new Uint8Array([1, 2, 3]),
-      'ECDSA',
+      'secp256k1',
       new Signature(new Uint8Array(64), 0),
       new DataHash(HashAlgorithm.SHA256, new Uint8Array([7, 8, 9])),
     );
 
-    const record = new AggregatorRecord(
-      1,
-      1,
-      1,
+    const block = new Block(
       await storage.getNextBlockNumber(),
+      1,
+      1,
+      1,
       txProof.unicityCertificate.unicitySeal.timestamp,
       recordWithProof,
       new Uint8Array([5, 6, 7, 8]),
@@ -114,23 +114,23 @@ describe('Aggregator Record Storage Tests', () => {
       authenticator,
     );
 
-    console.log('Storing record...');
-    const stored = await storage.put(testRequestId, record);
+    console.log('Storing block...');
+    const stored = await storage.put(testRequestId, block);
     console.log('Store result:', stored);
 
-    console.log('Retrieving record...');
+    console.log('Retrieving block...');
     const retrieved = await storage.get(testRequestId);
     expect(retrieved).not.toBeNull();
     assert(retrieved);
     console.log('Retrieved successfully');
     console.log('Data comparison:');
-    expect(retrieved.chainId).toEqual(record.chainId);
-    expect(retrieved.version).toEqual(record.version);
-    expect(retrieved.forkId).toEqual(record.forkId);
-    expect(retrieved.blockNumber).toEqual(record.blockNumber);
-    expect(retrieved.blockNumber).toEqual(1n);
-    expect(retrieved.timestamp).toEqual(record.timestamp);
-    const originalProof = record.txProof;
+    expect(retrieved.index).toEqual(block.index);
+    expect(retrieved.index).toEqual(1n);
+    expect(retrieved.chainId).toEqual(block.chainId);
+    expect(retrieved.version).toEqual(block.version);
+    expect(retrieved.forkId).toEqual(block.forkId);
+    expect(retrieved.timestamp).toEqual(block.timestamp);
+    const originalProof = block.txProof;
     const retrievedProof = retrieved.txProof;
     console.log('Transaction proof comparison:');
     expect(originalProof.transactionRecord.transactionOrder.payload.type).toEqual(
@@ -139,23 +139,23 @@ describe('Aggregator Record Storage Tests', () => {
     expect(HexConverter.encode(originalProof.transactionRecord.transactionOrder.payload.attributes.data.bytes)).toEqual(
       HexConverter.encode(retrievedProof.transactionRecord.transactionOrder.payload.attributes.data.bytes),
     );
-    if (retrieved.previousBlockHash && record.previousBlockHash) {
-      expect(HexConverter.encode(retrieved.previousBlockHash)).toEqual(HexConverter.encode(record.previousBlockHash));
+    if (retrieved.previousBlockHash && block.previousBlockHash) {
+      expect(HexConverter.encode(retrieved.previousBlockHash)).toEqual(HexConverter.encode(block.previousBlockHash));
     }
-    expect(retrieved.rootHash.equals(record.rootHash)).toBeTruthy();
-    if (retrieved.noDeletionProofHash && record.noDeletionProofHash) {
+    expect(retrieved.rootHash.equals(block.rootHash)).toBeTruthy();
+    if (retrieved.noDeletionProofHash && block.noDeletionProofHash) {
       expect(HexConverter.encode(retrieved.noDeletionProofHash)).toEqual(
-        HexConverter.encode(record.noDeletionProofHash),
+        HexConverter.encode(block.noDeletionProofHash),
       );
     }
     expect(HexConverter.encode(retrieved.authenticator.signature.encode())).toEqual(
-      HexConverter.encode(record.authenticator.signature.encode()),
+      HexConverter.encode(block.authenticator.signature.encode()),
     );
     expect(HexConverter.encode(retrieved.authenticator.publicKey)).toEqual(
-      HexConverter.encode(record.authenticator.publicKey),
+      HexConverter.encode(block.authenticator.publicKey),
     );
-    expect(retrieved.authenticator.stateHash.equals(record.authenticator.stateHash)).toBeTruthy();
-    expect(retrieved.authenticator.algorithm).toEqual(record.authenticator.algorithm);
+    expect(retrieved.authenticator.stateHash.equals(block.authenticator.stateHash)).toBeTruthy();
+    expect(retrieved.authenticator.algorithm).toEqual(block.authenticator.algorithm);
     const nextBlockNumber = await storage.getNextBlockNumber();
     expect(nextBlockNumber).toEqual(2n);
   });

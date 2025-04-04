@@ -15,14 +15,14 @@ import cors from 'cors';
 import express, { Request, Response } from 'express';
 
 import { AggregatorService } from './AggregatorService.js';
-import { AlphabillClient } from './alphabill/AlphabillClient.js';
-import { IAlphabillClient } from './alphabill/IAlphabillClient.js';
-import { Storage } from './database/mongo/Storage.js';
-import { LeaderElection } from './ha/LeaderElection.js';
-import { MongoLeadershipStorage } from './ha/storage/MongoLeadershipStorage.js';
+import { AggregatorStorage } from './AggregatorStorage.js';
+import { AlphabillClient } from './consensus/alphabill/AlphabillClient.js';
+import { IAlphabillClient } from './consensus/alphabill/IAlphabillClient.js';
+import { LeaderElection } from './highAvailability/LeaderElection.js';
+import { LeadershipStorage } from './highAvailability/LeadershipStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { SubmitStateTransitionStatus } from './SubmitStateTransitionResponse.js';
-import { MockAlphabillClient } from '../tests/mocks/MockAlphabillClient.js';
+import { MockAlphabillClient } from '../tests/consensus/alphabill/MockAlphabillClient.js';
 
 export interface IGatewayConfig {
   aggregatorConfig?: IAggregatorConfig;
@@ -99,11 +99,16 @@ export class AggregatorGateway {
     };
     const serverId = 'server-' + Math.random().toString(36).substring(2, 10);
     const mongoUri = config.storage?.uri ?? 'mongodb://localhost:27017/';
-    const storage = await Storage.init(mongoUri);
+    const storage = await AggregatorStorage.init(mongoUri);
 
     const alphabillClient = await AggregatorGateway.setupAlphabillClient(config.alphabill!, serverId);
-    const smt = await AggregatorGateway.setupSmt(storage.smt, serverId);
-    const aggregatorService = new AggregatorService(config.aggregatorConfig!, alphabillClient, smt, storage.records);
+    const smt = await AggregatorGateway.setupSmt(storage.smtStorage, serverId);
+    const aggregatorService = new AggregatorService(
+      config.aggregatorConfig!,
+      alphabillClient,
+      smt,
+      storage.blockStorage,
+    );
 
     let leaderElection: LeaderElection | null = null;
     if (config.highAvailability?.enabled) {
@@ -112,7 +117,7 @@ export class AggregatorGateway {
         throw new Error('MongoDB database connection not available for leader election.');
       }
 
-      const leadershipStorage = new MongoLeadershipStorage(storage.db, {
+      const leadershipStorage = new LeadershipStorage(storage.db, {
         ttlSeconds: lockTtlSeconds!,
         collectionName: 'leader_election',
       });

@@ -3,7 +3,7 @@ import { MongoClient, Db } from 'mongodb';
 import mongoose from 'mongoose';
 import { GenericContainer, StartedTestContainer } from 'testcontainers';
 
-import { AggregatorGateway } from '../src/AggregatorGateway.js';
+import { AggregatorGateway } from '../../src/AggregatorGateway.js';
 
 describe('High Availability Tests', () => {
   let mongoClient: MongoClient;

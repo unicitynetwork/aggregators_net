@@ -1,12 +1,7 @@
 import mongoose from 'mongoose';
 import { GenericContainer, StartedTestContainer } from 'testcontainers';
 
-export interface ITestDatabase {
-  container: StartedTestContainer;
-  uri: string;
-}
-
-export async function setupTestDatabase(): Promise<ITestDatabase> {
+export async function startMongoDb(): Promise<StartedTestContainer> {
   const container = await new GenericContainer('mongo:7')
     .withExposedPorts(27017)
     .withCommand(['mongod', '--noauth'])
@@ -23,10 +18,10 @@ export async function setupTestDatabase(): Promise<ITestDatabase> {
 
   await mongoose.connection.dropDatabase();
 
-  return { container, uri };
+  return container;
 }
 
-export async function teardownTestDatabase(container: StartedTestContainer): Promise<void> {
+export async function stopMongoDb(container: StartedTestContainer): Promise<void> {
   await mongoose.disconnect();
   console.log('\nStopping MongoDB container...');
   await container.stop();

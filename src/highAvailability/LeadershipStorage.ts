@@ -1,6 +1,6 @@
 import { Collection, Db } from 'mongodb';
 
-import { ILeadershipStorage } from '../ILeadershipStorage.js';
+import { ILeadershipStorage } from './ILeadershipStorage.js';
 
 interface ILockDocument {
   _id: string;
@@ -8,28 +8,28 @@ interface ILockDocument {
   lastHeartbeat: Date;
 }
 
-interface IMongoLeadershipStorageOptions {
+interface ILeadershipStorageOptions {
   ttlSeconds: number;
   collectionName?: string;
 }
 
 /**
- * MongoDB implementation of the leadership storage
- * Provides atomic operations for leader election using MongoDB
+ * MongoDB implementation of the leadership storage.
+ * Provides atomic operations for leader election using MongoDB.
  */
-export class MongoLeadershipStorage implements ILeadershipStorage {
+export class LeadershipStorage implements ILeadershipStorage {
   private readonly COLLECTION_NAME: string;
   private readonly TTL_SECONDS: number;
   private lockCollection: Collection<ILockDocument>;
 
   /**
-   * Creates a new MongoLeadershipStorage
-   * @param db MongoDB database instance
-   * @param options Configuration options for the storage
+   * Creates a new LeadershipStorage.
+   * @param db MongoDB database instance.
+   * @param options Configuration options for the storage.
    */
   public constructor(
     private readonly db: Db,
-    options: IMongoLeadershipStorageOptions,
+    options: ILeadershipStorageOptions,
   ) {
     this.COLLECTION_NAME = options.collectionName ?? 'leader_election';
     this.TTL_SECONDS = options.ttlSeconds;
@@ -37,8 +37,8 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
   }
 
   /**
-   * Sets up a TTL index on lastHeartbeat to automatically expire locks
-   * @param expirySeconds Seconds after which a lock without heartbeat will be deleted
+   * Sets up a TTL index on lastHeartbeat to automatically expire locks.
+   * @param expirySeconds Seconds after which a lock without heartbeat will be deleted.
    */
   public async setupTTLIndex(expirySeconds: number): Promise<void> {
     try {
@@ -49,10 +49,10 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
   }
 
   /**
-   * Try to acquire a leadership lock
-   * @param lockId The identifier for the lock
-   * @param serverId The unique ID of the server trying to acquire leadership
-   * @returns true if leadership was acquired, false otherwise
+   * Try to acquire a leadership lock.
+   * @param lockId The identifier for the lock.
+   * @param serverId The unique ID of the server trying to acquire leadership.
+   * @returns true if leadership was acquired, false otherwise.
    */
   public async tryAcquireLock(lockId: string, serverId: string): Promise<boolean> {
     try {
@@ -91,10 +91,10 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
   }
 
   /**
-   * Update the heartbeat timestamp to maintain leadership
-   * @param lockId The identifier for the lock
-   * @param serverId The unique ID of the server updating its heartbeat
-   * @returns true if heartbeat was updated, false if leadership was lost
+   * Update the heartbeat timestamp to maintain leadership.
+   * @param lockId The identifier for the lock.
+   * @param serverId The unique ID of the server updating its heartbeat.
+   * @returns true if heartbeat was updated, false if leadership was lost.
    */
   public async updateHeartbeat(lockId: string, serverId: string): Promise<boolean> {
     try {
@@ -121,9 +121,9 @@ export class MongoLeadershipStorage implements ILeadershipStorage {
   }
 
   /**
-   * Release a leadership lock
-   * @param lockId The identifier for the lock
-   * @param serverId The unique ID of the server releasing leadership
+   * Release a leadership lock.
+   * @param lockId The identifier for the lock.
+   * @param serverId The unique ID of the server releasing leadership.
    */
   public async releaseLock(lockId: string, serverId: string): Promise<void> {
     try {

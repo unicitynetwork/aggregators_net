@@ -22,8 +22,8 @@ import {
 import { UnitId } from '@alphabill/alphabill-js-sdk/lib/UnitId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 
-import { IAlphabillClient } from '../../src/alphabill/IAlphabillClient.js';
-import { SubmitHashResponse } from '../../src/alphabill/SubmitHashResponse.js';
+import { IAlphabillClient } from '../../../src/consensus/alphabill/IAlphabillClient.js';
+import { SubmitHashResponse } from '../../../src/consensus/alphabill/SubmitHashResponse.js';
 
 class MockSigningService implements ISigningService {
   public publicKey = new Uint8Array([1, 2, 3, 4]);
