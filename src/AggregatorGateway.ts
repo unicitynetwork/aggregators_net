@@ -16,10 +16,12 @@ import express, { Request, Response } from 'express';
 
 import { AggregatorService } from './AggregatorService.js';
 import { AggregatorStorage } from './AggregatorStorage.js';
+import { Commitment } from './commitment/Commitment.js';
 import { AlphabillClient } from './consensus/alphabill/AlphabillClient.js';
 import { IAlphabillClient } from './consensus/alphabill/IAlphabillClient.js';
 import { LeaderElection } from './highAvailability/LeaderElection.js';
 import { LeadershipStorage } from './highAvailability/LeadershipStorage.js';
+import { RoundManager } from './RoundManager.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { SubmitStateTransitionStatus } from './SubmitStateTransitionResponse.js';
 import { MockAlphabillClient } from '../tests/consensus/alphabill/MockAlphabillClient.js';
@@ -63,11 +65,18 @@ export class AggregatorGateway {
   private serverId: string;
   private server: Server;
   private leaderElection: LeaderElection | null;
+  private storage: AggregatorStorage;
 
-  private constructor(serverId: string, server: Server, leaderElection: LeaderElection | null) {
+  private constructor(
+    serverId: string,
+    server: Server,
+    storage: AggregatorStorage,
+    leaderElection: LeaderElection | null,
+  ) {
     this.serverId = serverId;
     this.server = server;
     this.leaderElection = leaderElection;
+    this.storage = storage;
   }
 
   public static async create(config: IGatewayConfig = {}): Promise<AggregatorGateway> {
@@ -103,12 +112,17 @@ export class AggregatorGateway {
 
     const alphabillClient = await AggregatorGateway.setupAlphabillClient(config.alphabill!, serverId);
     const smt = await AggregatorGateway.setupSmt(storage.smtStorage, serverId);
-    const aggregatorService = new AggregatorService(
+    const roundManager = new RoundManager(
       config.aggregatorConfig!,
       alphabillClient,
       smt,
       storage.blockStorage,
+      storage.recordStorage,
+      storage.commitmentStorage,
     );
+    const aggregatorService = new AggregatorService(roundManager, smt, storage.recordStorage);
+
+    // TODO add periodic call to roundManager.createBlock()
 
     let leaderElection: LeaderElection | null = null;
     if (config.highAvailability?.enabled) {
@@ -197,7 +211,8 @@ export class AggregatorGateway {
             const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
             const transactionHash: DataHash = DataHash.fromDto(req.body.params.transactionHash);
             const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
-            const response = await aggregatorService.submitStateTransition(requestId, transactionHash, authenticator);
+            const commitment = new Commitment(requestId, transactionHash, authenticator);
+            const response = await aggregatorService.submitStateTransition(commitment);
             if (response.status !== SubmitStateTransitionStatus.SUCCESS) {
               return res.status(400).send(response.toDto());
             }
@@ -252,7 +267,7 @@ export class AggregatorGateway {
       console.log(`Leader election process started for server ${serverId}.`);
     }
 
-    return new AggregatorGateway(serverId, server, leaderElection);
+    return new AggregatorGateway(serverId, server, storage, leaderElection);
   }
 
   private static onBecomeLeader(aggregatorServerId: string): void {
@@ -307,6 +322,7 @@ export class AggregatorGateway {
   public async stop(): Promise<void> {
     await this.leaderElection?.shutdown();
     this.server?.close();
+    await this.storage.close();
   }
 
   /**

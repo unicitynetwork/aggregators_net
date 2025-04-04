@@ -1,3 +1,4 @@
+import { SetFeeCredit } from '@alphabill/alphabill-js-sdk/lib/fees/transactions/SetFeeCredit.js';
 import { DefaultSigningService } from '@alphabill/alphabill-js-sdk/lib/signing/DefaultSigningService.js';
 import { createTokenClient, http } from '@alphabill/alphabill-js-sdk/lib/StateApiClientFactory.js';
 import { ClientMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/ClientMetadata.js';
@@ -7,6 +8,7 @@ import { PayToPublicKeyHashProofFactory } from '@alphabill/alphabill-js-sdk/lib/
 import { TransactionStatus } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionStatus.js';
 import { Base16Converter } from '@alphabill/alphabill-js-sdk/lib/util/Base16Converter.js';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
+import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
@@ -17,7 +19,6 @@ import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 
 
 import { AggregatorGateway } from '../../../src/AggregatorGateway.js';
 import { SubmitStateTransitionStatus } from '../../../src/SubmitStateTransitionResponse.js';
-import { SetFeeCredit } from '@alphabill/alphabill-js-sdk/lib/fees/transactions/SetFeeCredit.js';
 
 describe('Alphabill Client Integration Tests', () => {
   jest.setTimeout(60000);
@@ -60,9 +61,9 @@ describe('Alphabill Client Integration Tests', () => {
     });
     console.log('Aggregator running.');
     stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2])).digest();
-    transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2])).digest()
-    requestId = await RequestId.create(alphabillSigningService.publicKey, stateHash);
+    transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2])).digest();
     unicitySigningService = new SigningService(HexConverter.decode(privateKey));
+    requestId = await RequestId.create(unicitySigningService.publicKey, stateHash);
   });
 
   afterAll(async () => {
@@ -91,7 +92,7 @@ describe('Alphabill Client Integration Tests', () => {
     const setFeeCreditHash = await tokenClient.sendTransaction(setFeeCreditTransactionOrder);
     const setFeeCreditProof = await tokenClient.waitTransactionProof(setFeeCreditHash, SetFeeCredit);
     expect(setFeeCreditProof.transactionRecord.serverMetadata.successIndicator).toEqual(TransactionStatus.Successful);
-    console.log('Setting fee credit successful.')
+    console.log('Setting fee credit successful.');
   });
 
   it('Submit transaction to aggregator', async () => {
@@ -131,9 +132,12 @@ describe('Alphabill Client Integration Tests', () => {
     const inclusionProofData = await getInclusionProofResponse.json();
     expect(inclusionProofData).not.toBeNull();
     console.log('Get inclusion proof response: ' + JSON.stringify(inclusionProofData, null, 2));
+    const inclusionProof = InclusionProof.fromDto(inclusionProofData);
+    const verificationResult = await inclusionProof.verify(requestId.toBigInt());
+    expect(verificationResult).toBeTruthy();
   });
 
-  it('Re-submit transaction to aggregator with non-unique requestID', async () => {
+  it('Re-submit transaction to aggregator with repeat requestID and different txHash', async () => {
     const authenticator: Authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
     const submitTransactionResponse = await fetch('http://localhost:80', {
       method: 'POST',
@@ -143,7 +147,9 @@ describe('Alphabill Client Integration Tests', () => {
         method: 'submit_transaction',
         params: {
           requestId: requestId.toDto(),
-          transactionHash: transactionHash.toDto(),
+          transactionHash: (
+            await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 1, 1])).digest()
+          ).toDto(),
           authenticator: authenticator.toDto(),
         },
       }),

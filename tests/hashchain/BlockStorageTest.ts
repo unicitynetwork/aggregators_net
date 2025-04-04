@@ -20,11 +20,8 @@ import {
   UnicitySeal,
 } from '@alphabill/alphabill-js-sdk/lib/unit/UnicityCertificate.js';
 import { UnitId } from '@alphabill/alphabill-js-sdk/lib/UnitId.js';
-import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
-import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
-import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { StartedTestContainer } from 'testcontainers';
 
@@ -47,12 +44,6 @@ describe('Block Storage Tests', () => {
 
   it('Store and retrieve block', async () => {
     const storage = new BlockStorage();
-    const testRequestId = await RequestId.create(
-      new Uint8Array([1, 2, 3, 4]),
-      new DataHash(HashAlgorithm.SHA256, new Uint8Array([5, 6, 7, 8])),
-    );
-    console.log('Using requestId:', testRequestId.toString());
-
     const attributes = new UpdateNonFungibleTokenAttributes({ bytes: new Uint8Array([1, 2, 3]) }, BigInt(1));
 
     const payload = new TransactionPayload<UpdateNonFungibleTokenAttributes>(
@@ -94,13 +85,6 @@ describe('Block Storage Tests', () => {
     const txProof = new TransactionProof(0b11n, new Uint8Array([1]), [], unicityCertificate);
     const recordWithProof = new TransactionRecordWithProof(transactionRecord, txProof);
 
-    const authenticator = new Authenticator(
-      new Uint8Array([1, 2, 3]),
-      'secp256k1',
-      new Signature(new Uint8Array(64), 0),
-      new DataHash(HashAlgorithm.SHA256, new Uint8Array([7, 8, 9])),
-    );
-
     const block = new Block(
       await storage.getNextBlockNumber(),
       1,
@@ -111,15 +95,14 @@ describe('Block Storage Tests', () => {
       new Uint8Array([5, 6, 7, 8]),
       new DataHash(HashAlgorithm.SHA256, new Uint8Array([1, 2, 3, 4])),
       null,
-      authenticator,
     );
 
     console.log('Storing block...');
-    const stored = await storage.put(testRequestId, block);
+    const stored = await storage.put(block);
     console.log('Store result:', stored);
 
     console.log('Retrieving block...');
-    const retrieved = await storage.get(testRequestId);
+    const retrieved = await storage.get(1n);
     expect(retrieved).not.toBeNull();
     assert(retrieved);
     console.log('Retrieved successfully');
@@ -148,14 +131,6 @@ describe('Block Storage Tests', () => {
         HexConverter.encode(block.noDeletionProofHash),
       );
     }
-    expect(HexConverter.encode(retrieved.authenticator.signature.encode())).toEqual(
-      HexConverter.encode(block.authenticator.signature.encode()),
-    );
-    expect(HexConverter.encode(retrieved.authenticator.publicKey)).toEqual(
-      HexConverter.encode(block.authenticator.publicKey),
-    );
-    expect(retrieved.authenticator.stateHash.equals(block.authenticator.stateHash)).toBeTruthy();
-    expect(retrieved.authenticator.algorithm).toEqual(block.authenticator.algorithm);
     const nextBlockNumber = await storage.getNextBlockNumber();
     expect(nextBlockNumber).toEqual(2n);
   });
