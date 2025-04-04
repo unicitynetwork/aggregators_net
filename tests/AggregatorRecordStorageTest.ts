@@ -24,6 +24,7 @@ import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { StartedTestContainer } from 'testcontainers';
 
@@ -96,7 +97,7 @@ describe('Aggregator Record Storage Tests', () => {
     const authenticator = new Authenticator(
       new Uint8Array([1, 2, 3]),
       'ECDSA',
-      new Uint8Array([4, 5, 6]),
+      new Signature(new Uint8Array(64), 0),
       new DataHash(HashAlgorithm.SHA256, new Uint8Array([7, 8, 9])),
     );
 
@@ -146,8 +147,8 @@ describe('Aggregator Record Storage Tests', () => {
         HexConverter.encode(record.noDeletionProofHash),
       );
     }
-    expect(HexConverter.encode(retrieved.authenticator.signature)).toEqual(
-      HexConverter.encode(record.authenticator.signature),
+    expect(HexConverter.encode(retrieved.authenticator.signature.encode())).toEqual(
+      HexConverter.encode(record.authenticator.signature.encode()),
     );
     expect(HexConverter.encode(retrieved.authenticator.publicKey)).toEqual(
       HexConverter.encode(record.authenticator.publicKey),

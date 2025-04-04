@@ -19,6 +19,7 @@ import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 'testcontainers';
 
 import { AggregatorGateway } from '../src/AggregatorGateway.js';
+import { SubmitStateTransitionStatus } from '../src/SubmitStateTransitionResponse.js';
 
 describe('Alphabill Client Integration Tests', () => {
   jest.setTimeout(60000);
@@ -141,11 +142,8 @@ describe('Alphabill Client Integration Tests', () => {
     const transactionHash: DataHash = await new DataHasher(HashAlgorithm.SHA256)
       .update(new Uint8Array([1, 2]))
       .digest();
-    const authenticator: Authenticator = await Authenticator.create(
-      new SigningService(HexConverter.decode(privateKey)),
-      transactionHash,
-      stateHash,
-    );
+    const unicitySigningService = new SigningService(HexConverter.decode(privateKey));
+    const authenticator: Authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
     const submitTransactionResponse = await fetch('http://localhost:80', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -181,5 +179,31 @@ describe('Alphabill Client Integration Tests', () => {
     const inclusionProofData = await getInclusionProofResponse.json();
     expect(inclusionProofData).not.toBeNull();
     console.log('Get inclusion proof response: ' + JSON.stringify(inclusionProofData, null, 2));
+  });
+
+  it('Re-submit transaction to aggregator with non-unique requestID', async () => {
+    const transactionHash: DataHash = await new DataHasher(HashAlgorithm.SHA256)
+      .update(new Uint8Array([1, 2]))
+      .digest();
+    const unicitySigningService = new SigningService(HexConverter.decode(privateKey));
+    const authenticator: Authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
+    const submitTransactionResponse = await fetch('http://localhost:80', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'submit_transaction',
+        params: {
+          requestId: requestId.toDto(),
+          transactionHash: transactionHash.toDto(),
+          authenticator: authenticator.toDto(),
+        },
+      }),
+    });
+    expect(submitTransactionResponse.status).toEqual(400);
+    const submitTransactionData = await submitTransactionResponse.json();
+    expect(submitTransactionData).not.toBeNull();
+    expect(submitTransactionData.status).toEqual(SubmitStateTransitionStatus.REQUEST_ID_EXISTS);
+    console.log('Submit transaction response: ' + JSON.stringify(submitTransactionData, null, 2));
   });
 });

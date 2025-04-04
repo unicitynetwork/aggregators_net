@@ -5,6 +5,7 @@ import { TransactionRecordWithProof } from '@alphabill/alphabill-js-sdk/lib/tran
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
+import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
 
 import { AggregatorRecordModel } from './Models.js';
 import { AggregatorRecord } from '../../records/AggregatorRecord.js';
@@ -26,7 +27,7 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
       authenticator: {
         algorithm: record.authenticator.algorithm,
         publicKey: record.authenticator.publicKey,
-        signature: record.authenticator.signature,
+        signature: record.authenticator.signature.encode(),
         stateHash: record.authenticator.stateHash.imprint,
       },
     }).save();
@@ -44,7 +45,7 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
     const authenticator = new Authenticator(
       stored.authenticator.publicKey,
       stored.authenticator.algorithm,
-      stored.authenticator.signature,
+      new Signature(stored.authenticator.signature.slice(0, -1), stored.authenticator.signature[65]),
       DataHash.fromImprint(stored.authenticator.stateHash),
     );
     const decodedProof = this.decodeTxProof(stored.txProof);

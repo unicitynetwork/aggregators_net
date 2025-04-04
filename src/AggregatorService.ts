@@ -26,14 +26,6 @@ export class AggregatorService {
   ): Promise<SubmitStateTransitionResponse> {
     const existingRecord = await this.recordStorage.get(requestId);
     if (existingRecord != null) {
-      if (existingRecord.rootHash.equals(transactionHash)) {
-        console.log(`Record with ID ${requestId} already exists.`);
-        const merkleTreePath = this.smt.getPath(requestId.toBigInt());
-        return new SubmitStateTransitionResponse(
-          new InclusionProof(merkleTreePath, existingRecord.authenticator, existingRecord.rootHash),
-          SubmitStateTransitionStatus.SUCCESS,
-        );
-      }
       return new SubmitStateTransitionResponse(null, SubmitStateTransitionStatus.REQUEST_ID_EXISTS);
     }
 

@@ -106,9 +106,9 @@ describe('High Availability Tests', () => {
       axios.get('http://localhost:3003/health').catch((e) => e.response || { status: 0, data: null }),
     ]);
 
-    console.log(response1);
-    console.log(response2);
-    console.log(response3);
+    console.log(response1.data);
+    console.log(response2.data);
+    console.log(response3.data);
     const leaders = [response1, response2, response3].filter(
       (response) => response && response.status === 200 && response.data?.role === 'leader',
     );
