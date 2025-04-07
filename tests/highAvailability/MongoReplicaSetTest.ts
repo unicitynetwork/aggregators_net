@@ -37,7 +37,7 @@ describe('Mongo Replica Set Tests', () => {
   afterAll(async () => {
     for (const container of containers) {
       try {
-        await container.stop();
+        await container.stop({ timeout: 10 });
       } catch (e) {
         console.error('Error stopping container:', e);
       }
@@ -81,7 +81,7 @@ describe('Mongo Replica Set Tests', () => {
     });
 
     // Stop the primary
-    await containers[primaryIndex].stop();
+    await containers[primaryIndex].stop({ timeout: 10 });
 
     // Wait for primary election with timeout
     const maxWaitTime = 30000;

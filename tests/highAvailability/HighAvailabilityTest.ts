@@ -34,7 +34,7 @@ describe('High Availability Tests', () => {
 
     if (mongoContainer) {
       console.log('\nStopping MongoDB container...');
-      await mongoContainer.stop();
+      await mongoContainer.stop({ timeout: 10 });
     }
 
     console.log('\n=========== FINISHED ALL HA TESTS ===========');

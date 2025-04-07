@@ -73,7 +73,7 @@ describe('Alphabill Client Integration Tests', () => {
 
   afterAll(async () => {
     await aggregator.stop();
-    await mongoContainer.stop();
+    await mongoContainer.stop({ timeout: 10 });
     await aggregatorEnvironment.down();
   });
 
