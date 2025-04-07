@@ -21,6 +21,7 @@ export class RoundManager {
   ) {}
 
   public async submitCommitment(commitment: Commitment): Promise<boolean> {
+    console.log('Submitting commitment with requestID %s.', commitment.requestId.toString());
     return await this.commitmentStorage.put(commitment);
   }
 

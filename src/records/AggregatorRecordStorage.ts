@@ -34,6 +34,7 @@ const AggregatorRecordModel = model<IAggregatorRecord>('AggregatorRecord', Aggre
 
 export class AggregatorRecordStorage implements IAggregatorRecordStorage {
   public async put(record: AggregatorRecord): Promise<boolean> {
+    console.log('Submitting aggregator record with requestID %s', record.requestId.toString());
     await new AggregatorRecordModel({
       requestId: record.requestId.toBigInt(),
       transactionHash: record.transactionHash.imprint,

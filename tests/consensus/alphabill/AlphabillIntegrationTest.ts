@@ -117,6 +117,7 @@ describe('Alphabill Client Integration Tests', () => {
   });
 
   it('Get inclusion proof', async () => {
+    new Promise((resolve) => setTimeout(resolve, 5000));
     const getInclusionProofResponse = await fetch('http://localhost:80', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -137,8 +138,9 @@ describe('Alphabill Client Integration Tests', () => {
     expect(verificationResult).toBeTruthy();
   });
 
-  it('Re-submit transaction to aggregator with repeat requestID and different txHash', async () => {
-    const authenticator: Authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
+  it('Re-submit transaction to aggregator with same requestID but different state', async () => {
+    const newStateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([3, 4])).digest();
+    const authenticator: Authenticator = await Authenticator.create(unicitySigningService, transactionHash, newStateHash);
     const submitTransactionResponse = await fetch('http://localhost:80', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -147,9 +149,7 @@ describe('Alphabill Client Integration Tests', () => {
         method: 'submit_transaction',
         params: {
           requestId: requestId.toDto(),
-          transactionHash: (
-            await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 1, 1])).digest()
-          ).toDto(),
+          transactionHash: transactionHash.toDto(),
           authenticator: authenticator.toDto(),
         },
       }),

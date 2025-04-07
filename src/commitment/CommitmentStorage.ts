@@ -19,6 +19,10 @@ interface ICommitment {
   };
 }
 
+interface ICursorCheckpoint {
+  id: string;
+}
+
 const CommitmentSchema = new mongoose.Schema(
   {
     requestId: { required: true, type: String, unique: true },
@@ -37,7 +41,20 @@ const CommitmentSchema = new mongoose.Schema(
   },
 );
 
+const CursorCheckpointSchema = new mongoose.Schema(
+  {
+    id: { required: true, type: mongoose.Types.ObjectId, unique: true },
+  },
+  {
+    capped: {
+      size: 4096,
+      max: 1,
+    },
+  },
+);
+
 const CommitmentModel = model<ICommitment>('Commitment', CommitmentSchema);
+const CursorCheckpointModel = model<ICursorCheckpoint>('CursorCheckpoint', CursorCheckpointSchema);
 
 export class CommitmentStorage implements ICommitmentStorage {
   public async put(commitment: Commitment): Promise<boolean> {
@@ -53,9 +70,14 @@ export class CommitmentStorage implements ICommitmentStorage {
     }).save();
     return true;
   }
+
   public async getAll(): Promise<Commitment[]> {
-    // TODO how to keep track of cursor?
-    const stored = await CommitmentModel.find({});
+    const cursorObjectId = await this.getCursor();
+    const stored = await CommitmentModel.find({ _id: { $gt: cursorObjectId } });
+    const latestId: mongoose.Types.ObjectId = stored[stored.length - 1]._id;
+    if (latestId) {
+      await this.updateCursor(latestId);
+    }
     return stored.map((commitment) => {
       const authenticator = new Authenticator(
         commitment.authenticator.publicKey,
@@ -69,5 +91,18 @@ export class CommitmentStorage implements ICommitmentStorage {
         authenticator,
       );
     });
+  }
+
+  private async updateCursor(id: mongoose.Types.ObjectId): Promise<boolean> {
+    await CursorCheckpointModel.insertOne({ id: id });
+    return true;
+  }
+
+  private async getCursor(): Promise<mongoose.Types.ObjectId | null> {
+    const checkpoint = await CursorCheckpointModel.findOne();
+    if (checkpoint) {
+      return checkpoint.id;
+    }
+    return null;
   }
 }

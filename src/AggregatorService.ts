@@ -29,13 +29,13 @@ export class AggregatorService {
       return new SubmitStateTransitionResponse(SubmitStateTransitionStatus.REQUEST_ID_EXISTS);
     }
     const expectedRequestId = await RequestId.create(authenticator.publicKey, authenticator.stateHash);
-    if (expectedRequestId.hash.equals(requestId.hash)) {
+    if (!expectedRequestId.hash.equals(requestId.hash)) {
       return new SubmitStateTransitionResponse(SubmitStateTransitionStatus.REQUEST_ID_MISMATCH);
     }
     if (!(await authenticator.verify(transactionHash))) {
       return new SubmitStateTransitionResponse(SubmitStateTransitionStatus.AUTHENTICATOR_VERIFICATION_FAILED);
     }
-    this.roundManager.submitCommitment(commitment);
+    await this.roundManager.submitCommitment(commitment);
     console.log(`Request with ID ${requestId} successfully submitted to round.`);
     return new SubmitStateTransitionResponse(SubmitStateTransitionStatus.SUCCESS);
   }

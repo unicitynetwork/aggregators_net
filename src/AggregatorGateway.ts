@@ -122,7 +122,7 @@ export class AggregatorGateway {
     );
     const aggregatorService = new AggregatorService(roundManager, smt, storage.recordStorage);
 
-    // TODO add periodic call to roundManager.createBlock()
+    setInterval(roundManager.createBlock, 1000);
 
     let leaderElection: LeaderElection | null = null;
     if (config.highAvailability?.enabled) {
