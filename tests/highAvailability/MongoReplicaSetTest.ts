@@ -35,7 +35,6 @@ describe('Mongo Replica Set Tests', () => {
   });
 
   afterAll(async () => {
-    await mongoose.disconnect();
     for (const container of containers) {
       try {
         await container.stop();

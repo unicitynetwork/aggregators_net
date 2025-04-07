@@ -147,7 +147,6 @@ export class AlphabillClient implements IAlphabillClient {
       throw new Error('NFT not found.');
     }
 
-    console.log(`Updating data for token with ID ${tokenId}`);
     const updateNonFungibleTokenTransactionOrder = await UpdateNonFungibleToken.create({
       data: updatedNftData,
       metadata: new ClientMetadata(round + 60n, 5n, feeCreditRecordId, null),

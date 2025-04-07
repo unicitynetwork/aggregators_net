@@ -23,7 +23,7 @@ import { LeaderElection } from './highAvailability/LeaderElection.js';
 import { LeadershipStorage } from './highAvailability/LeadershipStorage.js';
 import { RoundManager } from './RoundManager.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
-import { SubmitStateTransitionStatus } from './SubmitStateTransitionResponse.js';
+import { SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
 import { MockAlphabillClient } from '../tests/consensus/alphabill/MockAlphabillClient.js';
 
 export interface IGatewayConfig {
@@ -122,19 +122,12 @@ export class AggregatorGateway {
     );
     const aggregatorService = new AggregatorService(roundManager, smt, storage.recordStorage);
 
-    setInterval(roundManager.createBlock, 1000);
+    AggregatorGateway.startNextBlock(roundManager);
 
     let leaderElection: LeaderElection | null = null;
     if (config.highAvailability?.enabled) {
       const { leaderHeartbeatInterval, leaderElectionPollingInterval, lockTtlSeconds } = config.highAvailability;
-      if (!storage.db) {
-        throw new Error('MongoDB database connection not available for leader election.');
-      }
-
-      const leadershipStorage = new LeadershipStorage(storage.db, {
-        ttlSeconds: lockTtlSeconds!,
-        collectionName: 'leader_election',
-      });
+      const leadershipStorage = new LeadershipStorage(lockTtlSeconds!);
 
       leaderElection = new LeaderElection(leadershipStorage, {
         heartbeatInterval: leaderHeartbeatInterval!,
@@ -177,7 +170,7 @@ export class AggregatorGateway {
           jsonrpc: '2.0',
           error: {
             code: -32603,
-            message: 'Internal error: Service not initialized',
+            message: 'Internal error: Service not initialized.',
           },
           id: req.body.id,
         });
@@ -207,13 +200,13 @@ export class AggregatorGateway {
 
       try {
         switch (req.body.method) {
-          case 'submit_transaction': {
+          case 'submit_commitment': {
             const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
             const transactionHash: DataHash = DataHash.fromDto(req.body.params.transactionHash);
             const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
             const commitment = new Commitment(requestId, transactionHash, authenticator);
-            const response = await aggregatorService.submitStateTransition(commitment);
-            if (response.status !== SubmitStateTransitionStatus.SUCCESS) {
+            const response = await aggregatorService.submitCommitment(commitment);
+            if (response.status !== SubmitCommitmentStatus.SUCCESS) {
               return res.status(400).send(response.toDto());
             }
             return res.send(JSON.stringify(response.toDto()));
@@ -316,13 +309,23 @@ export class AggregatorGateway {
     return smt;
   }
 
+  private static startNextBlock(roundManager: RoundManager): void {
+    const time = Date.now();
+    setTimeout(
+      async () => {
+        await roundManager.createBlock();
+        this.startNextBlock(roundManager);
+      },
+      Math.ceil(time / 1000) * 1000 - time,
+    );
+  }
+
   /**
    * Stop the services started by aggregator.
    */
   public async stop(): Promise<void> {
     await this.leaderElection?.shutdown();
     this.server?.close();
-    await this.storage.close();
   }
 
   /**

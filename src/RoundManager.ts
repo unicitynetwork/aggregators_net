@@ -21,14 +21,12 @@ export class RoundManager {
   ) {}
 
   public async submitCommitment(commitment: Commitment): Promise<boolean> {
-    console.log('Submitting commitment with requestID %s.', commitment.requestId.toString());
-    return await this.commitmentStorage.put(commitment);
+    await this.commitmentStorage.put(commitment);
+    return true;
   }
 
   public async createBlock(): Promise<Block> {
-    console.log('Querying all commitments...');
     const commitments = await this.commitmentStorage.getAll();
-    console.log('%s commitments found.', commitments.length);
     for (const commitment of commitments) {
       const nodePath = commitment.requestId.toBigInt();
       const nodeValue = commitment.transactionHash.data;
@@ -39,7 +37,6 @@ export class RoundManager {
       );
     }
     const rootHash = this.smt.rootHash;
-    console.log('New SMT root hash calculated %s.', rootHash.toString());
     const submitHashResponse = await this.alphabillClient.submitHash(rootHash);
     const txProof = submitHashResponse.txProof;
     const previousBlockHash = submitHashResponse.previousBlockHash;

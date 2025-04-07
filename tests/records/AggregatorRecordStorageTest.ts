@@ -46,8 +46,8 @@ describe('Aggregator Record Storage Tests', () => {
     console.log('Data comparison:');
     expect(retrieved.requestId.toBigInt()).toEqual(aggregatorRecord.requestId.toBigInt());
     expect(retrieved.transactionHash.equals(aggregatorRecord.transactionHash)).toBeTruthy();
-    expect(HexConverter.encode(retrieved.authenticator.signature.encode())).toEqual(
-      HexConverter.encode(aggregatorRecord.authenticator.signature.encode()),
+    expect(HexConverter.encode(retrieved.authenticator.signature.bytes)).toEqual(
+      HexConverter.encode(aggregatorRecord.authenticator.signature.bytes),
     );
     expect(HexConverter.encode(retrieved.authenticator.publicKey)).toEqual(
       HexConverter.encode(aggregatorRecord.authenticator.publicKey),

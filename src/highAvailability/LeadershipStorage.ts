@@ -1,51 +1,32 @@
-import { Collection, Db } from 'mongodb';
+import mongoose, { model } from 'mongoose';
 
 import { ILeadershipStorage } from './ILeadershipStorage.js';
 
 interface ILockDocument {
-  _id: string;
+  lockId: string;
   leaderId: string;
   lastHeartbeat: Date;
 }
 
-interface ILeadershipStorageOptions {
-  ttlSeconds: number;
-  collectionName?: string;
-}
+const LockSchema = new mongoose.Schema({
+  lockId: { required: true, type: String },
+  leaderId: { required: true, type: String },
+  lastHeartbeat: { required: true, type: Date },
+});
+
+const LockModel = model<ILockDocument>('Lock', LockSchema);
 
 /**
  * MongoDB implementation of the leadership storage.
  * Provides atomic operations for leader election using MongoDB.
  */
 export class LeadershipStorage implements ILeadershipStorage {
-  private readonly COLLECTION_NAME: string;
-  private readonly TTL_SECONDS: number;
-  private lockCollection: Collection<ILockDocument>;
-
   /**
    * Creates a new LeadershipStorage.
-   * @param db MongoDB database instance.
-   * @param options Configuration options for the storage.
+   * @param ttlSeconds How long a lock can be held without heartbeat.
    */
-  public constructor(
-    private readonly db: Db,
-    options: ILeadershipStorageOptions,
-  ) {
-    this.COLLECTION_NAME = options.collectionName ?? 'leader_election';
-    this.TTL_SECONDS = options.ttlSeconds;
-    this.lockCollection = db.collection<ILockDocument>(this.COLLECTION_NAME);
-  }
-
-  /**
-   * Sets up a TTL index on lastHeartbeat to automatically expire locks.
-   * @param expirySeconds Seconds after which a lock without heartbeat will be deleted.
-   */
-  public async setupTTLIndex(expirySeconds: number): Promise<void> {
-    try {
-      await this.lockCollection.createIndex({ lastHeartbeat: 1 }, { expireAfterSeconds: expirySeconds });
-    } catch (error) {
-      console.error('Error setting up TTL index:', error);
-    }
+  public constructor(public readonly ttlSeconds: number) {
+    LockSchema.path('lastHeartbeat').index({ expireAfterSeconds: ttlSeconds });
   }
 
   /**
@@ -57,10 +38,10 @@ export class LeadershipStorage implements ILeadershipStorage {
   public async tryAcquireLock(lockId: string, serverId: string): Promise<boolean> {
     try {
       const now = new Date();
-      const expiredTime = new Date(now.getTime() - this.TTL_SECONDS * 1000);
+      const expiredTime = new Date(now.getTime() - this.ttlSeconds * 1000);
 
-      const validLock = await this.lockCollection.findOne({
-        _id: lockId,
+      const validLock = await LockModel.findOne({
+        lockId: lockId,
         lastHeartbeat: { $gte: expiredTime },
       });
 
@@ -69,9 +50,9 @@ export class LeadershipStorage implements ILeadershipStorage {
       }
 
       // either update an expired lock or insert a new one if none exists
-      const updateResult = await this.lockCollection.updateOne(
+      const updateResult = await LockModel.updateOne(
         {
-          _id: lockId,
+          lockId: lockId,
           lastHeartbeat: { $lt: expiredTime },
         },
         {
@@ -100,9 +81,9 @@ export class LeadershipStorage implements ILeadershipStorage {
     try {
       const now = new Date();
 
-      const result = await this.lockCollection.findOneAndUpdate(
+      const result = await LockModel.findOneAndUpdate(
         {
-          _id: lockId,
+          lockId: lockId,
           leaderId: serverId,
         },
         {
@@ -127,8 +108,8 @@ export class LeadershipStorage implements ILeadershipStorage {
    */
   public async releaseLock(lockId: string, serverId: string): Promise<void> {
     try {
-      await this.lockCollection.deleteOne({
-        _id: lockId,
+      await LockModel.deleteOne({
+        lockId: lockId,
         leaderId: serverId,
       });
     } catch (error) {

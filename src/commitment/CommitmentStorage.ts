@@ -20,7 +20,7 @@ interface ICommitment {
 }
 
 interface ICursorCheckpoint {
-  id: string;
+  lastId: mongoose.Types.ObjectId;
 }
 
 const CommitmentSchema = new mongoose.Schema(
@@ -43,7 +43,7 @@ const CommitmentSchema = new mongoose.Schema(
 
 const CursorCheckpointSchema = new mongoose.Schema(
   {
-    id: { required: true, type: mongoose.Types.ObjectId, unique: true },
+    lastId: { required: true, type: mongoose.Types.ObjectId, unique: true },
   },
   {
     capped: {
@@ -73,10 +73,16 @@ export class CommitmentStorage implements ICommitmentStorage {
 
   public async getAll(): Promise<Commitment[]> {
     const cursorObjectId = await this.getCursor();
-    const stored = await CommitmentModel.find({ _id: { $gt: cursorObjectId } });
-    const latestId: mongoose.Types.ObjectId = stored[stored.length - 1]._id;
-    if (latestId) {
-      await this.updateCursor(latestId);
+    let filter;
+    if (cursorObjectId) {
+      filter = { _id: { $gt: cursorObjectId } };
+    }
+    const stored = await CommitmentModel.find({ filter });
+    if (stored.length > 0) {
+      const latestId: mongoose.Types.ObjectId = stored[stored.length - 1]._id;
+      if (latestId) {
+        await this.updateCursor(latestId);
+      }
     }
     return stored.map((commitment) => {
       const authenticator = new Authenticator(
@@ -94,14 +100,14 @@ export class CommitmentStorage implements ICommitmentStorage {
   }
 
   private async updateCursor(id: mongoose.Types.ObjectId): Promise<boolean> {
-    await CursorCheckpointModel.insertOne({ id: id });
+    await CursorCheckpointModel.insertOne({ lastId: id });
     return true;
   }
 
   private async getCursor(): Promise<mongoose.Types.ObjectId | null> {
     const checkpoint = await CursorCheckpointModel.findOne();
     if (checkpoint) {
-      return checkpoint.id;
+      return checkpoint.lastId;
     }
     return null;
   }

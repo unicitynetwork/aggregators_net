@@ -12,7 +12,7 @@ export class Commitment {
 
   public toString(): string {
     return dedent`
-      State Transition Commitment
+      Commitment
         Request ID: ${this.requestId.toString()}
         Transaction Hash: ${this.transactionHash.toString()}
         ${this.authenticator.toString()}`;
