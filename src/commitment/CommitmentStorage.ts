@@ -2,7 +2,7 @@ import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
-import mongoose, { model } from 'mongoose';
+import mongoose, { model, Schema } from 'mongoose';
 
 import { SCHEMA_TYPES } from '../StorageSchemaTypes.js';
 import { Commitment } from './Commitment.js';
@@ -20,7 +20,7 @@ interface ICommitment {
 }
 
 interface ICursorCheckpoint {
-  lastId: mongoose.Types.ObjectId;
+  lastId: Schema.Types.ObjectId;
 }
 
 const CommitmentSchema = new mongoose.Schema(
@@ -43,7 +43,7 @@ const CommitmentSchema = new mongoose.Schema(
 
 const CursorCheckpointSchema = new mongoose.Schema(
   {
-    lastId: { required: true, type: mongoose.Types.ObjectId, unique: true },
+    lastId: { required: true, type: Schema.Types.ObjectId, unique: true },
   },
   {
     capped: {
@@ -79,7 +79,7 @@ export class CommitmentStorage implements ICommitmentStorage {
     }
     const stored = await CommitmentModel.find({ filter });
     if (stored.length > 0) {
-      const latestId: mongoose.Types.ObjectId = stored[stored.length - 1]._id;
+      const latestId = stored[stored.length - 1]._id as unknown as Schema.Types.ObjectId;
       if (latestId) {
         await this.updateCursor(latestId);
       }
@@ -99,12 +99,12 @@ export class CommitmentStorage implements ICommitmentStorage {
     });
   }
 
-  private async updateCursor(id: mongoose.Types.ObjectId): Promise<boolean> {
+  private async updateCursor(id: Schema.Types.ObjectId): Promise<boolean> {
     await CursorCheckpointModel.insertOne({ lastId: id });
     return true;
   }
 
-  private async getCursor(): Promise<mongoose.Types.ObjectId | null> {
+  private async getCursor(): Promise<Schema.Types.ObjectId | null> {
     const checkpoint = await CursorCheckpointModel.findOne();
     if (checkpoint) {
       return checkpoint.lastId;
