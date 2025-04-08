@@ -13,6 +13,6 @@ export async function startMongoDb(): Promise<StartedTestContainer> {
 
 export async function stopMongoDb(container: StartedTestContainer): Promise<void> {
   console.log('\nStopping MongoDB container...');
-  await container.stop();
+  await container.stop({ timeout: 10 });
   console.log('Test completed.');
 }

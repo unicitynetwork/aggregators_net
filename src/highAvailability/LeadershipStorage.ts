@@ -3,13 +3,13 @@ import mongoose, { model } from 'mongoose';
 import { ILeadershipStorage } from './ILeadershipStorage.js';
 
 interface ILockDocument {
-  lockId: string;
+  _id: string;
   leaderId: string;
   lastHeartbeat: Date;
 }
 
 const LockSchema = new mongoose.Schema({
-  lockId: { required: true, type: String },
+  _id: { required: true, type: String, unique: true },
   leaderId: { required: true, type: String },
   lastHeartbeat: { required: true, type: Date },
 });
@@ -41,7 +41,7 @@ export class LeadershipStorage implements ILeadershipStorage {
       const expiredTime = new Date(now.getTime() - this.ttlSeconds * 1000);
 
       const validLock = await LockModel.findOne({
-        lockId: lockId,
+        _id: lockId,
         lastHeartbeat: { $gte: expiredTime },
       });
 
@@ -52,7 +52,7 @@ export class LeadershipStorage implements ILeadershipStorage {
       // either update an expired lock or insert a new one if none exists
       const updateResult = await LockModel.updateOne(
         {
-          lockId: lockId,
+          _id: lockId,
           lastHeartbeat: { $lt: expiredTime },
         },
         {
@@ -83,7 +83,7 @@ export class LeadershipStorage implements ILeadershipStorage {
 
       const result = await LockModel.findOneAndUpdate(
         {
-          lockId: lockId,
+          _id: lockId,
           leaderId: serverId,
         },
         {
@@ -109,7 +109,7 @@ export class LeadershipStorage implements ILeadershipStorage {
   public async releaseLock(lockId: string, serverId: string): Promise<void> {
     try {
       await LockModel.deleteOne({
-        lockId: lockId,
+        _id: lockId,
         leaderId: serverId,
       });
     } catch (error) {
