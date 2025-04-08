@@ -65,18 +65,11 @@ export class AggregatorGateway {
   private serverId: string;
   private server: Server;
   private leaderElection: LeaderElection | null;
-  private storage: AggregatorStorage;
 
-  private constructor(
-    serverId: string,
-    server: Server,
-    storage: AggregatorStorage,
-    leaderElection: LeaderElection | null,
-  ) {
+  private constructor(serverId: string, server: Server, leaderElection: LeaderElection | null) {
     this.serverId = serverId;
     this.server = server;
     this.leaderElection = leaderElection;
-    this.storage = storage;
   }
 
   public static async create(config: IGatewayConfig = {}): Promise<AggregatorGateway> {
@@ -260,7 +253,7 @@ export class AggregatorGateway {
       console.log(`Leader election process started for server ${serverId}.`);
     }
 
-    return new AggregatorGateway(serverId, server, storage, leaderElection);
+    return new AggregatorGateway(serverId, server, leaderElection);
   }
 
   private static onBecomeLeader(aggregatorServerId: string): void {
