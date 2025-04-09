@@ -73,11 +73,9 @@ export class CommitmentStorage implements ICommitmentStorage {
 
   public async getAll(): Promise<Commitment[]> {
     const cursorObjectId = await this.getCursor();
-    let filter;
-    if (cursorObjectId) {
-      filter = { _id: { $gt: cursorObjectId } };
-    }
-    const stored = await CommitmentModel.find({ filter });
+    const stored = cursorObjectId
+      ? await CommitmentModel.find({ _id: { $gt: cursorObjectId } }).sort({ _id: 1 })
+      : await CommitmentModel.find();
     if (stored.length > 0) {
       const latestId = stored[stored.length - 1]._id as unknown as Schema.Types.ObjectId;
       if (latestId) {
