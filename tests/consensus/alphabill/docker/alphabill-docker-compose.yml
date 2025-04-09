@@ -1,7 +1,7 @@
 services:
   alphabill-root1:
     extends:
-      file: docker-services.yml
+      file: alphabill-docker-services.yml
       service: alphabill-root-bootnode
     volumes:
       - ./.genesis/root1:/genesis
@@ -20,7 +20,7 @@ services:
       - default
   alphabill-root2:
     extends:
-      file: docker-services.yml
+      file: alphabill-docker-services.yml
       service: alphabill-root
     volumes:
       - ./.genesis/root2:/genesis
@@ -39,7 +39,7 @@ services:
       - default
   alphabill-root3:
     extends:
-      file: docker-services.yml
+      file: alphabill-docker-services.yml
       service: alphabill-root
     volumes:
       - ./.genesis/root3:/genesis
@@ -56,31 +56,9 @@ services:
       interval: 2s
     networks:
       - default
-  alphabill-money:
-    extends:
-      file: docker-services.yml
-      service: alphabill-money
-    volumes:
-      - ./.genesis/money:/genesis
-      - ./.genesis:/genesis-nodes
-    depends_on:
-      alphabill-root1:
-        condition: service_healthy
-      alphabill-root2:
-        condition: service_healthy
-      alphabill-root3:
-        condition: service_healthy
-    ports:
-      - 8001:8001
-      - 8011:8002
-    healthcheck:
-      test: [ "CMD", "nc", "-zv", "alphabill-money", "8001" ]
-      interval: 2s
-    networks:
-      - default
   alphabill-tokens:
     extends:
-      file: docker-services.yml
+      file: alphabill-docker-services.yml
       service: alphabill-tokens
     volumes:
       - ./.genesis/tokens:/genesis
@@ -103,40 +81,34 @@ services:
       - default
   generate-root-genesis1:
     extends:
-      file: docker-services.yml
+      file: alphabill-docker-services.yml
       service: generate-root-genesis
     volumes:
       - ./.genesis/root1:/genesis
     depends_on:
-      generate-money-genesis:
-        condition: service_completed_successfully
       generate-tokens-genesis:
         condition: service_completed_successfully
   generate-root-genesis2:
     extends:
-      file: docker-services.yml
+      file: alphabill-docker-services.yml
       service: generate-root-genesis
     volumes:
       - ./.genesis/root2:/genesis
     depends_on:
-      generate-money-genesis:
-        condition: service_completed_successfully
       generate-tokens-genesis:
         condition: service_completed_successfully
   generate-root-genesis3:
     extends:
-      file: docker-services.yml
+      file: alphabill-docker-services.yml
       service: generate-root-genesis
     volumes:
       - ./.genesis/root3:/genesis
     depends_on:
-      generate-money-genesis:
-        condition: service_completed_successfully
       generate-tokens-genesis:
         condition: service_completed_successfully
   combine-root-genesis1:
     extends:
-      file: docker-services.yml
+      file: alphabill-docker-services.yml
       service: combine-root-genesis
     volumes:
       - ./.genesis/root1:/genesis/root
@@ -149,7 +121,7 @@ services:
           condition: service_completed_successfully
   combine-root-genesis2:
     extends:
-      file: docker-services.yml
+      file: alphabill-docker-services.yml
       service: combine-root-genesis
     volumes:
       - ./.genesis/root2:/genesis/root
@@ -158,7 +130,7 @@ services:
         condition: service_completed_successfully
   combine-root-genesis3:
     extends:
-      file: docker-services.yml
+      file: alphabill-docker-services.yml
       service: combine-root-genesis
     volumes:
       - ./.genesis/root3:/genesis/root
@@ -167,7 +139,7 @@ services:
         condition: service_completed_successfully
   generate-root-trust-base:
     extends:
-      file: docker-services.yml
+      file: alphabill-docker-services.yml
       service: generate-root-trust-base
     depends_on:
       combine-root-genesis1:
@@ -178,7 +150,7 @@ services:
         condition: service_completed_successfully
   sign-root-trust-base1:
     extends:
-      file: docker-services.yml
+      file: alphabill-docker-services.yml
       service: sign-root-trust-base
     volumes:
       - ./.genesis/root1:/genesis/root
@@ -188,7 +160,7 @@ services:
         condition: service_completed_successfully
   sign-root-trust-base2:
     extends:
-      file: docker-services.yml
+      file: alphabill-docker-services.yml
       service: sign-root-trust-base
     volumes:
       - ./.genesis/root2:/genesis/root
@@ -198,7 +170,7 @@ services:
         condition: service_completed_successfully
   sign-root-trust-base3:
     extends:
-      file: docker-services.yml
+      file: alphabill-docker-services.yml
       service: sign-root-trust-base
     volumes:
       - ./.genesis/root3:/genesis/root
@@ -208,15 +180,9 @@ services:
         condition: service_completed_successfully
   generate-tokens-genesis:
     extends:
-      file: docker-services.yml
+      file: alphabill-docker-services.yml
       service: generate-tokens-genesis
     volumes:
       - ./.genesis/tokens:/genesis
-  generate-money-genesis:
-    extends:
-      file: docker-services.yml
-      service: generate-money-genesis
-    volumes:
-      - ./.genesis/money:/genesis
 networks:
   default:

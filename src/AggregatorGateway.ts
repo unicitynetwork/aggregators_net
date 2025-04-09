@@ -15,14 +15,16 @@ import cors from 'cors';
 import express, { Request, Response } from 'express';
 
 import { AggregatorService } from './AggregatorService.js';
-import { AlphabillClient } from './alphabill/AlphabillClient.js';
-import { IAlphabillClient } from './alphabill/IAlphabillClient.js';
-import { Storage } from './database/mongo/Storage.js';
-import { LeaderElection } from './ha/LeaderElection.js';
-import { MongoLeadershipStorage } from './ha/storage/MongoLeadershipStorage.js';
+import { AggregatorStorage } from './AggregatorStorage.js';
+import { Commitment } from './commitment/Commitment.js';
+import { AlphabillClient } from './consensus/alphabill/AlphabillClient.js';
+import { IAlphabillClient } from './consensus/alphabill/IAlphabillClient.js';
+import { LeaderElection } from './highAvailability/LeaderElection.js';
+import { LeadershipStorage } from './highAvailability/LeadershipStorage.js';
+import { RoundManager } from './RoundManager.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
-import { SubmitStateTransitionStatus } from './SubmitStateTransitionResponse.js';
-import { MockAlphabillClient } from '../tests/mocks/MockAlphabillClient.js';
+import { SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
+import { MockAlphabillClient } from '../tests/consensus/alphabill/MockAlphabillClient.js';
 
 export interface IGatewayConfig {
   aggregatorConfig?: IAggregatorConfig;
@@ -99,23 +101,26 @@ export class AggregatorGateway {
     };
     const serverId = 'server-' + Math.random().toString(36).substring(2, 10);
     const mongoUri = config.storage?.uri ?? 'mongodb://localhost:27017/';
-    const storage = await Storage.init(mongoUri);
+    const storage = await AggregatorStorage.init(mongoUri);
 
     const alphabillClient = await AggregatorGateway.setupAlphabillClient(config.alphabill!, serverId);
-    const smt = await AggregatorGateway.setupSmt(storage.smt, serverId);
-    const aggregatorService = new AggregatorService(config.aggregatorConfig!, alphabillClient, smt, storage.records);
+    const smt = await AggregatorGateway.setupSmt(storage.smtStorage, serverId);
+    const roundManager = new RoundManager(
+      config.aggregatorConfig!,
+      alphabillClient,
+      smt,
+      storage.blockStorage,
+      storage.recordStorage,
+      storage.commitmentStorage,
+    );
+    const aggregatorService = new AggregatorService(roundManager, smt, storage.recordStorage);
+
+    AggregatorGateway.startNextBlock(roundManager);
 
     let leaderElection: LeaderElection | null = null;
     if (config.highAvailability?.enabled) {
       const { leaderHeartbeatInterval, leaderElectionPollingInterval, lockTtlSeconds } = config.highAvailability;
-      if (!storage.db) {
-        throw new Error('MongoDB database connection not available for leader election.');
-      }
-
-      const leadershipStorage = new MongoLeadershipStorage(storage.db, {
-        ttlSeconds: lockTtlSeconds!,
-        collectionName: 'leader_election',
-      });
+      const leadershipStorage = new LeadershipStorage(lockTtlSeconds!);
 
       leaderElection = new LeaderElection(leadershipStorage, {
         heartbeatInterval: leaderHeartbeatInterval!,
@@ -158,7 +163,7 @@ export class AggregatorGateway {
           jsonrpc: '2.0',
           error: {
             code: -32603,
-            message: 'Internal error: Service not initialized',
+            message: 'Internal error: Service not initialized.',
           },
           id: req.body.id,
         });
@@ -188,12 +193,13 @@ export class AggregatorGateway {
 
       try {
         switch (req.body.method) {
-          case 'submit_transaction': {
+          case 'submit_commitment': {
             const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
             const transactionHash: DataHash = DataHash.fromDto(req.body.params.transactionHash);
             const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
-            const response = await aggregatorService.submitStateTransition(requestId, transactionHash, authenticator);
-            if (response.status !== SubmitStateTransitionStatus.SUCCESS) {
+            const commitment = new Commitment(requestId, transactionHash, authenticator);
+            const response = await aggregatorService.submitCommitment(commitment);
+            if (response.status !== SubmitCommitmentStatus.SUCCESS) {
               return res.status(400).send(response.toDto());
             }
             return res.send(JSON.stringify(response.toDto()));
@@ -294,6 +300,17 @@ export class AggregatorGateway {
       console.log('Tree with root hash %s constructed successfully.', smt.rootHash.toString());
     }
     return smt;
+  }
+
+  private static startNextBlock(roundManager: RoundManager): void {
+    const time = Date.now();
+    setTimeout(
+      async () => {
+        await roundManager.createBlock();
+        this.startNextBlock(roundManager);
+      },
+      Math.ceil(time / 1000) * 1000 - time,
+    );
   }
 
   /**

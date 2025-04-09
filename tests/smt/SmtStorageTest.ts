@@ -1,9 +1,9 @@
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { StartedTestContainer } from 'testcontainers';
 
-import { setupTestDatabase, teardownTestDatabase } from './TestUtils.js';
-import { SmtStorage } from '../src/database/mongo/SmtStorage.js';
-import { SmtNode } from '../src/smt/SmtNode.js';
+import { SmtNode } from '../../src/smt/SmtNode.js';
+import { SmtStorage } from '../../src/smt/SmtStorage.js';
+import { startMongoDb, stopMongoDb } from '../TestContainers.js';
 
 describe('SMT Storage Tests', () => {
   jest.setTimeout(60000);
@@ -11,11 +11,11 @@ describe('SMT Storage Tests', () => {
   let container: StartedTestContainer;
 
   beforeAll(async () => {
-    container = (await setupTestDatabase()).container;
+    container = await startMongoDb();
   });
 
   afterAll(async () => {
-    await teardownTestDatabase(container);
+    await stopMongoDb(container);
   });
 
   it('Store and retrieve nodes', async () => {

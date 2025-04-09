@@ -138,4 +138,4 @@ records.json
 .DS_Store
 
 # Alphabill Docker genesis files
-tests/docker/alphabill/.genesis
+tests/consensus/alphabill/docker/.genesis

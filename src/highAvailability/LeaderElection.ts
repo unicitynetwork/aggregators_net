@@ -21,7 +21,6 @@ export class LeaderElection {
   private readonly LOCK_ID: string;
   private readonly HEARTBEAT_INTERVAL: number;
   private readonly ELECTION_POLLING_INTERVAL: number;
-  private readonly LOCK_TTL_SECONDS: number;
   private readonly SERVER_ID: string;
 
   private isLeader = false;
@@ -43,14 +42,10 @@ export class LeaderElection {
     this.LOCK_ID = options.lockId ?? 'leader_lock';
     this.HEARTBEAT_INTERVAL = options.heartbeatInterval;
     this.ELECTION_POLLING_INTERVAL = options.electionPollingInterval;
-    this.LOCK_TTL_SECONDS = options.lockTtlSeconds;
     this.SERVER_ID = options.serverId ?? uuidv4();
 
     this.onBecomeLeaderCallback = options.onBecomeLeader;
     this.onLoseLeadershipCallback = options.onLoseLeadership;
-    this.storage.setupTTLIndex(this.LOCK_TTL_SECONDS).catch((error) => {
-      console.warn('Failed to setup TTL index for leader election:', error);
-    });
   }
 
   /**

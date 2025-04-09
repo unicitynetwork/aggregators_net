@@ -1,66 +1,25 @@
-import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
-import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 
-import { IAggregatorConfig } from './AggregatorGateway.js';
-import { IAlphabillClient } from './alphabill/IAlphabillClient.js';
-import { AggregatorRecord } from './records/AggregatorRecord.js';
+import { Commitment } from './commitment/Commitment.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
-import { SmtNode } from './smt/SmtNode.js';
-import { SubmitStateTransitionResponse, SubmitStateTransitionStatus } from './SubmitStateTransitionResponse.js';
+import { RoundManager } from './RoundManager.js';
+import { SubmitCommitmentResponse, SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
 
 export class AggregatorService {
   public constructor(
-    public readonly config: IAggregatorConfig,
-    public readonly alphabillClient: IAlphabillClient,
+    public readonly roundManager: RoundManager,
     public readonly smt: SparseMerkleTree,
     public readonly recordStorage: IAggregatorRecordStorage,
   ) {}
 
-  public async submitStateTransition(
-    requestId: RequestId,
-    transactionHash: DataHash,
-    authenticator: Authenticator,
-  ): Promise<SubmitStateTransitionResponse> {
-    const existingRecord = await this.recordStorage.get(requestId);
-    if (existingRecord != null) {
-      return new SubmitStateTransitionResponse(null, SubmitStateTransitionStatus.REQUEST_ID_EXISTS);
+  public async submitCommitment(commitment: Commitment): Promise<SubmitCommitmentResponse> {
+    const status = await this.validateCommitment(commitment);
+    if (status.status === SubmitCommitmentStatus.SUCCESS) {
+      await this.roundManager.submitCommitment(commitment);
     }
-
-    if (!(await authenticator.verify(transactionHash))) {
-      return new SubmitStateTransitionResponse(null, SubmitStateTransitionStatus.AUTHENTICATOR_VERIFICATION_FAILED);
-    }
-
-    const submitHashResponse = await this.alphabillClient.submitHash(transactionHash);
-    const txProof = submitHashResponse.txProof;
-    const previousBlockHash = submitHashResponse.previousBlockHash;
-    const blockNumber = await this.recordStorage.getNextBlockNumber();
-    const record = new AggregatorRecord(
-      this.config.chainId!,
-      this.config.version!,
-      this.config.forkId!,
-      blockNumber,
-      txProof.transactionProof.unicityCertificate.unicitySeal.timestamp,
-      txProof,
-      previousBlockHash,
-      transactionHash,
-      null, // TODO add noDeletionProof
-      authenticator,
-    );
-    await this.recordStorage.put(requestId, record);
-
-    const leaf = new SmtNode(requestId.toBigInt(), transactionHash.data);
-    await this.smt.addLeaf(leaf.path, leaf.value);
-
-    const newRootHash = this.smt.rootHash;
-    console.log(`Request with ID ${requestId} registered, new root hash %s`, newRootHash.toString());
-    const merkleTreePath = this.smt.getPath(requestId.toBigInt());
-    return new SubmitStateTransitionResponse(
-      new InclusionProof(merkleTreePath, record.authenticator, newRootHash),
-      SubmitStateTransitionStatus.SUCCESS,
-    );
+    return status;
   }
 
   public async getInclusionProof(requestId: RequestId): Promise<InclusionProof | null> {
@@ -69,10 +28,26 @@ export class AggregatorService {
       return null;
     }
     const merkleTreePath = this.smt.getPath(requestId.toBigInt());
-    return new InclusionProof(merkleTreePath, record.authenticator, record.rootHash);
+    return new InclusionProof(merkleTreePath, record.authenticator, record.transactionHash);
   }
 
   public getNodeletionProof(): Promise<void> {
     throw new Error('Not implemented.');
+  }
+
+  private async validateCommitment(commitment: Commitment): Promise<SubmitCommitmentResponse> {
+    const { authenticator, requestId, transactionHash } = commitment;
+    const expectedRequestId = await RequestId.create(authenticator.publicKey, authenticator.stateHash);
+    if (!expectedRequestId.hash.equals(requestId.hash)) {
+      return new SubmitCommitmentResponse(SubmitCommitmentStatus.REQUEST_ID_MISMATCH);
+    }
+    if (!(await authenticator.verify(transactionHash))) {
+      return new SubmitCommitmentResponse(SubmitCommitmentStatus.AUTHENTICATOR_VERIFICATION_FAILED);
+    }
+    const existingRecord = await this.recordStorage.get(requestId);
+    if (existingRecord && !existingRecord.transactionHash.equals(transactionHash)) {
+      return new SubmitCommitmentResponse(SubmitCommitmentStatus.REQUEST_ID_EXISTS);
+    }
+    return new SubmitCommitmentResponse(SubmitCommitmentStatus.SUCCESS);
   }
 }

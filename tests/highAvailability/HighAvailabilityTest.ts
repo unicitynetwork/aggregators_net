@@ -1,15 +1,14 @@
+import { MongoDBContainer, StartedMongoDBContainer } from '@testcontainers/mongodb';
 import axios, { type AxiosResponse } from 'axios';
-import { MongoClient, Db } from 'mongodb';
+import { MongoClient } from 'mongodb';
 import mongoose from 'mongoose';
-import { GenericContainer, StartedTestContainer } from 'testcontainers';
 
-import { AggregatorGateway } from '../src/AggregatorGateway.js';
+import { AggregatorGateway } from '../../src/AggregatorGateway.js';
 
 describe('High Availability Tests', () => {
   let mongoClient: MongoClient;
-  let db: Db;
   const gateways: AggregatorGateway[] = [];
-  let mongoContainer: StartedTestContainer;
+  let mongoContainer: StartedMongoDBContainer;
   let mongoUri: string;
 
   jest.setTimeout(60000);
@@ -17,21 +16,11 @@ describe('High Availability Tests', () => {
   beforeAll(async () => {
     console.log('\n=========== STARTING HA TESTS ===========');
 
-    mongoContainer = await new GenericContainer('mongo:7')
-      .withExposedPorts(27017)
-      .withCommand(['mongod', '--noauth'])
-      .start();
+    mongoContainer = await new MongoDBContainer('mongo:7').start();
+    mongoUri = mongoContainer.getConnectionString();
+    console.log(`Connecting to MongoDB test container, using connection URI: ${mongoUri}.`);
 
-    const mappedPort = mongoContainer.getMappedPort(27017);
-    mongoUri = `mongodb://127.0.0.1:${mappedPort}/test?directConnection=true`;
-
-    console.log('Connecting to MongoDB test container...');
-    console.log(`Using connection URI: ${mongoUri}`);
-
-    mongoClient = await MongoClient.connect(mongoUri);
-    db = mongoClient.db();
-
-    await db.collection('leader_election').deleteMany({});
+    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000, directConnection: true });
   });
 
   afterAll(async () => {
@@ -39,19 +28,13 @@ describe('High Availability Tests', () => {
       await gateway.stop();
     }
 
-    if (db) {
-      await db.collection('leader_election').deleteMany({});
-    }
-
-    await mongoose.disconnect();
-
     if (mongoClient) {
       await mongoClient.close();
     }
 
     if (mongoContainer) {
       console.log('\nStopping MongoDB container...');
-      await mongoContainer.stop();
+      await mongoContainer.stop({ timeout: 10 });
     }
 
     console.log('\n=========== FINISHED ALL HA TESTS ===========');

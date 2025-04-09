@@ -11,7 +11,7 @@ Unicity's infrastructure comprises a decentralized Agent layer interacting with 
 ## API Operations
 
 ### 1. Submit State Transition Request
-- **Operation:** `aggregator_submit`
+- **Operation:** `submit_commitment`
 - **Description:** Allows an agent to submit a state transition request to the Aggregation layer.
 - **Input:**
   - `requestId` (string, 64 digit hex number): The unique identifier for the request.
@@ -21,7 +21,7 @@ Unicity's infrastructure comprises a decentralized Agent layer interacting with 
   - status (string): `success` Indicates if the request was successfully submitted.
 
 ### 2. Get Inclusion/exclusion proof
-- **Operation:** `aggregator_get_path`
+- **Operation:** `get_inclusion_proof`
 - **Description:** Retrieves the individual inclusion/exclusion proof for a specific state transition request (optionally, at specific block number)
 - **Input:**
   - `requestId` (string, 64 digit hex number): The unique identifier for the state transition request as it was submitted to the unicity.
@@ -30,7 +30,7 @@ Unicity's infrastructure comprises a decentralized Agent layer interacting with 
   - `inclusionProof` (object, hash path in the unicity tree from the root to the respective leaf or null vertex): Contains proof elements showing the request's inclusion in the unicity SMT (or its exclusion otherwise).
 
 ### 3. Get No-Deletion proof
-- **Operation:** `aggregator_get_nodel`
+- **Operation:** `get_no_deletion_proof`
 - **Description:** Retrieves the global nodeletion proof for the aggregator data structure at specific block number (the nodel proof is recursive, it proves already no deletion/modification of any aggregator records since the genesis till the current blocknum)
 - **Input:**
   - `blockNum` (integer): the block number for which to generate the inclusion/exclusion proof (normally, a hash path between the root at the given blockNum and the respective leaf position corresponding to the requestId)
@@ -81,7 +81,7 @@ The `AggregatorAPI` class provides transport-agnostic functions for submitting r
  - **Arguments:**
    - `transport` (object): object implementing communication between agent and Unicity gateway
 ### submitStateTransition
- - **Implements:** `aggregator_submit`
+ - **Implements:** `submit_commitment`
  - **Arguments:**
    - `requestId` (string, 64 digit hex) - unique ID of the state transition request. Normally, this id is calculated from the original state hash and public key (or some other public input for ZK proof)
    - `payload` (string, 64 digit hex) - hash of the agent transition
@@ -94,14 +94,14 @@ The `AggregatorAPI` class provides transport-agnostic functions for submitting r
  - **Returns:**
    - `result` (object) - responce from transport
 ### getInclusionProof
- - **Implements:** `aggregator_get_path`
+ - **Implements:** `get_inclusion_proof`
  - **Arguments:**
    - `requestId` (string, 64 digit hex) - unique ID of the state transition request
    - `blockNum` (Optional, integer) - number of a specific block for which to extract the proof. Note, there is no guarantee proofs can be extracted for "ancient" blocks
  - **Returns:**
    - `result` (object) - responce from transport
 ### getNodelProof
- - **Implements:** `aggregator_get_nodel`
+ - **Implements:** `get_no_deletion_proof`
  - **Arguments:**
    - `blockNum` (Optional, integer) - number of a specific block for which to extract the proof. Note, there is no guarantee proofs can be extracted for "ancient" blocks
  - **Returns:**
