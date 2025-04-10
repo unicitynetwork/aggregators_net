@@ -1,74 +1,93 @@
 services:
   alphabill:
     platform: linux/amd64
-    image: ghcr.io/alphabill-org/alphabill:794dc2549cf2ccec8780c41e5d833c6e1634087f
-    volumes:
-      - ./pdr:/pdr
-  alphabill-root-bootnode:
+    image: ghcr.io/alphabill-org/alphabill:e66b1068dcc7a94db107c2d1430b1b09a28b75ee
+
+  initialize-root-node:
     extends:
       service: alphabill
     entrypoint:
       - /busybox/sh
       - -c
-      - 'alphabill root --home /genesis --address="/ip4/$(hostname -i)/tcp/8000" --log-level warn --trust-base-file /genesis-nodes/root-trust-base.json'
-    expose:
-      - 8000
-  alphabill-root:
-    extends:
-      service: alphabill
-    entrypoint:
-      - /busybox/sh
-      - -c
-      - 'alphabill root --home /genesis --address="/ip4/$(hostname -i)/tcp/8000" --log-level warn --bootnodes=/dns/alphabill-root1/tcp/8000/p2p/$(alphabill identifier -k /genesis-nodes/root1/rootchain/keys.json | tail -n1) --trust-base-file /genesis-nodes/root-trust-base.json'
-    expose:
-      - 8000
-  alphabill-tokens:
-    extends:
-      service: alphabill
-    entrypoint:
-      - /busybox/sh
-      - -c
-      - 'alphabill tokens --home /genesis/tokens --address="/ip4/$(hostname -i)/tcp/8000" --log-level warn --rpc-server-address=$(hostname -i):8001 --key-file /genesis/tokens/keys.json --genesis /genesis-nodes/root1/rootchain/partition-genesis-2.json --state /genesis/tokens/node-genesis-state.cbor --db /genesis/blocks.db --tx-db /genesis/tx.db --bootnodes=/dns/alphabill-root1/tcp/8000/p2p/$(alphabill identifier -k /genesis-nodes/root1/rootchain/keys.json | tail -n1),/dns/alphabill-root2/tcp/8000/p2p/$(alphabill identifier -k /genesis-nodes/root2/rootchain/keys.json | tail -n1),/dns/alphabill-root3/tcp/8000/p2p/$(alphabill identifier -k /genesis-nodes/root3/rootchain/keys.json | tail -n1) --trust-base-file /genesis-nodes/root-trust-base.json'
-    expose:
-      - 8000
-  generate-tokens-genesis:
-    extends:
-      service: alphabill
-    entrypoint:
-      - /busybox/sh
-      - -c
-      -  'if [ -z "$(ls -A /genesis)" ]; then alphabill tokens-genesis -g --admin-owner-predicate 830041025820F8FE0973C90D88F555FACD737F2C39AE9F9039629D87758186167C0ED12E19E2 --home /genesis --partition-description /pdr/tokens-pdr.json; else echo "Genesis exists"; exit 0; fi'
-  generate-root-genesis:
-    extends:
-      service: alphabill
-    entrypoint:
-      - /busybox/sh
-      - -c
-      - 'if [ -z "$(ls -A /genesis)" ]; then alphabill root-genesis new -g --block-rate "400" --consensus-timeout "2500" --total-nodes "3" --home /genesis -p /genesis-nodes/tokens/tokens/node-genesis.json; else echo "Genesis exists"; exit 0; fi'
-    volumes:
-      - ./.genesis:/genesis-nodes
-  combine-root-genesis:
-    extends:
-      service: alphabill
-    entrypoint:
-      - /busybox/sh
-      - -c
-      - 'alphabill root-genesis combine --home /genesis/root --root-genesis=/genesis/root1/rootchain/root-genesis.json --root-genesis=/genesis/root2/rootchain/root-genesis.json --root-genesis=/genesis/root3/rootchain/root-genesis.json'
-    volumes:
-      - ./.genesis:/genesis
+      - 'alphabill root-node init --home "/genesis" -g'
+
   generate-root-trust-base:
     extends:
       service: alphabill
     entrypoint:
       - /busybox/sh
       - -c
-      - 'alphabill root-genesis gen-trust-base --home /genesis-nodes --root-genesis=/genesis-nodes/root1/rootchain/root-genesis.json --root-genesis=/genesis-nodes/root2/rootchain/root-genesis.json --root-genesis=/genesis-nodes/root3/rootchain/root-genesis.json'
-    volumes:
-      - ./.genesis:/genesis-nodes
+      - 'alphabill trust-base generate --home "/genesis" --network-id 3 --node-info /genesis/root1/node-info.json --node-info /genesis/root2/node-info.json --node-info /genesis/root3/node-info.json'
+
   sign-root-trust-base:
     extends:
       service: alphabill
     entrypoint:
       - /busybox/sh
       - -c
-      - 'alphabill root-genesis sign-trust-base --home /genesis-nodes -k /genesis/root/rootchain/keys.json'
+      - 'alphabill trust-base sign --home "/genesis/root" --trust-base /genesis/trust-base.json'
+
+  run-root-node:
+    extends:
+      service: alphabill
+    entrypoint:
+      - /busybox/sh
+      - -c
+      - 'alphabill root-node run --home "/genesis/root" --address "/ip4/$(hostname -i)/tcp/8000" --trust-base /genesis/trust-base.json --rpc-server-address "$(hostname -i):8002"'
+    volumes:
+      - ./genesis:/genesis
+    expose:
+      - 8000
+
+  run-root-node23:
+    extends:
+      service: alphabill
+    entrypoint:
+      - /busybox/sh
+      - -c
+      - 'alphabill root-node run --home "/genesis/root" --address "/ip4/$(hostname -i)/tcp/8000" --bootnodes=/dns/alphabill-root1/tcp/8000/p2p/$(alphabill node-id --home "/genesis/root1" | tail -n1) --trust-base /genesis/trust-base.json --rpc-server-address "$(hostname -i):8002"'
+    volumes:
+      - ./genesis:/genesis
+    expose:
+      - 8000
+
+  initialize-shard-node:
+    extends:
+      service: alphabill
+    entrypoint:
+      - /busybox/sh
+      - -c
+      - 'alphabill shard-node init --home "/genesis/tokens" --generate'
+
+  generate-shard-conf:
+    extends:
+      service: alphabill
+    entrypoint:
+      - /busybox/sh
+      - -c
+      - 'alphabill shard-conf generate --home "/genesis" --network-id 3 --partition-id 2 --partition-type-id 2 --epoch-start 10 --node-info=/genesis/tokens/node-info.json'
+
+  upload-shard-conf:
+    extends:
+      service: alphabill
+    image: curlimages/curl
+    command:
+      - 'curl -X PUT -H "Content-Type: application/json" "http://localhost:8000/api/v1/configurations"'
+
+  generate-shard-genesis:
+    extends:
+      service: alphabill
+    entrypoint:
+      - /busybox/sh
+      - -c
+      - 'alphabill shard-conf genesis --home "/genesis/tokens" --shard-conf /genesis/shard-conf-2_0.json'
+
+  run-shard-node:
+    extends:
+      service: alphabill
+    entrypoint:
+      - /busybox/sh
+      - -c
+      - 'alphabill shard-node run --home "/genesis/tokens" --trust-base /genesis/trust-base.json --shard-conf /genesis/shard-conf-2_0.json --address "/ip4/$(hostname -i)/tcp/8001" --bootnodes "/dns/alphabill-root1/tcp/8000/p2p/$(alphabill node-id --home /genesis/root1 | tail -n1)" --rpc-server-address "localhost:8003"'
+    expose:
+      - 8000
