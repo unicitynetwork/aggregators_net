@@ -53,7 +53,7 @@ services:
     entrypoint:
       - /busybox/sh
       - -c
-      - 'alphabill shard-conf generate --home "/genesis" --network-id 3 --partition-id 2 --partition-type-id 2 --epoch-start 10 --node-info=/genesis/tokens/node-info.json'
+      - 'alphabill shard-conf generate --home "/genesis" --network-id 3 --partition-id 2 --partition-type-id 2 --epoch-start 10 --feeless-mode true --admin-owner-predicate 0x830041025820786C9F82FCD2CFB4190A690725E85734F2D25B86DBC35186D85D08F3CFC2B7CA --node-info=/genesis/tokens/node-info.json'
 
   upload-shard-conf:
     image: curlimages/curl

@@ -52,6 +52,31 @@ describe('Alphabill Client Integration Tests', () => {
       .up();
     console.log('Setup successful.');
 
+    // Wait for Alphabill nodes to start up
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    // Set fee credit
+    console.log('Setting fee credit...');
+    const tokenClient = createTokenClient({ transport: http(tokenPartitionUrl) });
+    const ownerPredicate = PayToPublicKeyHashPredicate.create(alphabillSigningService.publicKey);
+    const round = (await tokenClient.getRoundInfo()).roundNumber;
+    const setFeeCreditTransactionOrder = await SetFeeCredit.create({
+      targetPartitionIdentifier: tokenPartitionId,
+      ownerPredicate: ownerPredicate,
+      amount: 100n,
+      feeCreditRecord: { unitId: null, counter: null },
+      version: 1n,
+      networkIdentifier: networkId,
+      partitionIdentifier: tokenPartitionId,
+      stateLock: null,
+      metadata: new ClientMetadata(round + 60n, 5n, null, null),
+      stateUnlock: new AlwaysTruePredicate(),
+    }).sign(proofFactory);
+    const setFeeCreditHash = await tokenClient.sendTransaction(setFeeCreditTransactionOrder);
+    const setFeeCreditProof = await tokenClient.waitTransactionProof(setFeeCreditHash, SetFeeCredit);
+    expect(setFeeCreditProof.transactionRecord.serverMetadata.successIndicator).toEqual(TransactionStatus.Successful);
+    console.log('Setting fee credit successful.');
+
     console.log('Starting aggregator...');
     aggregator = await AggregatorGateway.create({
       alphabill: {
@@ -75,30 +100,6 @@ describe('Alphabill Client Integration Tests', () => {
     await aggregator.stop();
     await mongoContainer.stop({ timeout: 10 });
     await aggregatorEnvironment.down();
-  });
-
-  // Can be skipped as docker script already assigns fee credit to admin key. Leaving it here for reference.
-  it.skip('Set fee credit on permissioned Alphabill token partition', async () => {
-    console.log('Setting fee credit...');
-    const tokenClient = createTokenClient({ transport: http(tokenPartitionUrl) });
-    const ownerPredicate = PayToPublicKeyHashPredicate.create(alphabillSigningService.publicKey);
-    const round = (await tokenClient.getRoundInfo()).roundNumber;
-    const setFeeCreditTransactionOrder = await SetFeeCredit.create({
-      targetPartitionIdentifier: tokenPartitionId,
-      ownerPredicate: ownerPredicate,
-      amount: 100n,
-      feeCreditRecord: { unitId: null, counter: null },
-      version: 1n,
-      networkIdentifier: networkId,
-      partitionIdentifier: tokenPartitionId,
-      stateLock: null,
-      metadata: new ClientMetadata(round + 60n, 5n, null, null),
-      stateUnlock: new AlwaysTruePredicate(),
-    }).sign(proofFactory);
-    const setFeeCreditHash = await tokenClient.sendTransaction(setFeeCreditTransactionOrder);
-    const setFeeCreditProof = await tokenClient.waitTransactionProof(setFeeCreditHash, SetFeeCredit);
-    expect(setFeeCreditProof.transactionRecord.serverMetadata.successIndicator).toEqual(TransactionStatus.Successful);
-    console.log('Setting fee credit successful.');
   });
 
   it('Submit commitment to aggregator and wait for inclusion proof', async () => {
