@@ -306,7 +306,11 @@ export class AggregatorGateway {
     const time = Date.now();
     setTimeout(
       async () => {
-        await roundManager.createBlock();
+        try {
+          await roundManager.createBlock();
+        } catch (error) {
+          console.error('Failed to create block:', error);
+        }
         this.startNextBlock(roundManager);
       },
       Math.ceil(time / 1000) * 1000 - time,

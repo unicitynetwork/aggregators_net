@@ -13,7 +13,8 @@
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --fix",
     "test": "jest tests/",
-    "test:ci": "jest tests/ --ci --reporters=default"
+    "test:ci": "jest tests/ --ci --reporters=default",
+    "benchmark": "jest tests/benchmarks --runInBand --testNamePattern=\"Benchmark\""
   },
   "type": "module",
   "repository": {

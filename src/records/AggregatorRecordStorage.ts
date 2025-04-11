@@ -47,6 +47,26 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
     return true;
   }
 
+  public async putBatch(records: AggregatorRecord[]): Promise<boolean> {
+    if (records.length === 0) {
+      return true;
+    }
+    
+    const recordDocuments = records.map(record => ({
+      requestId: record.requestId.toBigInt(),
+      transactionHash: record.transactionHash.imprint,
+      authenticator: {
+        algorithm: record.authenticator.algorithm,
+        publicKey: record.authenticator.publicKey,
+        signature: record.authenticator.signature.encode(),
+        stateHash: record.authenticator.stateHash.imprint,
+      },
+    }));
+    
+    await AggregatorRecordModel.insertMany(recordDocuments);
+    return true;
+  }
+
   public async get(requestId: RequestId): Promise<AggregatorRecord | null> {
     const stored = await AggregatorRecordModel.findOne({ requestId: requestId.toBigInt() });
     if (!stored) {
