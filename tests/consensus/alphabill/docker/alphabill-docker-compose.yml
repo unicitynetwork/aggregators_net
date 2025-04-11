@@ -1,78 +1,26 @@
 services:
-  alphabill-root1:
+  alphabill-root:
     extends:
       file: alphabill-docker-services.yml
       service: run-root-node
     volumes:
-      - ./genesis/root1:/genesis/root
+      - ./genesis/root:/genesis/root
       - ./genesis:/genesis
     depends_on:
-      sign-root-trust-base1:
+      sign-root-trust-base:
         condition: service_completed_successfully
     healthcheck:
-      test: [ "CMD", "nc", "-zv", "alphabill-root1", "8000" ]
-      interval: 2s
+      test: [ "CMD", "nc", "-zv", "alphabill-root", "8000" ]
+      interval: 5s
     networks:
       - default
 
-  alphabill-root2:
-    extends:
-      file: alphabill-docker-services.yml
-      service: run-root-node23
-    volumes:
-      - ./genesis/root1:/genesis/root1
-      - ./genesis/root2:/genesis/root
-      - ./genesis:/genesis
-    depends_on:
-      alphabill-root1:
-        condition: service_healthy
-      sign-root-trust-base2:
-        condition: service_completed_successfully
-    healthcheck:
-      test: [ "CMD", "nc", "-zv", "alphabill-root2", "8000" ]
-      interval: 2s
-    networks:
-      - default
-
-  alphabill-root3:
-    extends:
-      file: alphabill-docker-services.yml
-      service: run-root-node23
-    volumes:
-      - ./genesis/root1:/genesis/root1
-      - ./genesis/root3:/genesis/root
-      - ./genesis:/genesis
-    depends_on:
-      alphabill-root1:
-        condition: service_healthy
-      sign-root-trust-base3:
-        condition: service_completed_successfully
-    healthcheck:
-      test: [ "CMD", "nc", "-zv", "alphabill-root3", "8000" ]
-      interval: 2s
-    networks:
-      - default
-
-  initialize-root-node1:
+  initialize-root-node:
     extends:
       file: alphabill-docker-services.yml
       service: initialize-root-node
     volumes:
-      - ./genesis/root1:/genesis
-
-  initialize-root-node2:
-    extends:
-      file: alphabill-docker-services.yml
-      service: initialize-root-node
-    volumes:
-      - ./genesis/root2:/genesis
-
-  initialize-root-node3:
-    extends:
-      file: alphabill-docker-services.yml
-      service: initialize-root-node
-    volumes:
-      - ./genesis/root3:/genesis
+      - ./genesis/root:/genesis
 
   generate-root-trust-base:
     extends:
@@ -81,41 +29,15 @@ services:
     volumes:
       - ./genesis:/genesis
     depends_on:
-      initialize-root-node1:
-        condition: service_completed_successfully
-      initialize-root-node2:
-        condition: service_completed_successfully
-      initialize-root-node3:
+      initialize-root-node:
         condition: service_completed_successfully
 
-  sign-root-trust-base1:
+  sign-root-trust-base:
     extends:
       file: alphabill-docker-services.yml
       service: sign-root-trust-base
     volumes:
-      - ./genesis/root1:/genesis/root
-      - ./genesis:/genesis
-    depends_on:
-      generate-root-trust-base:
-        condition: service_completed_successfully
-
-  sign-root-trust-base2:
-    extends:
-      file: alphabill-docker-services.yml
-      service: sign-root-trust-base
-    volumes:
-      - ./genesis/root2:/genesis/root
-      - ./genesis:/genesis
-    depends_on:
-      generate-root-trust-base:
-        condition: service_completed_successfully
-
-  sign-root-trust-base3:
-    extends:
-      file: alphabill-docker-services.yml
-      service: sign-root-trust-base
-    volumes:
-      - ./genesis/root3:/genesis/root
+      - ./genesis/root:/genesis/root
       - ./genesis:/genesis
     depends_on:
       generate-root-trust-base:
@@ -127,21 +49,16 @@ services:
       service: run-shard-node
     volumes:
       - ./genesis/tokens:/genesis
-      - ./genesis/root1:/genesis/root1
       - ./genesis:/genesis
     depends_on:
-      alphabill-root1:
-        condition: service_healthy
-      alphabill-root2:
-        condition: service_healthy
-      alphabill-root3:
+      alphabill-root:
         condition: service_healthy
       generate-tokens-genesis:
         condition: service_completed_successfully
     ports:
       - "8001:8001"
     healthcheck:
-      test: [ "CMD", "nc", "-zv", "alphabill-tokens", "8003" ]
+      test: [ "CMD", "nc", "-zv", "alphabill-tokens", "8001" ]
       interval: 2s
     networks:
       - default
@@ -172,7 +89,7 @@ services:
     depends_on:
       generate-tokens-conf:
         condition: service_completed_successfully
-      alphabill-root1:
+      alphabill-root:
         condition: service_healthy
 
   generate-tokens-genesis:

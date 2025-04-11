@@ -17,7 +17,7 @@ services:
     entrypoint:
       - /busybox/sh
       - -c
-      - 'alphabill trust-base generate --home "/genesis" --network-id 3 --node-info /genesis/root1/node-info.json --node-info /genesis/root2/node-info.json --node-info /genesis/root3/node-info.json'
+      - 'alphabill trust-base generate --home "/genesis" --network-id 3 --node-info /genesis/root/node-info.json'
 
   sign-root-trust-base:
     extends:
@@ -34,18 +34,6 @@ services:
       - /busybox/sh
       - -c
       - 'alphabill root-node run --home "/genesis/root" --address "/ip4/$(hostname -i)/tcp/8000" --trust-base /genesis/trust-base.json --rpc-server-address "$(hostname -i):8002"'
-    volumes:
-      - ./genesis:/genesis
-    expose:
-      - 8000
-
-  run-root-node23:
-    extends:
-      service: alphabill
-    entrypoint:
-      - /busybox/sh
-      - -c
-      - 'alphabill root-node run --home "/genesis/root" --address "/ip4/$(hostname -i)/tcp/8000" --bootnodes=/dns/alphabill-root1/tcp/8000/p2p/$(alphabill node-id --home "/genesis/root1" | tail -n1) --trust-base /genesis/trust-base.json --rpc-server-address "$(hostname -i):8002"'
     volumes:
       - ./genesis:/genesis
     expose:
@@ -78,7 +66,7 @@ services:
       - -v
       - -d
       - '@/genesis/shard-conf-2_0.json'
-      - 'http://alphabill-root1:8000/api/v1/configurations'
+      - 'http://alphabill-root:8000/api/v1/configurations'
 
   generate-shard-genesis:
     extends:
@@ -94,6 +82,6 @@ services:
     entrypoint:
       - /busybox/sh
       - -c
-      - 'alphabill shard-node run --home "/genesis/tokens" --trust-base /genesis/trust-base.json --shard-conf /genesis/shard-conf-2_0.json --address "/ip4/$(hostname -i)/tcp/8001" --bootnodes "/dns/alphabill-root1/tcp/8000/p2p/$(alphabill node-id --home /genesis/root1 | tail -n1)" --rpc-server-address "localhost:8003"'
+      - 'alphabill shard-node run --home "/genesis/tokens" --trust-base /genesis/trust-base.json --shard-conf /genesis/shard-conf-2_0.json --address "/ip4/$(hostname -i)/tcp/8001" --bootnodes "/dns/alphabill-root/tcp/8000/p2p/$(alphabill node-id --home /genesis/root | tail -n1)" --rpc-server-address "localhost:8003"'
     expose:
       - 8000
