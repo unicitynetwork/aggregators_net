@@ -1,0 +1,41 @@
+name: Run Tests with Docker
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      docker:
+        image: docker:20.10.24-dind
+        options: --privileged
+        ports:
+          - 2375:2375
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Configure Docker for Testcontainers
+        run: |
+          echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json
+          sudo service docker restart
+          docker info
+
+      - name: Run tests
+        env:
+          DOCKER_HOST: tcp://localhost:2375
+        run: npm run test
