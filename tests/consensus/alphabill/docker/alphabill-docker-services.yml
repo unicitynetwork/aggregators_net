@@ -1,7 +1,7 @@
 services:
   alphabill:
     platform: linux/amd64
-    image: ghcr.io/alphabill-org/alphabill:d3b7c58783cf7176e494948816030e76d74af573
+    image: ghcr.io/alphabill-org/alphabill:d3b7c58783cf7176e494948816030e76d74af573 # https://github.com/alphabill-org/alphabill/pkgs/container/alphabill
 
   initialize-root-node:
     extends:
@@ -9,7 +9,7 @@ services:
     entrypoint:
       - /busybox/sh
       - -c
-      - 'alphabill root-node init --home "/genesis" -g'
+      - 'if [ -z "$(ls -A /genesis)" ]; then alphabill root-node init --home "/genesis" -g; else echo "Genesis exists"; exit 0; fi'
 
   generate-root-trust-base:
     extends:
@@ -17,7 +17,7 @@ services:
     entrypoint:
       - /busybox/sh
       - -c
-      - 'alphabill trust-base generate --home "/genesis" --network-id 3 --node-info /genesis/root/node-info.json'
+      - 'if [ ! -f /genesis/trust-base.json ]; then alphabill trust-base generate --home "/genesis" --network-id 3 --node-info /genesis/root/node-info.json; else echo "Root trust base exists"; exit 0; fi'
 
   sign-root-trust-base:
     extends:
@@ -45,7 +45,7 @@ services:
     entrypoint:
       - /busybox/sh
       - -c
-      - 'alphabill shard-node init --home "/genesis/tokens" --generate'
+      - 'if [ -z "$(ls -A /genesis/tokens)" ]; then alphabill shard-node init --home "/genesis/tokens" --generate; else echo "Shard initialized"; exit 0; fi'
 
   generate-shard-conf:
     extends:
@@ -53,7 +53,7 @@ services:
     entrypoint:
       - /busybox/sh
       - -c
-      - 'alphabill shard-conf generate --home "/genesis" --network-id 3 --partition-id 2 --partition-type-id 2 --epoch-start 10 --feeless-mode true --admin-owner-predicate 0x830041025820786C9F82FCD2CFB4190A690725E85734F2D25B86DBC35186D85D08F3CFC2B7CA --node-info=/genesis/tokens/node-info.json'
+      - 'if [ ! -f /genesis/shard-conf-2_0.json ]; then alphabill shard-conf generate --home "/genesis" --network-id 3 --partition-id 2 --partition-type-id 2 --epoch-start 10 --feeless-mode true --admin-owner-predicate 0x830041025820786C9F82FCD2CFB4190A690725E85734F2D25B86DBC35186D85D08F3CFC2B7CA --node-info=/genesis/tokens/node-info.json; else echo "Shard genesis exists"; exit 0; fi'
 
   upload-shard-conf:
     image: curlimages/curl
@@ -69,7 +69,7 @@ services:
     entrypoint:
       - /busybox/sh
       - -c
-      - 'alphabill shard-conf genesis --home "/genesis/tokens" --shard-conf /genesis/shard-conf-2_0.json'
+      - 'if [ ! -f  /genesis/tokens/state.cbor ]; then alphabill shard-conf genesis --home "/genesis/tokens" --shard-conf /genesis/shard-conf-2_0.json; else echo "Shard genesis exists"; exit 0; fi'
 
   run-shard-node:
     extends:

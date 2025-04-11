@@ -38,8 +38,8 @@ describe('Block Storage Tests', () => {
     container = await startMongoDb();
   });
 
-  afterAll(async () => {
-    await stopMongoDb(container);
+  afterAll(() => {
+    stopMongoDb(container);
   });
 
   it('Store and retrieve block', async () => {
@@ -75,7 +75,7 @@ describe('Block Storage Tests', () => {
 
     const unicityCertificate = new UnicityCertificate(
       0b11n,
-      new InputRecord(0b11n, 0b11n, 0b11n, null, null, new Uint8Array([1]), 0b11n, null, 0b11n),
+      new InputRecord(0b11n, 0b11n, 0b11n, null, null, new Uint8Array([1]), 0b11n, null, 0b11n, null),
       null,
       new ShardTreeCertificate(BitString.create(new Uint8Array([1])), [new Uint8Array([1])]),
       new UnicityTreeCertificate(0b11n, 0b11n, new Uint8Array([1]), []),
