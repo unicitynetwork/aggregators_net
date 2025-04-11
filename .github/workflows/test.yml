@@ -24,7 +24,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '22'
+          node-version: '22.14.0'
 
       - name: Install dependencies
         run: npm install
@@ -34,6 +34,9 @@ jobs:
           echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json
           sudo service docker restart
           docker info
+
+      - name: Set DOCKER_HOST for Testcontainers
+        run: echo "DOCKER_HOST=tcp://localhost:2375" >> $GITHUB_ENV
 
       - name: Run tests
         env:
