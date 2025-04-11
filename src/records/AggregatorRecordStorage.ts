@@ -51,8 +51,8 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
     if (records.length === 0) {
       return true;
     }
-    
-    const recordDocuments = records.map(record => ({
+
+    const recordDocuments = records.map((record) => ({
       requestId: record.requestId.toBigInt(),
       transactionHash: record.transactionHash.imprint,
       authenticator: {
@@ -62,7 +62,7 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
         stateHash: record.authenticator.stateHash.imprint,
       },
     }));
-    
+
     await AggregatorRecordModel.insertMany(recordDocuments);
     return true;
   }

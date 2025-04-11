@@ -32,27 +32,26 @@ export class RoundManager {
 
   public async createBlock(): Promise<Block> {
     const commitments = await this.commitmentStorage.getAll();
-    
+
     const aggregatorRecords: AggregatorRecord[] = [];
     if (commitments && commitments.length > 0) {
       for (const commitment of commitments) {
         aggregatorRecords.push(
-          new AggregatorRecord(commitment.requestId, commitment.transactionHash, commitment.authenticator)
+          new AggregatorRecord(commitment.requestId, commitment.transactionHash, commitment.authenticator),
         );
       }
     }
-    
+
     // Start storing records in parallel with adding leaves to SMT
     let recordStoragePromise: Promise<boolean>;
     try {
-      recordStoragePromise = aggregatorRecords.length > 0 ? 
-        this.recordStorage.putBatch(aggregatorRecords) : 
-        Promise.resolve(true);
+      recordStoragePromise =
+        aggregatorRecords.length > 0 ? this.recordStorage.putBatch(aggregatorRecords) : Promise.resolve(true);
     } catch (error) {
       console.error('Failed to start record storage:', error);
       throw error;
     }
-    
+
     if (commitments && commitments.length > 0) {
       for (const commitment of commitments) {
         try {
@@ -66,14 +65,14 @@ export class RoundManager {
         }
       }
     }
-    
+
     try {
       await recordStoragePromise;
     } catch (error) {
       console.error('Failed to store records:', error);
       throw error;
     }
-    
+
     let submitHashResponse;
     const rootHash = this.smt.rootHash;
     try {
@@ -82,7 +81,7 @@ export class RoundManager {
       console.error('Failed to submit hash to Alphabill:', error);
       throw error;
     }
-    
+
     try {
       const txProof = submitHashResponse.txProof;
       const previousBlockHash = submitHashResponse.previousBlockHash;

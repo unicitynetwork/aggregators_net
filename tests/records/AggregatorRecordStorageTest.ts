@@ -82,7 +82,7 @@ describe('Aggregator Record Storage Tests', () => {
       const retrieved = await storage.get(requestIds[i]);
       expect(retrieved).not.toBeNull();
       assert(retrieved);
-      
+
       const originalRecord = records[i];
       expect(retrieved.requestId.toBigInt()).toEqual(originalRecord.requestId.toBigInt());
       expect(retrieved.transactionHash.equals(originalRecord.transactionHash)).toBeTruthy();
