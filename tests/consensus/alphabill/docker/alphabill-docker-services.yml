@@ -1,7 +1,7 @@
 services:
   alphabill:
     platform: linux/amd64
-    image: ghcr.io/alphabill-org/alphabill:0b28596910f7e0e9e668a11e7e9e72ca00732f7c # https://github.com/alphabill-org/alphabill/pkgs/container/alphabill
+    image: ghcr.io/alphabill-org/alphabill:4a074861e732c57b266503c00b0c6638f8d76c48 # https://github.com/alphabill-org/alphabill/pkgs/container/alphabill
 
   initialize-root-node:
     extends:
