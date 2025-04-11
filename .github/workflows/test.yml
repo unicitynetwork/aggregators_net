@@ -8,6 +8,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write # needed to write Alphabill genesis files to disk
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
