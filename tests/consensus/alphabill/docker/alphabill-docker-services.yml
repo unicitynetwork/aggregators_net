@@ -62,11 +62,9 @@ services:
       - PUT
       - -H
       - 'Content-Type: application/json'
-      - --http0.9 # Without this error curl: (1) Received HTTP/0.9 when not allowed
-      - -v
       - -d
       - '@/genesis/shard-conf-2_0.json'
-      - 'http://alphabill-root:8000/api/v1/configurations'
+      - 'http://alphabill-root:8002/api/v1/configurations'
 
   generate-shard-genesis:
     extends:
