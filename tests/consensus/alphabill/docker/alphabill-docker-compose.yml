@@ -172,6 +172,8 @@ services:
     depends_on:
       generate-tokens-conf:
         condition: service_completed_successfully
+      alphabill-root1:
+        condition: service_healthy
 
   generate-tokens-genesis:
     extends:
