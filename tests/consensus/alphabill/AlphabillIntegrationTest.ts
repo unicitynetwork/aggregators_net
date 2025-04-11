@@ -43,7 +43,9 @@ describe('Alphabill Client Integration Tests', () => {
   let unicitySigningService: SigningService;
 
   beforeAll(async () => {
-    console.log('Setting up test environment with Alphabill root node, permissioned token partition node and MongoDB...');
+    console.log(
+      'Setting up test environment with Alphabill root node, permissioned token partition node and MongoDB...',
+    );
     mongoContainer = await new MongoDBContainer('mongo:7').start();
     aggregatorEnvironment = await new DockerComposeEnvironment(composeFilePath, composeAlphabill)
       .withBuild()
@@ -53,7 +55,7 @@ describe('Alphabill Client Integration Tests', () => {
     console.log('Setup successful.');
 
     // Wait for Alphabill nodes to start up
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    await new Promise((resolve) => setTimeout(resolve, 5000));
 
     // Set fee credit
     console.log('Setting fee credit...');
@@ -96,10 +98,10 @@ describe('Alphabill Client Integration Tests', () => {
     requestId = await RequestId.create(unicitySigningService.publicKey, stateHash);
   });
 
-  afterAll(async () => {
-    await aggregator.stop();
-    await mongoContainer.stop({ timeout: 10 });
-    await aggregatorEnvironment.down();
+  afterAll(() => {
+    aggregatorEnvironment.down();
+    aggregator.stop();
+    mongoContainer.stop({ timeout: 10 });
   });
 
   it('Submit commitment to aggregator and wait for inclusion proof', async () => {
