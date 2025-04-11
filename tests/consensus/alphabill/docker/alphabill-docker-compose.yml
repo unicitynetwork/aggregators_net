@@ -56,7 +56,7 @@ services:
       generate-tokens-genesis:
         condition: service_completed_successfully
     ports:
-      - "8001:8001"
+      - "8003:8003"
     healthcheck:
       test: [ "CMD", "nc", "-zv", "alphabill-tokens", "8001" ]
       interval: 2s

@@ -57,14 +57,11 @@ services:
 
   upload-shard-conf:
     image: curlimages/curl
-    command:
-      - -X
-      - PUT
-      - -H
-      - 'Content-Type: application/json'
-      - -d
-      - '@/genesis/shard-conf-2_0.json'
-      - 'http://alphabill-root:8002/api/v1/configurations'
+    command: >-
+      curl -X PUT
+      -H 'Content-Type: application/json'
+      -d '@/genesis/shard-conf-2_0.json'
+      'http://alphabill-root:8002/api/v1/configurations'
 
   generate-shard-genesis:
     extends:
@@ -80,6 +77,6 @@ services:
     entrypoint:
       - /busybox/sh
       - -c
-      - 'alphabill shard-node run --home "/genesis/tokens" --trust-base /genesis/trust-base.json --shard-conf /genesis/shard-conf-2_0.json --address "/ip4/$(hostname -i)/tcp/8001" --bootnodes "/dns/alphabill-root/tcp/8000/p2p/$(alphabill node-id --home /genesis/root | tail -n1)" --rpc-server-address "localhost:8003"'
+      - 'alphabill shard-node run --home "/genesis/tokens" --trust-base /genesis/trust-base.json --shard-conf /genesis/shard-conf-2_0.json --address "/ip4/$(hostname -i)/tcp/8001" --bootnodes "/dns/alphabill-root/tcp/8000/p2p/$(alphabill node-id --home /genesis/root | tail -n1)" --rpc-server-address "$(hostname -i):8003"'
     expose:
-      - 8000
+      - 8001
