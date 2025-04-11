@@ -101,7 +101,7 @@ export class MockAlphabillClient implements IAlphabillClient {
       serverMetadata: new ServerMetadata(1n, [], 0, null),
     } as TransactionRecord<UpdateNonFungibleTokenTransactionOrder>;
 
-    const inputRecord = new InputRecord(1n, 1n, 1n, null, null, new Uint8Array([1]), 1n, null, 1n);
+    const inputRecord = new InputRecord(1n, 1n, 1n, null, null, new Uint8Array([1]), 1n, null, 1n, null);
 
     const shardTreeCertificate = new ShardTreeCertificate(BitString.create(new Uint8Array([1])), [new Uint8Array([1])]);
 

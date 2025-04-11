@@ -30,7 +30,7 @@ describe('Alphabill Client Integration Tests', () => {
   const privateKey = '1DE87F189C3C9E42F93C90C95E2AC761BE9D0EB2FD1CA0FF3A9CE165C3DE96A9';
   const alphabillSigningService = new DefaultSigningService(Base16Converter.decode(privateKey));
   const proofFactory = new PayToPublicKeyHashProofFactory(alphabillSigningService);
-  const tokenPartitionUrl = 'http://localhost:9001/rpc';
+  const tokenPartitionUrl = 'http://localhost:8003/rpc';
   const networkId = 3;
   const tokenPartitionId = 2;
 
@@ -43,7 +43,7 @@ describe('Alphabill Client Integration Tests', () => {
   let unicitySigningService: SigningService;
 
   beforeAll(async () => {
-    console.log('Setting up test environment with Alphabill root nodes, permissioned token partition and MongoDB...');
+    console.log('Setting up test environment with Alphabill root node, permissioned token partition node and MongoDB...');
     mongoContainer = await new MongoDBContainer('mongo:7').start();
     aggregatorEnvironment = await new DockerComposeEnvironment(composeFilePath, composeAlphabill)
       .withBuild()
@@ -51,6 +51,31 @@ describe('Alphabill Client Integration Tests', () => {
       .withStartupTimeout(15000)
       .up();
     console.log('Setup successful.');
+
+    // Wait for Alphabill nodes to start up
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    // Set fee credit
+    console.log('Setting fee credit...');
+    const tokenClient = createTokenClient({ transport: http(tokenPartitionUrl) });
+    const ownerPredicate = PayToPublicKeyHashPredicate.create(alphabillSigningService.publicKey);
+    const round = (await tokenClient.getRoundInfo()).roundNumber;
+    const setFeeCreditTransactionOrder = await SetFeeCredit.create({
+      targetPartitionIdentifier: tokenPartitionId,
+      ownerPredicate: ownerPredicate,
+      amount: 100n,
+      feeCreditRecord: { unitId: null, counter: null },
+      version: 1n,
+      networkIdentifier: networkId,
+      partitionIdentifier: tokenPartitionId,
+      stateLock: null,
+      metadata: new ClientMetadata(round + 60n, 5n, null, null),
+      stateUnlock: new AlwaysTruePredicate(),
+    }).sign(proofFactory);
+    const setFeeCreditHash = await tokenClient.sendTransaction(setFeeCreditTransactionOrder);
+    const setFeeCreditProof = await tokenClient.waitTransactionProof(setFeeCreditHash, SetFeeCredit);
+    expect(setFeeCreditProof.transactionRecord.serverMetadata.successIndicator).toEqual(TransactionStatus.Successful);
+    console.log('Setting fee credit successful.');
 
     console.log('Starting aggregator...');
     aggregator = await AggregatorGateway.create({
@@ -75,30 +100,6 @@ describe('Alphabill Client Integration Tests', () => {
     await aggregator.stop();
     await mongoContainer.stop({ timeout: 10 });
     await aggregatorEnvironment.down();
-  });
-
-  // Can be skipped as docker script already assigns fee credit to admin key. Leaving it here for reference.
-  it.skip('Set fee credit on permissioned Alphabill token partition', async () => {
-    console.log('Setting fee credit...');
-    const tokenClient = createTokenClient({ transport: http(tokenPartitionUrl) });
-    const ownerPredicate = PayToPublicKeyHashPredicate.create(alphabillSigningService.publicKey);
-    const round = (await tokenClient.getRoundInfo()).roundNumber;
-    const setFeeCreditTransactionOrder = await SetFeeCredit.create({
-      targetPartitionIdentifier: tokenPartitionId,
-      ownerPredicate: ownerPredicate,
-      amount: 100n,
-      feeCreditRecord: { unitId: null, counter: null },
-      version: 1n,
-      networkIdentifier: networkId,
-      partitionIdentifier: tokenPartitionId,
-      stateLock: null,
-      metadata: new ClientMetadata(round + 60n, 5n, null, null),
-      stateUnlock: new AlwaysTruePredicate(),
-    }).sign(proofFactory);
-    const setFeeCreditHash = await tokenClient.sendTransaction(setFeeCreditTransactionOrder);
-    const setFeeCreditProof = await tokenClient.waitTransactionProof(setFeeCreditHash, SetFeeCredit);
-    expect(setFeeCreditProof.transactionRecord.serverMetadata.successIndicator).toEqual(TransactionStatus.Successful);
-    console.log('Setting fee credit successful.');
   });
 
   it('Submit commitment to aggregator and wait for inclusion proof', async () => {
