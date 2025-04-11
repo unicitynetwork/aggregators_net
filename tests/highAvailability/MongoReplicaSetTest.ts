@@ -34,10 +34,10 @@ describe('Mongo Replica Set Tests', () => {
     process.env.MONGODB_URI = replicaSet.uri;
   });
 
-  afterAll(async () => {
+  afterAll(() => {
     for (const container of containers) {
       try {
-        await container.stop({ timeout: 10 });
+        container.stop({ timeout: 10 });
       } catch (e) {
         console.error('Error stopping container:', e);
       }

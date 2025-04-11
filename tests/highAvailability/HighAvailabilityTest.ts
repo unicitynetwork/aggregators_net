@@ -23,18 +23,18 @@ describe('High Availability Tests', () => {
     await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000, directConnection: true });
   });
 
-  afterAll(async () => {
+  afterAll(() => {
     for (const gateway of gateways) {
-      await gateway.stop();
+      gateway.stop();
     }
 
     if (mongoClient) {
-      await mongoClient.close();
+      mongoClient.close();
     }
 
     if (mongoContainer) {
       console.log('\nStopping MongoDB container...');
-      await mongoContainer.stop({ timeout: 10 });
+      mongoContainer.stop({ timeout: 10 });
     }
 
     console.log('\n=========== FINISHED ALL HA TESTS ===========');
