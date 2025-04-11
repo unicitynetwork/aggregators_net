@@ -105,7 +105,7 @@ export class MockAlphabillClient implements IAlphabillClient {
 
     const shardTreeCertificate = new ShardTreeCertificate(BitString.create(new Uint8Array([1])), [new Uint8Array([1])]);
 
-    const unicityTreeCertificate = new UnicityTreeCertificate(1n, 1n, new Uint8Array([1]), []);
+    const unicityTreeCertificate = new UnicityTreeCertificate(1n, 1n, []);
 
     const unicitySeal = new UnicitySeal(1n, 1n, 1n, 1n, 1n, null, new Uint8Array([1]), new Map());
 
@@ -113,6 +113,7 @@ export class MockAlphabillClient implements IAlphabillClient {
       1n,
       inputRecord,
       null,
+      new Uint8Array([1]),
       shardTreeCertificate,
       unicityTreeCertificate,
       unicitySeal,

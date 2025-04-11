@@ -77,8 +77,9 @@ describe('Block Storage Tests', () => {
       0b11n,
       new InputRecord(0b11n, 0b11n, 0b11n, null, null, new Uint8Array([1]), 0b11n, null, 0b11n, null),
       null,
+      new Uint8Array([1]),
       new ShardTreeCertificate(BitString.create(new Uint8Array([1])), [new Uint8Array([1])]),
-      new UnicityTreeCertificate(0b11n, 0b11n, new Uint8Array([1]), []),
+      new UnicityTreeCertificate(0b11n, 0b11n, []),
       new UnicitySeal(0b11n, 0b11n, 0b11n, 0b11n, 0b11n, null, new Uint8Array([1]), new Map()),
     );
 
