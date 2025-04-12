@@ -226,7 +226,7 @@ export class AggregatorGateway {
           }
         }
       } catch (error) {
-        console.error(`Error processing ${req.body.method}:`, error);
+        logger.error(`Error processing ${req.body.method}:`, error);
         return res.status(500).json({
           jsonrpc: '2.0',
           error: {
@@ -311,7 +311,7 @@ export class AggregatorGateway {
         try {
           await roundManager.createBlock();
         } catch (error) {
-          console.error('Failed to create block:', error);
+          logger.error('Failed to create block:', error);
         }
         this.startNextBlock(roundManager);
       },

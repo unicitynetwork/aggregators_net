@@ -40,7 +40,7 @@ describe('Mongo Replica Set Tests', () => {
       try {
         container.stop({ timeout: 10 });
       } catch (e) {
-        console.error('Error stopping container:', e);
+        logger.error('Error stopping container:', e);
       }
     }
   });
@@ -128,11 +128,11 @@ describe('Mongo Replica Set Tests', () => {
             break;
           }
         } catch (e) {
-          console.debug(e);
+          logger.debug(e);
           // No primary elected yet
         }
       } catch (error) {
-        console.debug(error);
+        logger.debug(error);
         // Ignore errors during election
       }
       logger.info(`Waiting for primary election... (${(Date.now() - failoverStart) / 1000}s)`);
@@ -220,7 +220,7 @@ async function setupReplicaSet(): Promise<IReplicaSet> {
         rsStatus = JSON.parse(status.output);
       } catch (e) {
         logger.info('Invalid JSON response:', status.output);
-        console.debug(e);
+        logger.debug(e);
         rsStatus = { ok: 0 };
       }
 

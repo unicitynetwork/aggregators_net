@@ -89,7 +89,7 @@ export class LeaderElection {
       try {
         await this.storage.releaseLock(this.LOCK_ID, this.SERVER_ID);
       } catch (error) {
-        console.error('Error releasing leadership lock:', error);
+        logger.error('Error releasing leadership lock:', error);
       } finally {
         this.isLeader = false;
       }
@@ -129,7 +129,7 @@ export class LeaderElection {
 
       return false;
     } catch (error) {
-      console.error('Error during leader election:', error);
+      logger.error('Error during leader election:', error);
       if (this.isLeader) {
         this.stepDown();
       }
@@ -154,7 +154,7 @@ export class LeaderElection {
           this.stepDown();
         }
       } catch (error) {
-        console.error('Error updating heartbeat:', error);
+        logger.error('Error updating heartbeat:', error);
         this.stepDown();
       }
     }, this.HEARTBEAT_INTERVAL);

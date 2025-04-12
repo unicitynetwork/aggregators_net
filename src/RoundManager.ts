@@ -6,6 +6,7 @@ import { ICommitmentStorage } from './commitment/ICommitmentStorage.js';
 import { IAlphabillClient } from './consensus/alphabill/IAlphabillClient.js';
 import { Block } from './hashchain/Block.js';
 import { IBlockStorage } from './hashchain/IBlockStorage.js';
+import logger from './index.js';
 import { AggregatorRecord } from './records/AggregatorRecord.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
@@ -27,7 +28,7 @@ export class RoundManager {
       await this.commitmentStorage.put(commitment);
       return true;
     } catch (error) {
-      console.error('Failed to submit commitment:', error);
+      logger.error('Failed to submit commitment:', error);
       return false;
     }
   }
@@ -60,7 +61,7 @@ export class RoundManager {
 
       smtLeafStoragePromise = smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
     } catch (error) {
-      console.error('Failed to start storing records and SMT leaves:', error);
+      logger.error('Failed to start storing records and SMT leaves:', error);
       throw error;
     }
 
@@ -69,7 +70,7 @@ export class RoundManager {
         try {
           await this.smt.addLeaf(leaf.path, leaf.value);
         } catch (error) {
-          console.error('Failed to add leaf to SMT:', error);
+          logger.error('Failed to add leaf to SMT:', error);
           throw error;
         }
       }
@@ -78,7 +79,7 @@ export class RoundManager {
     try {
       await Promise.all([recordStoragePromise, smtLeafStoragePromise]);
     } catch (error) {
-      console.error('Failed to store records and SMT leaves:', error);
+      logger.error('Failed to store records and SMT leaves:', error);
       throw error;
     }
 
@@ -87,7 +88,7 @@ export class RoundManager {
     try {
       submitHashResponse = await this.alphabillClient.submitHash(rootHash);
     } catch (error) {
-      console.error('Failed to submit hash to Alphabill:', error);
+      logger.error('Failed to submit hash to Alphabill:', error);
       throw error;
     }
 
@@ -109,7 +110,7 @@ export class RoundManager {
       await this.blockStorage.put(block);
       return block;
     } catch (error) {
-      console.error('Failed to create or store block:', error);
+      logger.error('Failed to create or store block:', error);
       throw error;
     }
   }

@@ -1,6 +1,7 @@
 import mongoose, { model } from 'mongoose';
 
 import { ILeadershipStorage } from './ILeadershipStorage.js';
+import logger from '../index.js';
 
 interface ILockDocument {
   lockId: string;
@@ -66,7 +67,7 @@ export class LeadershipStorage implements ILeadershipStorage {
 
       return updateResult.modifiedCount > 0 || updateResult.upsertedCount > 0;
     } catch (error) {
-      console.error('Error acquiring lock:', error);
+      logger.error('Error acquiring lock:', error);
       return false;
     }
   }
@@ -96,7 +97,7 @@ export class LeadershipStorage implements ILeadershipStorage {
 
       return !!result;
     } catch (error) {
-      console.error('Error updating heartbeat:', error);
+      logger.error('Error updating heartbeat:', error);
       return false;
     }
   }
@@ -113,7 +114,7 @@ export class LeadershipStorage implements ILeadershipStorage {
         leaderId: serverId,
       });
     } catch (error) {
-      console.error('Error releasing lock: ', error);
+      logger.error('Error releasing lock: ', error);
       throw error;
     }
   }
