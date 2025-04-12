@@ -21,38 +21,87 @@ export class RoundManager {
   ) {}
 
   public async submitCommitment(commitment: Commitment): Promise<boolean> {
-    await this.commitmentStorage.put(commitment);
-    return true;
+    try {
+      await this.commitmentStorage.put(commitment);
+      return true;
+    } catch (error) {
+      console.error('Failed to submit commitment:', error);
+      return false;
+    }
   }
 
   public async createBlock(): Promise<Block> {
     const commitments = await this.commitmentStorage.getAll();
-    for (const commitment of commitments) {
-      const nodePath = commitment.requestId.toBigInt();
-      const nodeValue = commitment.transactionHash.data;
-      const leaf = new SmtNode(nodePath, nodeValue);
-      await this.smt.addLeaf(leaf.path, leaf.value);
-      await this.recordStorage.put(
-        new AggregatorRecord(commitment.requestId, commitment.transactionHash, commitment.authenticator),
-      );
+
+    const aggregatorRecords: AggregatorRecord[] = [];
+    if (commitments && commitments.length > 0) {
+      for (const commitment of commitments) {
+        aggregatorRecords.push(
+          new AggregatorRecord(commitment.requestId, commitment.transactionHash, commitment.authenticator),
+        );
+      }
     }
+
+    // Start storing records in parallel with adding leaves to SMT
+    let recordStoragePromise: Promise<boolean>;
+    try {
+      recordStoragePromise =
+        aggregatorRecords.length > 0 ? this.recordStorage.putBatch(aggregatorRecords) : Promise.resolve(true);
+    } catch (error) {
+      console.error('Failed to start record storage:', error);
+      throw error;
+    }
+
+    if (commitments && commitments.length > 0) {
+      for (const commitment of commitments) {
+        try {
+          const nodePath = commitment.requestId.toBigInt();
+          const nodeValue = commitment.transactionHash.data;
+          const leaf = new SmtNode(nodePath, nodeValue);
+          await this.smt.addLeaf(leaf.path, leaf.value);
+        } catch (error) {
+          console.error('Failed to add leaf to SMT:', error);
+          throw error;
+        }
+      }
+    }
+
+    try {
+      await recordStoragePromise;
+    } catch (error) {
+      console.error('Failed to store records:', error);
+      throw error;
+    }
+
+    let submitHashResponse;
     const rootHash = this.smt.rootHash;
-    const submitHashResponse = await this.alphabillClient.submitHash(rootHash);
-    const txProof = submitHashResponse.txProof;
-    const previousBlockHash = submitHashResponse.previousBlockHash;
-    const blockNumber = await this.blockStorage.getNextBlockNumber();
-    const block = new Block(
-      blockNumber,
-      this.config.chainId!,
-      this.config.version!,
-      this.config.forkId!,
-      txProof.transactionProof.unicityCertificate.unicitySeal.timestamp,
-      txProof,
-      previousBlockHash,
-      rootHash,
-      null, // TODO add noDeletionProof
-    );
-    await this.blockStorage.put(block);
-    return block;
+    try {
+      submitHashResponse = await this.alphabillClient.submitHash(rootHash);
+    } catch (error) {
+      console.error('Failed to submit hash to Alphabill:', error);
+      throw error;
+    }
+
+    try {
+      const txProof = submitHashResponse.txProof;
+      const previousBlockHash = submitHashResponse.previousBlockHash;
+      const blockNumber = await this.blockStorage.getNextBlockNumber();
+      const block = new Block(
+        blockNumber,
+        this.config.chainId!,
+        this.config.version!,
+        this.config.forkId!,
+        txProof.transactionProof.unicityCertificate.unicitySeal.timestamp,
+        txProof,
+        previousBlockHash,
+        rootHash,
+        null, // TODO add noDeletionProof
+      );
+      await this.blockStorage.put(block);
+      return block;
+    } catch (error) {
+      console.error('Failed to create or store block:', error);
+      throw error;
+    }
   }
 }

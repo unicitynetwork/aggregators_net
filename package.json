@@ -12,8 +12,9 @@
     "docker:alphabill:down": "docker compose -f tests/consensus/alphabill/docker/alphabill-docker-compose.yml down -v",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --fix",
-    "test": "jest tests/",
-    "test:ci": "jest tests/ --ci --reporters=default"
+    "test": "jest tests/ --testPathIgnorePatterns=\"tests/benchmarks\"",
+    "test:ci": "jest tests/ --ci --reporters=default --testPathIgnorePatterns=\"tests/benchmarks\"",
+    "benchmark": "jest tests/benchmarks --runInBand --testNamePattern=\"Benchmark\""
   },
   "type": "module",
   "repository": {
