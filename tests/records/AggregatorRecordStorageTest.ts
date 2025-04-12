@@ -21,8 +21,8 @@ describe('Aggregator Record Storage Tests', () => {
     container = await startMongoDb();
   });
 
-  afterAll(async () => {
-    await stopMongoDb(container);
+  afterAll(() => {
+    stopMongoDb(container);
   });
 
   it('Store and retrieve record', async () => {

@@ -24,7 +24,7 @@ describe('High Availability Tests', () => {
   afterAll(async () => {
     console.log('Stopping all gateways...');
     for (const gateway of gateways) {
-      await gateway.stop();
+      gateway.stop();
     }
 
     // Wait a moment to ensure all connections are properly closed
@@ -40,7 +40,7 @@ describe('High Availability Tests', () => {
 
     if (mongoContainer) {
       console.log('\nStopping MongoDB container...');
-      await mongoContainer.stop({ timeout: 10 });
+      mongoContainer.stop({ timeout: 10 });
     }
 
     console.log('\n=========== FINISHED ALL HA TESTS ===========');

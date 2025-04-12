@@ -1,188 +1,106 @@
 services:
-  alphabill-root1:
+  alphabill-root:
     extends:
       file: alphabill-docker-services.yml
-      service: alphabill-root-bootnode
+      service: run-root-node
     volumes:
-      - ./.genesis/root1:/genesis
-      - ./.genesis:/genesis-nodes
+      - ./genesis/root:/genesis/root
+      - ./genesis:/genesis
     depends_on:
-      sign-root-trust-base1:
-        condition: service_completed_successfully
-      sign-root-trust-base2:
-        condition: service_completed_successfully
-      sign-root-trust-base3:
+      sign-root-trust-base:
         condition: service_completed_successfully
     healthcheck:
-      test: [ "CMD", "nc", "-zv", "alphabill-root1", "8000" ]
-      interval: 2s
+      test: [ "CMD", "nc", "-zv", "alphabill-root", "8000" ]
+      interval: 5s
     networks:
       - default
-  alphabill-root2:
+
+  initialize-root-node:
     extends:
       file: alphabill-docker-services.yml
-      service: alphabill-root
+      service: initialize-root-node
     volumes:
-      - ./.genesis/root2:/genesis
-      - ./.genesis:/genesis-nodes
-    depends_on:
-      sign-root-trust-base1:
-        condition: service_completed_successfully
-      sign-root-trust-base2:
-        condition: service_completed_successfully
-      sign-root-trust-base3:
-        condition: service_completed_successfully
-    healthcheck:
-      test: [ "CMD", "nc", "-zv", "alphabill-root2", "8000" ]
-      interval: 2s
-    networks:
-      - default
-  alphabill-root3:
+      - ./genesis/root:/genesis
+
+  generate-root-trust-base:
     extends:
       file: alphabill-docker-services.yml
-      service: alphabill-root
+      service: generate-root-trust-base
     volumes:
-      - ./.genesis/root3:/genesis
-      - ./.genesis:/genesis-nodes
+      - ./genesis:/genesis
     depends_on:
-      sign-root-trust-base1:
+      initialize-root-node:
         condition: service_completed_successfully
-      sign-root-trust-base2:
+
+  sign-root-trust-base:
+    extends:
+      file: alphabill-docker-services.yml
+      service: sign-root-trust-base
+    volumes:
+      - ./genesis/root:/genesis/root
+      - ./genesis:/genesis
+    depends_on:
+      generate-root-trust-base:
         condition: service_completed_successfully
-      sign-root-trust-base3:
-        condition: service_completed_successfully
-    healthcheck:
-      test: [ "CMD", "nc", "-zv", "alphabill-root3", "8000" ]
-      interval: 2s
-    networks:
-      - default
+
   alphabill-tokens:
     extends:
       file: alphabill-docker-services.yml
-      service: alphabill-tokens
+      service: run-shard-node
     volumes:
-      - ./.genesis/tokens:/genesis
-      - ./.genesis:/genesis-nodes
+      - ./genesis/tokens:/genesis
+      - ./genesis:/genesis
     depends_on:
+      alphabill-root:
+        condition: service_healthy
       generate-tokens-genesis:
         condition: service_completed_successfully
-      alphabill-root1:
-        condition: service_healthy
-      alphabill-root2:
-        condition: service_healthy
-      alphabill-root3:
-        condition: service_healthy
     ports:
-      - 9001:8001
+      - "8003:8003"
     healthcheck:
       test: [ "CMD", "nc", "-zv", "alphabill-tokens", "8001" ]
       interval: 2s
     networks:
       - default
-  generate-root-genesis1:
+
+  initialize-tokens-node:
     extends:
       file: alphabill-docker-services.yml
-      service: generate-root-genesis
+      service: initialize-shard-node
     volumes:
-      - ./.genesis/root1:/genesis
-    depends_on:
-      generate-tokens-genesis:
-        condition: service_completed_successfully
-  generate-root-genesis2:
+      - ./genesis/tokens:/genesis/tokens
+
+  generate-tokens-conf:
     extends:
       file: alphabill-docker-services.yml
-      service: generate-root-genesis
+      service: generate-shard-conf
     volumes:
-      - ./.genesis/root2:/genesis
+      - ./genesis:/genesis
     depends_on:
-      generate-tokens-genesis:
+      initialize-tokens-node:
         condition: service_completed_successfully
-  generate-root-genesis3:
+
+  upload-shard-conf:
     extends:
       file: alphabill-docker-services.yml
-      service: generate-root-genesis
+      service: upload-shard-conf
     volumes:
-      - ./.genesis/root3:/genesis
+      - ./genesis:/genesis
     depends_on:
-      generate-tokens-genesis:
+      generate-tokens-conf:
         condition: service_completed_successfully
-  combine-root-genesis1:
-    extends:
-      file: alphabill-docker-services.yml
-      service: combine-root-genesis
-    volumes:
-      - ./.genesis/root1:/genesis/root
-    depends_on:
-      generate-root-genesis1:
-          condition: service_completed_successfully
-      generate-root-genesis2:
-          condition: service_completed_successfully
-      generate-root-genesis3:
-          condition: service_completed_successfully
-  combine-root-genesis2:
-    extends:
-      file: alphabill-docker-services.yml
-      service: combine-root-genesis
-    volumes:
-      - ./.genesis/root2:/genesis/root
-    depends_on:
-      combine-root-genesis1:
-        condition: service_completed_successfully
-  combine-root-genesis3:
-    extends:
-      file: alphabill-docker-services.yml
-      service: combine-root-genesis
-    volumes:
-      - ./.genesis/root3:/genesis/root
-    depends_on:
-      combine-root-genesis2:
-        condition: service_completed_successfully
-  generate-root-trust-base:
-    extends:
-      file: alphabill-docker-services.yml
-      service: generate-root-trust-base
-    depends_on:
-      combine-root-genesis1:
-        condition: service_completed_successfully
-      combine-root-genesis2:
-        condition: service_completed_successfully
-      combine-root-genesis3:
-        condition: service_completed_successfully
-  sign-root-trust-base1:
-    extends:
-      file: alphabill-docker-services.yml
-      service: sign-root-trust-base
-    volumes:
-      - ./.genesis/root1:/genesis/root
-      - ./.genesis:/genesis-nodes
-    depends_on:
-      generate-root-trust-base:
-        condition: service_completed_successfully
-  sign-root-trust-base2:
-    extends:
-      file: alphabill-docker-services.yml
-      service: sign-root-trust-base
-    volumes:
-      - ./.genesis/root2:/genesis/root
-      - ./.genesis:/genesis-nodes
-    depends_on:
-      sign-root-trust-base1:
-        condition: service_completed_successfully
-  sign-root-trust-base3:
-    extends:
-      file: alphabill-docker-services.yml
-      service: sign-root-trust-base
-    volumes:
-      - ./.genesis/root3:/genesis/root
-      - ./.genesis:/genesis-nodes
-    depends_on:
-      sign-root-trust-base2:
-        condition: service_completed_successfully
+      alphabill-root:
+        condition: service_healthy
+
   generate-tokens-genesis:
     extends:
       file: alphabill-docker-services.yml
-      service: generate-tokens-genesis
+      service: generate-shard-genesis
     volumes:
-      - ./.genesis/tokens:/genesis
+      - ./genesis:/genesis
+    depends_on:
+      generate-tokens-conf:
+        condition: service_completed_successfully
+
 networks:
   default:

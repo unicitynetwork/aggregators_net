@@ -23,7 +23,7 @@
   },
   "license": "ISC",
   "dependencies": {
-    "@alphabill/alphabill-js-sdk": "1.0.0-rc1-rc.0b761ab",
+    "@alphabill/alphabill-js-sdk": "1.0.0-b13f7ce-rc.6c45c0d",
     "@types/node": "22.13.13",
     "@unicitylabs/commons": "https://github.com/unicitynetwork/shared#typescript",
     "cors": "2.8.5",

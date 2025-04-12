@@ -28,13 +28,20 @@ export class RoundManager {
       console.error('Failed to submit commitment:', error);
       return false;
     }
+    try {
+      await this.commitmentStorage.put(commitment);
+      return true;
+    } catch (error) {
+      console.error('Failed to submit commitment:', error);
+      return false;
+    }
   }
 
   public async createBlock(): Promise<Block> {
     try {
       const commitments = await this.commitmentStorage.getCommitmentsForBlock();
 
-      if (commitments.length > 0) {´
+      if (commitments.length > 0) {
         const aggregatorRecords: AggregatorRecord[] = [];
         for (const commitment of commitments) {
           aggregatorRecords.push(
