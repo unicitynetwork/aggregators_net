@@ -2,7 +2,7 @@ import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { StartedTestContainer } from 'testcontainers';
 
 import { SmtNode } from '../../src/smt/SmtNode.js';
-import { SmtStorage } from '../../src/smt/SmtStorage.js';
+import { SmtStorage, LeafModel } from '../../src/smt/SmtStorage.js';
 import { startMongoDb, stopMongoDb } from '../TestContainers.js';
 
 describe('SMT Storage Tests', () => {
@@ -51,6 +51,34 @@ describe('SMT Storage Tests', () => {
       } else {
         console.log(`Node ${original.path} not found!`);
       }
+    }
+  });
+
+  it('Store and retrieve nodes in batch', async () => {
+    await LeafModel.deleteMany({});
+    
+    const storage = new SmtStorage();
+
+    const batchTestNodes: SmtNode[] = [];
+    for (let i = 0; i < 10; i++) {
+      const path = BigInt(1000 + i);
+      const value = new Uint8Array([i % 256, (i * 2) % 256, (i * 3) % 256]);
+      batchTestNodes.push(new SmtNode(path, value));
+    }
+
+    console.log('\nStoring test nodes in batch...');
+    const result = await storage.putBatch(batchTestNodes);
+    expect(result).toBe(true);
+
+    console.log('\nRetrieving all nodes...');
+    const retrieved = await storage.getAll();
+    console.log(`Retrieved ${retrieved.length} nodes`);
+
+    for (const original of batchTestNodes) {
+      const stored = retrieved.find((n) => n.path === original.path);
+      expect(stored).toBeDefined();
+      expect(stored?.path).toEqual(original.path);
+      expect(HexConverter.encode(stored!.value)).toEqual(HexConverter.encode(original.value));
     }
   });
 });

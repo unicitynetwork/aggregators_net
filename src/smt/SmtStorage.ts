@@ -29,4 +29,18 @@ export class SmtStorage implements ISmtStorage {
     }).save();
     return true;
   }
+
+  public async putBatch(leaves: SmtNode[]): Promise<boolean> {
+    if (leaves.length === 0) {
+      return true;
+    }
+
+    const documents = leaves.map((leaf) => ({
+      path: leaf.path,
+      value: leaf.value,
+    }));
+
+    await LeafModel.insertMany(documents, { ordered: false });
+    return true;
+  }
 }

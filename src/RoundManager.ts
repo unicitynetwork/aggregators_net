@@ -9,6 +9,7 @@ import { IBlockStorage } from './hashchain/IBlockStorage.js';
 import { AggregatorRecord } from './records/AggregatorRecord.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { SmtNode } from './smt/SmtNode.js';
+import { ISmtStorage } from './smt/ISmtStorage.js';
 
 export class RoundManager {
   public constructor(
@@ -18,6 +19,7 @@ export class RoundManager {
     public readonly blockStorage: IBlockStorage,
     public readonly recordStorage: IAggregatorRecordStorage,
     public readonly commitmentStorage: ICommitmentStorage,
+    public readonly smtStorage: ISmtStorage,
   ) {}
 
   public async submitCommitment(commitment: Commitment): Promise<boolean> {
@@ -28,48 +30,69 @@ export class RoundManager {
       console.error('Failed to submit commitment:', error);
       return false;
     }
-    try {
-      await this.commitmentStorage.put(commitment);
-      return true;
-    } catch (error) {
-      console.error('Failed to submit commitment:', error);
-      return false;
-    }
   }
 
   public async createBlock(): Promise<Block> {
-    try {
-      const commitments = await this.commitmentStorage.getCommitmentsForBlock();
+    const commitments = await this.commitmentStorage.getCommitmentsForBlock();
 
-      if (commitments.length > 0) {
-        const aggregatorRecords: AggregatorRecord[] = [];
-        for (const commitment of commitments) {
-          aggregatorRecords.push(
-            new AggregatorRecord(commitment.requestId, commitment.transactionHash, commitment.authenticator),
-          );
-        }
+    const aggregatorRecords: AggregatorRecord[] = [];
+    const smtLeaves: SmtNode[] = [];
 
-        // Store records and add leaves to SMT in parallel
-        const recordStoragePromise = this.recordStorage.putBatch(aggregatorRecords);
+    if (commitments && commitments.length > 0) {
+      for (const commitment of commitments) {
+        aggregatorRecords.push(
+          new AggregatorRecord(commitment.requestId, commitment.transactionHash, commitment.authenticator),
+        );
 
-        for (const commitment of commitments) {
-          try {
-            const nodePath = commitment.requestId.toBigInt();
-            const nodeValue = commitment.transactionHash.data;
-            const leaf = new SmtNode(nodePath, nodeValue);
-            await this.smt.addLeaf(leaf.path, leaf.value);
-          } catch (error) {
-            console.error('Failed to add leaf to SMT:', error);
-            throw error;
-          }
-        }
-
-        await recordStoragePromise;
+        const nodePath = commitment.requestId.toBigInt();
+        const nodeValue = commitment.transactionHash.data;
+        smtLeaves.push(new SmtNode(nodePath, nodeValue));
       }
+    }
 
-      const rootHash = this.smt.rootHash;
-      const submitHashResponse = await this.alphabillClient.submitHash(rootHash);
+    // Start storing records and SMT leaves in parallel
+    let recordStoragePromise: Promise<boolean>;
+    let smtLeafStoragePromise: Promise<boolean>;
 
+    try {
+      recordStoragePromise =
+        aggregatorRecords.length > 0 ? this.recordStorage.putBatch(aggregatorRecords) : Promise.resolve(true);
+
+      smtLeafStoragePromise =
+        smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
+    } catch (error) {
+      console.error('Failed to start storing records and SMT leaves:', error);
+      throw error;
+    }
+
+    if (smtLeaves.length > 0) {
+      for (const leaf of smtLeaves) {
+        try {
+          await this.smt.addLeaf(leaf.path, leaf.value);
+        } catch (error) {
+          console.error('Failed to add leaf to SMT:', error);
+          throw error;
+        }
+      }
+    }
+
+    try {
+      await Promise.all([recordStoragePromise, smtLeafStoragePromise]);
+    } catch (error) {
+      console.error('Failed to store records and SMT leaves:', error);
+      throw error;
+    }
+
+    let submitHashResponse;
+    const rootHash = this.smt.rootHash;
+    try {
+      submitHashResponse = await this.alphabillClient.submitHash(rootHash);
+    } catch (error) {
+      console.error('Failed to submit hash to Alphabill:', error);
+      throw error;
+    }
+
+    try {
       const txProof = submitHashResponse.txProof;
       const previousBlockHash = submitHashResponse.previousBlockHash;
       const blockNumber = await this.blockStorage.getNextBlockNumber();
@@ -85,11 +108,11 @@ export class RoundManager {
         null, // TODO add noDeletionProof
       );
       await this.blockStorage.put(block);
-      
+
       if (commitments.length > 0) {
         await this.commitmentStorage.confirmBlockProcessed();
       }
-      
+
       return block;
     } catch (error) {
       console.error('Failed to create block:', error);
