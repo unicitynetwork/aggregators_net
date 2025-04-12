@@ -112,6 +112,7 @@ export class AggregatorGateway {
       storage.blockStorage,
       storage.recordStorage,
       storage.commitmentStorage,
+      storage.smtStorage,
     );
     const aggregatorService = new AggregatorService(roundManager, smt, storage.recordStorage);
 

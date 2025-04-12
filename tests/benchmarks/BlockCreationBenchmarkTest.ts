@@ -29,6 +29,7 @@ interface BenchmarkResult {
       getCommitments: number;
       smtOperations: number;
       recordStorage: number;
+      smtLeafStorage: number;
     };
   };
 }
@@ -68,6 +69,7 @@ class TimingMetricsCollector {
           getCommitments: this.results['getCommitments'] || 0,
           smtOperations: this.results['smtOperations'] || 0,
           recordStorage: this.results['recordStorage'] || 0,
+          smtLeafStorage: this.results['smtLeafStorage'] || 0,
         },
       },
     };
@@ -233,6 +235,7 @@ describe('Block Creation Performance Benchmarks', () => {
       storage.blockStorage,
       storage.recordStorage,
       storage.commitmentStorage,
+      storage.smtStorage,
     );
 
     const originalCreateBlock = roundManager.createBlock;
@@ -244,23 +247,30 @@ describe('Block Creation Performance Benchmarks', () => {
       getCommitmentsEnd();
 
       const aggregatorRecords: AggregatorRecord[] = [];
+      const smtLeaves: SmtNode[] = [];
+      
       for (const commitment of commitments) {
         aggregatorRecords.push(
           new AggregatorRecord(commitment.requestId, commitment.transactionHash, commitment.authenticator),
         );
+        
+        const nodePath = commitment.requestId.toBigInt();
+        const nodeValue = commitment.transactionHash.data;
+        smtLeaves.push(new SmtNode(nodePath, nodeValue));
       }
 
       const prepStart = performance.now();
       const recordStorageStart = performance.now();
+      
       const recordStoragePromise =
         aggregatorRecords.length > 0 ? this.recordStorage.putBatch(aggregatorRecords) : Promise.resolve(true);
-
+      
+      const smtLeafStorageStart = performance.now();
+      const smtLeafStoragePromise = 
+        smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
+      
       let totalSmtTime = 0;
-      for (const commitment of commitments) {
-        const nodePath = commitment.requestId.toBigInt();
-        const nodeValue = commitment.transactionHash.data;
-        const leaf = new SmtNode(nodePath, nodeValue);
-
+      for (const leaf of smtLeaves) {
         const smtStart = performance.now();
         await this.smt.addLeaf(leaf.path, leaf.value);
         totalSmtTime += performance.now() - smtStart;
@@ -268,13 +278,17 @@ describe('Block Creation Performance Benchmarks', () => {
 
       await recordStoragePromise;
       const totalRecordStorageTime = performance.now() - recordStorageStart;
+      
+      await smtLeafStoragePromise;
+      const totalSmtLeafStorageTime = performance.now() - smtLeafStorageStart;
 
       const totalPrepTime = performance.now() - prepStart;
-      const sequentialTime = totalSmtTime + totalRecordStorageTime;
+      const sequentialTime = totalSmtTime + totalRecordStorageTime + totalSmtLeafStorageTime;
       const parallelSavings = sequentialTime - totalPrepTime > 0 ? sequentialTime - totalPrepTime : 0;
 
       metrics.storeMetric('smtOperations', totalSmtTime);
       metrics.storeMetric('recordStorage', totalRecordStorageTime);
+      metrics.storeMetric('smtLeafStorage', totalSmtLeafStorageTime);
 
       const rootHash = this.smt.rootHash;
       endPreparationPhase();
@@ -347,6 +361,9 @@ describe('Block Creation Performance Benchmarks', () => {
       );
       console.log(
         `- Record storage: ${pd.recordStorage.toFixed(2)}ms (${((pd.recordStorage * 100) / result.phases.preparation).toFixed(2)}% of prep)`,
+      );
+      console.log(
+        `- SMT leaf storage: ${pd.smtLeafStorage.toFixed(2)}ms (${((pd.smtLeafStorage * 100) / result.phases.preparation).toFixed(2)}% of prep)`,
       );
     }
 
