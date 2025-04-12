@@ -8,8 +8,8 @@ import { Block } from './hashchain/Block.js';
 import { IBlockStorage } from './hashchain/IBlockStorage.js';
 import { AggregatorRecord } from './records/AggregatorRecord.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
-import { SmtNode } from './smt/SmtNode.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
+import { SmtNode } from './smt/SmtNode.js';
 
 export class RoundManager {
   public constructor(
@@ -37,13 +37,13 @@ export class RoundManager {
 
     const aggregatorRecords: AggregatorRecord[] = [];
     const smtLeaves: SmtNode[] = [];
-    
+
     if (commitments && commitments.length > 0) {
       for (const commitment of commitments) {
         aggregatorRecords.push(
           new AggregatorRecord(commitment.requestId, commitment.transactionHash, commitment.authenticator),
         );
-        
+
         const nodePath = commitment.requestId.toBigInt();
         const nodeValue = commitment.transactionHash.data;
         smtLeaves.push(new SmtNode(nodePath, nodeValue));
@@ -53,13 +53,12 @@ export class RoundManager {
     // Start storing records and SMT leaves in parallel
     let recordStoragePromise: Promise<boolean>;
     let smtLeafStoragePromise: Promise<boolean>;
-    
+
     try {
       recordStoragePromise =
         aggregatorRecords.length > 0 ? this.recordStorage.putBatch(aggregatorRecords) : Promise.resolve(true);
-      
-      smtLeafStoragePromise = 
-        smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
+
+      smtLeafStoragePromise = smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
     } catch (error) {
       console.error('Failed to start storing records and SMT leaves:', error);
       throw error;

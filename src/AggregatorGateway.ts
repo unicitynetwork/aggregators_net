@@ -21,6 +21,7 @@ import { AlphabillClient } from './consensus/alphabill/AlphabillClient.js';
 import { IAlphabillClient } from './consensus/alphabill/IAlphabillClient.js';
 import { LeaderElection } from './highAvailability/LeaderElection.js';
 import { LeadershipStorage } from './highAvailability/LeadershipStorage.js';
+import logger from './index.js';
 import { RoundManager } from './RoundManager.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
@@ -137,7 +138,7 @@ export class AggregatorGateway {
         serverId: serverId,
       });
     } else {
-      console.log('High availability mode is disabled.');
+      logger.info('High availability mode is disabled.');
     }
     const app = express();
     app.use(cors());
@@ -246,23 +247,23 @@ export class AggregatorGateway {
 
     server.listen(port, () => {
       const protocol = server instanceof https.Server ? 'HTTPS' : 'HTTP';
-      console.log(`Unicity Aggregator (${protocol}) listening on port ${port} with server ID ${serverId}`);
+      logger.info(`Unicity Aggregator (${protocol}) listening on port ${port} with server ID ${serverId}`);
     });
 
     if (config.highAvailability?.enabled && leaderElection) {
       await leaderElection.start();
-      console.log(`Leader election process started for server ${serverId}.`);
+      logger.info(`Leader election process started for server ${serverId}.`);
     }
 
     return new AggregatorGateway(serverId, server, leaderElection);
   }
 
   private static onBecomeLeader(aggregatorServerId: string): void {
-    console.log(`Server ${aggregatorServerId} became the leader.`);
+    logger.info(`Server ${aggregatorServerId} became the leader.`);
   }
 
   private static onLoseLeadership(aggregatorServerId: string): void {
-    console.log(`Server ${aggregatorServerId} lost leadership.`);
+    logger.info(`Server ${aggregatorServerId} lost leadership.`);
   }
 
   private static async setupAlphabillClient(
@@ -271,10 +272,10 @@ export class AggregatorGateway {
   ): Promise<IAlphabillClient> {
     const { useMock, privateKey, tokenPartitionUrl, tokenPartitionId, networkId } = config;
     if (useMock) {
-      console.log(`Server ${aggregatorServerId} using mock AlphabillClient.`);
+      logger.info(`Server ${aggregatorServerId} using mock AlphabillClient.`);
       return new MockAlphabillClient();
     }
-    console.log(`Server ${aggregatorServerId} using real AlphabillClient.`);
+    logger.info(`Server ${aggregatorServerId} using real AlphabillClient.`);
     if (!privateKey) {
       throw new Error('Alphabill private key must be defined in hex encoding.');
     }
@@ -295,10 +296,10 @@ export class AggregatorGateway {
     const smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
     const smtLeaves = await smtStorage.getAll();
     if (smtLeaves.length > 0) {
-      console.log(`Server ${aggregatorServerId} found %s leaves from storage.`, smtLeaves.length);
-      console.log('Constructing tree...');
+      logger.info(`Server ${aggregatorServerId} found %s leaves from storage.`, smtLeaves.length);
+      logger.info('Constructing tree...');
       smtLeaves.forEach((leaf) => smt.addLeaf(leaf.path, leaf.value));
-      console.log('Tree with root hash %s constructed successfully.', smt.rootHash.toString());
+      logger.info('Tree with root hash %s constructed successfully.', smt.rootHash.toString());
     }
     return smt;
   }

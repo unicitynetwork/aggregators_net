@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { GenericContainer, StartedTestContainer, Wait } from 'testcontainers';
 
 import { AggregatorStorage } from '../../src/AggregatorStorage.js';
+import logger from '../../src/index.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
 
 interface IReplicaSetMember {
@@ -58,26 +59,26 @@ describe('Mongo Replica Set Tests', () => {
     const primaryPort = parseInt(status.output.trim().split(':')[1]);
     const primaryIndex = containers.findIndex((_, index) => 27017 + index === primaryPort);
 
-    console.log(`Current primary is on port ${primaryPort}`);
+    logger.info(`Current primary is on port ${primaryPort}`);
 
     if (!process.env.MONGODB_URI) {
       throw new Error('MongoDB URI not set in environment');
     }
     const storage = await AggregatorStorage.init(process.env.MONGODB_URI);
 
-    console.log('\nStoring test data...');
+    logger.info('\nStoring test data...');
     const testLeaf = new SmtNode(BigInt(1), new Uint8Array([1, 2, 3]));
     await storage.smtStorage.put(testLeaf);
-    console.log('Test data stored successfully');
+    logger.info('Test data stored successfully');
     const initialLeaves = await storage.smtStorage.getAll();
-    console.log(`Initially stored ${initialLeaves.length} leaves`);
+    logger.info(`Initially stored ${initialLeaves.length} leaves`);
 
-    console.log('\nStopping primary node to simulate failure...');
+    logger.info('\nStopping primary node to simulate failure...');
     const failoverStart = Date.now();
 
     let failoverComplete = false;
     mongoose.connection.once('reconnected', () => {
-      console.log(`MongoDB driver reconnected after ${(Date.now() - failoverStart) / 1000}s`);
+      logger.info(`MongoDB driver reconnected after ${(Date.now() - failoverStart) / 1000}s`);
     });
 
     // Stop the primary
@@ -116,7 +117,7 @@ describe('Mongo Replica Set Tests', () => {
           const primaryInfo = JSON.parse(status.output.trim());
           if (primaryInfo.name) {
             const electionTime = (Date.now() - failoverStart) / 1000;
-            console.log(`New primary details:
+            logger.info(`New primary details:
                             Node: ${primaryInfo.name}
                             Uptime: ${primaryInfo.uptime}s
                             Election time: ${electionTime.toFixed(1)}s
@@ -134,7 +135,7 @@ describe('Mongo Replica Set Tests', () => {
         console.debug(error);
         // Ignore errors during election
       }
-      console.log(`Waiting for primary election... (${(Date.now() - failoverStart) / 1000}s)`);
+      logger.info(`Waiting for primary election... (${(Date.now() - failoverStart) / 1000}s)`);
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
@@ -142,23 +143,23 @@ describe('Mongo Replica Set Tests', () => {
       throw new Error('Failover timed out after 30 seconds');
     }
 
-    console.log('\nReading data after primary failure...');
+    logger.info('\nReading data after primary failure...');
     const leaves = await storage.smtStorage.getAll();
-    console.log(`Successfully retrieved ${leaves.length} leaves after failover`);
+    logger.info(`Successfully retrieved ${leaves.length} leaves after failover`);
 
     if (leaves.length === 0) {
       throw new Error('No leaves found after failover');
     }
 
     const retrievedLeaf = leaves[0];
-    console.log('\nData verification:');
+    logger.info('\nData verification:');
     expect(retrievedLeaf.path).toEqual(testLeaf.path);
     expect(HexConverter.encode(retrievedLeaf.value)).toEqual(HexConverter.encode(testLeaf.value));
 
-    console.log('\nTesting write after failover...');
+    logger.info('\nTesting write after failover...');
     const newLeaf = new SmtNode(BigInt(2), new Uint8Array([4, 5, 6]));
     await storage.smtStorage.put(newLeaf);
-    console.log('Successfully wrote new leaf after failover');
+    logger.info('Successfully wrote new leaf after failover');
   });
 });
 
@@ -175,8 +176,8 @@ async function setupReplicaSet(): Promise<IReplicaSet> {
     ),
   );
 
-  console.log('Started MongoDB containers on ports: 27017, 27018, 27019');
-  console.log('Initializing replica set...');
+  logger.info('Started MongoDB containers on ports: 27017, 27018, 27019');
+  logger.info('Initializing replica set...');
   const initResult = await containers[0].exec([
     'mongosh',
     '--quiet',
@@ -193,10 +194,10 @@ async function setupReplicaSet(): Promise<IReplicaSet> {
         rs.initiate(config);
         `,
   ]);
-  console.log('Initiate result:', initResult.output);
+  logger.info('Initiate result:', initResult.output);
 
   // Wait and verify replica set is ready
-  console.log('Waiting for replica set initialization...');
+  logger.info('Waiting for replica set initialization...');
   let isReady = false;
   let lastStatus = '';
   const maxAttempts = 30;
@@ -218,7 +219,7 @@ async function setupReplicaSet(): Promise<IReplicaSet> {
       try {
         rsStatus = JSON.parse(status.output);
       } catch (e) {
-        console.log('Invalid JSON response:', status.output);
+        logger.info('Invalid JSON response:', status.output);
         console.debug(e);
         rsStatus = { ok: 0 };
       }
@@ -226,20 +227,20 @@ async function setupReplicaSet(): Promise<IReplicaSet> {
       if (rsStatus.members?.some((m: IReplicaSetMember) => m.stateStr === 'PRIMARY')) {
         const primaryNode = rsStatus.members.find((m) => m.stateStr === 'PRIMARY')!;
         const electionTime = (Date.now() - startTime) / 1000;
-        console.log(`Replica set primary elected after ${electionTime.toFixed(1)}s`);
-        console.log('Initial primary node:', primaryNode.name);
+        logger.info(`Replica set primary elected after ${electionTime.toFixed(1)}s`);
+        logger.info('Initial primary node:', primaryNode.name);
         isReady = true;
       } else {
         const currentStatus = rsStatus.members?.map((m) => m.stateStr).join(',') || '';
         if (currentStatus !== lastStatus) {
-          console.log('Current replica set status:', currentStatus);
+          logger.info('Current replica set status:', currentStatus);
           lastStatus = currentStatus;
         }
         await new Promise((resolve) => setTimeout(resolve, 1000));
         attempts++;
       }
     } catch (error) {
-      console.log('Error checking replica status:', error);
+      logger.info('Error checking replica status:', error);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       attempts++;
     }
@@ -251,7 +252,7 @@ async function setupReplicaSet(): Promise<IReplicaSet> {
 
   const uri =
     'mongodb://localhost:27017,localhost:27018,localhost:27019/?replicaSet=rs0&serverSelectionTimeoutMS=15000';
-  console.log('Using connection URI:', uri);
+  logger.info('Using connection URI:', uri);
 
   return { containers, uri };
 }

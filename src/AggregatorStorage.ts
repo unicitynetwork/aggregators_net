@@ -4,6 +4,7 @@ import { CommitmentStorage } from './commitment/CommitmentStorage.js';
 import { ICommitmentStorage } from './commitment/ICommitmentStorage.js';
 import { BlockStorage } from './hashchain/BlockStorage.js';
 import { IBlockStorage } from './hashchain/IBlockStorage.js';
+import logger from './index.js';
 import { AggregatorRecordStorage } from './records/AggregatorRecordStorage.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
@@ -24,7 +25,7 @@ export class AggregatorStorage {
 
   public static async init(uri: string): Promise<AggregatorStorage> {
     try {
-      console.log('Connecting to MongoDB URI %s.', uri);
+      logger.info('Connecting to MongoDB URI %s.', uri);
       await mongoose.connect(uri, {
         connectTimeoutMS: 15000,
         heartbeatFrequencyMS: 1000,
@@ -32,21 +33,21 @@ export class AggregatorStorage {
       });
 
       mongoose.connection.on('error', (error) => {
-        console.error('MongoDB connection error: ', error);
+        logger.error('MongoDB connection error: ', error);
       });
 
       mongoose.connection.on('disconnected', () => {
-        console.log('MongoDB disconnected.');
+        logger.info('MongoDB disconnected.');
       });
 
       mongoose.connection.on('reconnected', () => {
-        console.log('MongoDB reconnected successfully.');
+        logger.info('MongoDB reconnected successfully.');
       });
 
-      console.log('Connected to MongoDB successfully.');
+      logger.info('Connected to MongoDB successfully.');
       return new AggregatorStorage();
     } catch (error) {
-      console.error('Failed to connect to MongoDB: ', error);
+      logger.error('Failed to connect to MongoDB: ', error);
       throw error;
     }
   }
@@ -54,9 +55,9 @@ export class AggregatorStorage {
   public async close(): Promise<void> {
     try {
       await mongoose.disconnect();
-      console.log('MongoDB connection closed.');
+      logger.info('MongoDB connection closed.');
     } catch (error) {
-      console.error('Error closing MongoDB connection: ', error);
+      logger.error('Error closing MongoDB connection: ', error);
       throw error;
     }
   }

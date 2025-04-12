@@ -1,11 +1,34 @@
 import dotenv from 'dotenv';
+import { pino } from 'pino';
 
 import { AggregatorGateway } from './AggregatorGateway.js';
 
 dotenv.config();
 
+const transport = pino.transport({
+  targets: [
+    {
+      level: process.env.LOG_LEVEL ?? 'info',
+      target: 'pino/file',
+      options: {
+        destination: process.env.LOG_FILE ?? 'aggregator.log',
+        sync: false,
+      },
+    },
+    {
+      level: process.env.LOG_LEVEL ?? 'info',
+      target: 'pino-pretty',
+      options: {},
+    },
+  ],
+});
+
+const logger = pino({}, transport);
+
+export default logger;
+
 async function main(): Promise<void> {
-  console.log('Starting Aggregator Gateway...');
+  logger.info('Starting Aggregator Gateway...');
 
   const gateway = await AggregatorGateway.create({
     aggregatorConfig: {
@@ -39,11 +62,11 @@ async function main(): Promise<void> {
       uri: process.env.MONGODB_URI ?? 'mongodb://localhost:27017/',
     },
   });
-  console.log('Aggregator Gateway started successfully');
+  logger.info('Aggregator Gateway started successfully');
 
   ['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach((signal) => {
     process.on(signal, async () => {
-      console.log('Shutting down Aggregator Gateway...');
+      logger.info('Shutting down Aggregator Gateway...');
       await gateway.stop();
       process.exit(0);
     });

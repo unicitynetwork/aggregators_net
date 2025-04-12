@@ -27,6 +27,7 @@ import { StartedTestContainer } from 'testcontainers';
 
 import { Block } from '../../src/hashchain/Block.js';
 import { BlockStorage } from '../../src/hashchain/BlockStorage.js';
+import logger from '../../src/index.js';
 import { startMongoDb, stopMongoDb } from '../TestContainers.js';
 
 describe('Block Storage Tests', () => {
@@ -98,16 +99,16 @@ describe('Block Storage Tests', () => {
       null,
     );
 
-    console.log('Storing block...');
+    logger.info('Storing block...');
     const stored = await storage.put(block);
-    console.log('Store result:', stored);
+    logger.info('Store result:', stored);
 
-    console.log('Retrieving block...');
+    logger.info('Retrieving block...');
     const retrieved = await storage.get(1n);
     expect(retrieved).not.toBeNull();
     assert(retrieved);
-    console.log('Retrieved successfully');
-    console.log('Data comparison:');
+    logger.info('Retrieved successfully');
+    logger.info('Data comparison:');
     expect(retrieved.index).toEqual(block.index);
     expect(retrieved.index).toEqual(1n);
     expect(retrieved.chainId).toEqual(block.chainId);
@@ -116,7 +117,7 @@ describe('Block Storage Tests', () => {
     expect(retrieved.timestamp).toEqual(block.timestamp);
     const originalProof = block.txProof;
     const retrievedProof = retrieved.txProof;
-    console.log('Transaction proof comparison:');
+    logger.info('Transaction proof comparison:');
     expect(originalProof.transactionRecord.transactionOrder.payload.type).toEqual(
       retrievedProof.transactionRecord.transactionOrder.payload.type,
     );

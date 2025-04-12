@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { AggregatorStorage } from '../../src/AggregatorStorage.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
 import { Block } from '../../src/hashchain/Block.js';
+import logger from '../../src/index.js';
 import { AggregatorRecord } from '../../src/records/AggregatorRecord.js';
 import { RoundManager } from '../../src/RoundManager.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
@@ -248,12 +249,12 @@ describe('Block Creation Performance Benchmarks', () => {
 
       const aggregatorRecords: AggregatorRecord[] = [];
       const smtLeaves: SmtNode[] = [];
-      
+
       for (const commitment of commitments) {
         aggregatorRecords.push(
           new AggregatorRecord(commitment.requestId, commitment.transactionHash, commitment.authenticator),
         );
-        
+
         const nodePath = commitment.requestId.toBigInt();
         const nodeValue = commitment.transactionHash.data;
         smtLeaves.push(new SmtNode(nodePath, nodeValue));
@@ -261,14 +262,13 @@ describe('Block Creation Performance Benchmarks', () => {
 
       const prepStart = performance.now();
       const recordStorageStart = performance.now();
-      
+
       const recordStoragePromise =
         aggregatorRecords.length > 0 ? this.recordStorage.putBatch(aggregatorRecords) : Promise.resolve(true);
-      
+
       const smtLeafStorageStart = performance.now();
-      const smtLeafStoragePromise = 
-        smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
-      
+      const smtLeafStoragePromise = smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
+
       let totalSmtTime = 0;
       for (const leaf of smtLeaves) {
         const smtStart = performance.now();
@@ -278,7 +278,7 @@ describe('Block Creation Performance Benchmarks', () => {
 
       await recordStoragePromise;
       const totalRecordStorageTime = performance.now() - recordStorageStart;
-      
+
       await smtLeafStoragePromise;
       const totalSmtLeafStorageTime = performance.now() - smtLeafStorageStart;
 
@@ -335,39 +335,39 @@ describe('Block Creation Performance Benchmarks', () => {
   }
 
   async function formatResult(result: BenchmarkResult): Promise<void> {
-    console.log('\n----- Benchmark Results -----');
-    console.log(`Number of commitments: ${result.numCommitments}`);
-    console.log(`Total time: ${result.totalTimeMs.toFixed(2)}ms`);
+    logger.info('\n----- Benchmark Results -----');
+    logger.info(`Number of commitments: ${result.numCommitments}`);
+    logger.info(`Total time: ${result.totalTimeMs.toFixed(2)}ms`);
 
-    console.log('\nPhase breakdown:');
-    console.log(
+    logger.info('\nPhase breakdown:');
+    logger.info(
       `- Preparation:  ${result.phases.preparation.toFixed(2)}ms (${((result.phases.preparation * 100) / result.totalTimeMs).toFixed(2)}%)`,
     );
-    console.log(
+    logger.info(
       `- Submit hash:  ${result.phases.submitHash.toFixed(2)}ms (${((result.phases.submitHash * 100) / result.totalTimeMs).toFixed(2)}%)`,
     );
-    console.log(
+    logger.info(
       `- Block Finalization: ${result.phases.blockFinalization.toFixed(2)}ms (${((result.phases.blockFinalization * 100) / result.totalTimeMs).toFixed(2)}%)`,
     );
 
     if (result.phases.preparationDetails) {
       const pd = result.phases.preparationDetails;
-      console.log('\nPreparation phase details:');
-      console.log(
+      logger.info('\nPreparation phase details:');
+      logger.info(
         `- Get commitments: ${pd.getCommitments.toFixed(2)}ms (${((pd.getCommitments * 100) / result.phases.preparation).toFixed(2)}% of prep)`,
       );
-      console.log(
+      logger.info(
         `- SMT operations: ${pd.smtOperations.toFixed(2)}ms (${((pd.smtOperations * 100) / result.phases.preparation).toFixed(2)}% of prep)`,
       );
-      console.log(
+      logger.info(
         `- Record storage: ${pd.recordStorage.toFixed(2)}ms (${((pd.recordStorage * 100) / result.phases.preparation).toFixed(2)}% of prep)`,
       );
-      console.log(
+      logger.info(
         `- SMT leaf storage: ${pd.smtLeafStorage.toFixed(2)}ms (${((pd.smtLeafStorage * 100) / result.phases.preparation).toFixed(2)}% of prep)`,
       );
     }
 
-    console.log('---------------------------\n');
+    logger.info('---------------------------\n');
   }
 
   test('Benchmark with 10 commitments', async () => {

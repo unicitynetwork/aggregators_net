@@ -24,6 +24,7 @@ import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 
 import { IAlphabillClient } from '../../../src/consensus/alphabill/IAlphabillClient.js';
 import { SubmitHashResponse } from '../../../src/consensus/alphabill/SubmitHashResponse.js';
+import logger from '../../../src/index.js';
 
 class MockSigningService implements ISigningService {
   public publicKey = new Uint8Array([1, 2, 3, 4]);
@@ -57,7 +58,7 @@ export class MockAlphabillClient implements IAlphabillClient {
 
     const txProof = this.createMockTransactionProof(transactionHash.data);
 
-    console.log('Mock Alphabill client: submitting hash successfully');
+    logger.info('Mock Alphabill client: submitting hash successfully');
     return new SubmitHashResponse(previousData, txProof);
   }
 
