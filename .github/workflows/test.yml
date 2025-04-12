@@ -2,7 +2,7 @@ name: Run Tests
 
 on:
   push:
-    branches: [ main, fix-github-action ]
+    branches: [ main ]
 
 jobs:
   test:
