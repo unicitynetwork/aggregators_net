@@ -9,6 +9,7 @@ import { IBlockStorage } from './hashchain/IBlockStorage.js';
 import { AggregatorRecord } from './records/AggregatorRecord.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { SmtNode } from './smt/SmtNode.js';
+import { ISmtStorage } from './smt/ISmtStorage.js';
 
 export class RoundManager {
   public constructor(
@@ -18,6 +19,7 @@ export class RoundManager {
     public readonly blockStorage: IBlockStorage,
     public readonly recordStorage: IAggregatorRecordStorage,
     public readonly commitmentStorage: ICommitmentStorage,
+    public readonly smtStorage: ISmtStorage,
   ) {}
 
   public async submitCommitment(commitment: Commitment): Promise<boolean> {
@@ -34,30 +36,38 @@ export class RoundManager {
     const commitments = await this.commitmentStorage.getAll();
 
     const aggregatorRecords: AggregatorRecord[] = [];
+    const smtLeaves: SmtNode[] = [];
+    
     if (commitments && commitments.length > 0) {
       for (const commitment of commitments) {
         aggregatorRecords.push(
           new AggregatorRecord(commitment.requestId, commitment.transactionHash, commitment.authenticator),
         );
+        
+        const nodePath = commitment.requestId.toBigInt();
+        const nodeValue = commitment.transactionHash.data;
+        smtLeaves.push(new SmtNode(nodePath, nodeValue));
       }
     }
 
-    // Start storing records in parallel with adding leaves to SMT
+    // Start storing records and SMT leaves in parallel
     let recordStoragePromise: Promise<boolean>;
+    let smtLeafStoragePromise: Promise<boolean>;
+    
     try {
       recordStoragePromise =
         aggregatorRecords.length > 0 ? this.recordStorage.putBatch(aggregatorRecords) : Promise.resolve(true);
+      
+      smtLeafStoragePromise = 
+        smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
     } catch (error) {
-      console.error('Failed to start record storage:', error);
+      console.error('Failed to start storing records and SMT leaves:', error);
       throw error;
     }
 
-    if (commitments && commitments.length > 0) {
-      for (const commitment of commitments) {
+    if (smtLeaves.length > 0) {
+      for (const leaf of smtLeaves) {
         try {
-          const nodePath = commitment.requestId.toBigInt();
-          const nodeValue = commitment.transactionHash.data;
-          const leaf = new SmtNode(nodePath, nodeValue);
           await this.smt.addLeaf(leaf.path, leaf.value);
         } catch (error) {
           console.error('Failed to add leaf to SMT:', error);
@@ -67,9 +77,9 @@ export class RoundManager {
     }
 
     try {
-      await recordStoragePromise;
+      await Promise.all([recordStoragePromise, smtLeafStoragePromise]);
     } catch (error) {
-      console.error('Failed to store records:', error);
+      console.error('Failed to store records and SMT leaves:', error);
       throw error;
     }
 
