@@ -19,8 +19,20 @@ interface ICommitment {
   };
 }
 
+enum CursorStatus {
+  COMPLETE = 'COMPLETE',
+  IN_PROGRESS = 'IN_PROGRESS'
+}
+
+const COMMITMENT_BATCH_SIZE = 1000;
+
 interface ICursorCheckpoint {
-  lastId: Schema.Types.ObjectId;
+  // ID of the last successfully processed commitment
+  lastProcessedId: Schema.Types.ObjectId;
+  // Status of the cursor
+  status: string;
+  // End ID of the current batch being processed (when status is IN_PROGRESS)
+  currentBatchEndId?: Schema.Types.ObjectId;
 }
 
 const CommitmentSchema = new mongoose.Schema(
@@ -36,21 +48,25 @@ const CommitmentSchema = new mongoose.Schema(
   },
   {
     capped: {
-      size: 1024 * 1024,
+      size: 10 * 1024 * 1024,
     },
   },
 );
 
 const CursorCheckpointSchema = new mongoose.Schema(
   {
-    lastId: { required: true, type: Schema.Types.ObjectId, unique: true },
+    _id: { type: String, default: 'commitmentCursor' },
+    lastProcessedId: { type: Schema.Types.ObjectId },
+    status: { 
+      type: String, 
+      enum: [CursorStatus.COMPLETE, CursorStatus.IN_PROGRESS],
+      default: CursorStatus.COMPLETE 
+    },
+    currentBatchEndId: { type: Schema.Types.ObjectId },
   },
   {
-    capped: {
-      size: 4096,
-      max: 1,
-    },
-  },
+    timestamps: true, // Add timestamps to track when the cursor was last updated
+  }
 );
 
 const CommitmentModel = model<ICommitment>('Commitment', CommitmentSchema);
@@ -71,18 +87,39 @@ export class CommitmentStorage implements ICommitmentStorage {
     return true;
   }
 
-  public async getAll(): Promise<Commitment[]> {
-    const cursorObjectId = await this.getCursor();
-    const stored = cursorObjectId
-      ? await CommitmentModel.find({ _id: { $gt: cursorObjectId } }).sort({ _id: 1 })
-      : await CommitmentModel.find();
-    if (stored.length > 0) {
-      const latestId = stored[stored.length - 1]._id as unknown as Schema.Types.ObjectId;
-      if (latestId) {
-        await this.updateCursor(latestId);
+  public async getCommitmentsForBlock(): Promise<Commitment[]> {
+    const cursor = await this.getOrInitializeCursor();
+    
+    let query = {};
+    let commitments: any[] = [];
+    
+    if (cursor.status === CursorStatus.COMPLETE) {
+      if (cursor.lastProcessedId) {
+        query = { _id: { $gt: cursor.lastProcessedId } };
+      }
+      
+      commitments = await CommitmentModel.find(query).sort({ _id: 1 }).limit(COMMITMENT_BATCH_SIZE);
+      
+      if (commitments.length > 0) {
+        const endId = commitments[commitments.length - 1]._id;
+        await this.updateCursor({
+          status: CursorStatus.IN_PROGRESS,
+          currentBatchEndId: endId,
+        });
+      }
+    } else {
+      if (cursor.lastProcessedId && cursor.currentBatchEndId) {
+        query = { 
+          _id: { 
+            $gt: cursor.lastProcessedId,
+            $lte: cursor.currentBatchEndId 
+          } 
+        };
+        commitments = await CommitmentModel.find(query).sort({ _id: 1 });
       }
     }
-    return stored.map((commitment) => {
+    
+    return commitments.map((commitment) => {
       const authenticator = new Authenticator(
         commitment.authenticator.publicKey,
         commitment.authenticator.algorithm,
@@ -97,16 +134,40 @@ export class CommitmentStorage implements ICommitmentStorage {
     });
   }
 
-  private async updateCursor(id: Schema.Types.ObjectId): Promise<boolean> {
-    await CursorCheckpointModel.insertOne({ lastId: id });
-    return true;
+  public async confirmBlockProcessed(): Promise<boolean> {
+    const result = await CursorCheckpointModel.updateOne(
+      { _id: 'commitmentCursor', status: CursorStatus.IN_PROGRESS },
+      [
+        { 
+          $set: { 
+            lastProcessedId: '$currentBatchEndId', 
+            status: CursorStatus.COMPLETE,
+            currentBatchEndId: null
+          } 
+        }
+      ]
+    );
+    
+    return result.modifiedCount > 0;
   }
 
-  private async getCursor(): Promise<Schema.Types.ObjectId | null> {
-    const checkpoint = await CursorCheckpointModel.findOne();
-    if (checkpoint) {
-      return checkpoint.lastId;
+  private async getOrInitializeCursor(): Promise<ICursorCheckpoint> {
+    let cursor = await CursorCheckpointModel.findById('commitmentCursor');
+    if (!cursor) {
+      cursor = await CursorCheckpointModel.create({
+        _id: 'commitmentCursor',
+        status: CursorStatus.COMPLETE,
+      });
     }
-    return null;
+    
+    return cursor;
+  }
+
+  private async updateCursor(updates: Partial<ICursorCheckpoint>): Promise<void> {
+    await CursorCheckpointModel.findByIdAndUpdate(
+      'commitmentCursor',
+      updates,
+      { upsert: true }
+    );
   }
 }
