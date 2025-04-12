@@ -27,7 +27,7 @@ import { StartedTestContainer } from 'testcontainers';
 
 import { Block } from '../../src/hashchain/Block.js';
 import { BlockStorage } from '../../src/hashchain/BlockStorage.js';
-import logger from '../../src/index.js';
+import logger from '../../src/Logger.js';
 import { startMongoDb, stopMongoDb } from '../TestContainers.js';
 
 describe('Block Storage Tests', () => {

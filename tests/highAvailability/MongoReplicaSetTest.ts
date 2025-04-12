@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import { GenericContainer, StartedTestContainer, Wait } from 'testcontainers';
 
 import { AggregatorStorage } from '../../src/AggregatorStorage.js';
-import logger from '../../src/index.js';
+import logger from '../../src/Logger.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
 
 interface IReplicaSetMember {

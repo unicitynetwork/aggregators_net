@@ -19,7 +19,7 @@ import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 'testcontainers';
 
 import { AggregatorGateway } from '../../../src/AggregatorGateway.js';
-import logger from '../../../src/index.js';
+import logger from '../../../src/Logger.js';
 import { SubmitCommitmentStatus } from '../../../src/SubmitCommitmentResponse.js';
 
 describe('Alphabill Client Integration Tests', () => {

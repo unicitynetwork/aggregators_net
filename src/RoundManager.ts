@@ -6,7 +6,7 @@ import { ICommitmentStorage } from './commitment/ICommitmentStorage.js';
 import { IAlphabillClient } from './consensus/alphabill/IAlphabillClient.js';
 import { Block } from './hashchain/Block.js';
 import { IBlockStorage } from './hashchain/IBlockStorage.js';
-import logger from './index.js';
+import logger from './Logger.js';
 import { AggregatorRecord } from './records/AggregatorRecord.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';

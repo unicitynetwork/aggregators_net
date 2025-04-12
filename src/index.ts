@@ -1,31 +1,9 @@
 import dotenv from 'dotenv';
-import { pino } from 'pino';
 
 import { AggregatorGateway } from './AggregatorGateway.js';
+import logger from './Logger.js';
 
 dotenv.config();
-
-const transport = pino.transport({
-  targets: [
-    {
-      level: process.env.LOG_LEVEL ?? 'info',
-      target: 'pino/file',
-      options: {
-        destination: process.env.LOG_FILE ?? 'aggregator.log',
-        sync: false,
-      },
-    },
-    {
-      level: process.env.LOG_LEVEL ?? 'info',
-      target: 'pino-pretty',
-      options: {},
-    },
-  ],
-});
-
-const logger = pino({}, transport);
-
-export default logger;
 
 async function main(): Promise<void> {
   logger.info('Starting Aggregator Gateway...');

@@ -6,7 +6,7 @@ import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { v4 as uuidv4 } from 'uuid';
 
-import logger from '../../src/index.js';
+import logger from '../../src/Logger.js';
 
 interface ISmtBenchmarkResult {
   testDescription: string;

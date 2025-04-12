@@ -4,7 +4,7 @@ import { CommitmentStorage } from './commitment/CommitmentStorage.js';
 import { ICommitmentStorage } from './commitment/ICommitmentStorage.js';
 import { BlockStorage } from './hashchain/BlockStorage.js';
 import { IBlockStorage } from './hashchain/IBlockStorage.js';
-import logger from './index.js';
+import logger from './Logger.js';
 import { AggregatorRecordStorage } from './records/AggregatorRecordStorage.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
@@ -26,11 +26,15 @@ export class AggregatorStorage {
   public static async init(uri: string): Promise<AggregatorStorage> {
     try {
       logger.info('Connecting to MongoDB URI %s.', uri);
-      await mongoose.connect(uri, {
+      const mongooseOptions = {
         connectTimeoutMS: 15000,
         heartbeatFrequencyMS: 1000,
         serverSelectionTimeoutMS: 30000,
-      });
+      };
+      await mongoose
+        .connect(uri, mongooseOptions)
+        .then(() => logger.info('Connected to MongoDB successfully.'))
+        .catch((err) => logger.error('Failed to connect to MongoDB: ', err));
 
       mongoose.connection.on('error', (error) => {
         logger.error('MongoDB connection error: ', error);
@@ -44,7 +48,6 @@ export class AggregatorStorage {
         logger.info('MongoDB reconnected successfully.');
       });
 
-      logger.info('Connected to MongoDB successfully.');
       return new AggregatorStorage();
     } catch (error) {
       logger.error('Failed to connect to MongoDB: ', error);
@@ -53,12 +56,9 @@ export class AggregatorStorage {
   }
 
   public async close(): Promise<void> {
-    try {
-      await mongoose.disconnect();
-      logger.info('MongoDB connection closed.');
-    } catch (error) {
-      logger.error('Error closing MongoDB connection: ', error);
-      throw error;
-    }
+    await mongoose
+      .disconnect()
+      .then(() => 'MongoDB connection closed.')
+      .catch((err) => logger.error('Error closing MongoDB connection: ', err));
   }
 }
