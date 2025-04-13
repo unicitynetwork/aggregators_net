@@ -56,7 +56,7 @@ describe('SMT Storage Tests', () => {
 
   it('Store and retrieve nodes in batch', async () => {
     await LeafModel.deleteMany({});
-    
+
     const storage = new SmtStorage();
 
     const batchTestNodes: SmtNode[] = [];

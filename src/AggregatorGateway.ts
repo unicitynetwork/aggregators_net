@@ -68,7 +68,7 @@ export class AggregatorGateway {
   private static blockCreationInterval: NodeJS.Timeout | null = null;
   private static blockCreationActive: boolean = false;
 
-  private constructor(serverId: string, server: Server, leaderElection: LeaderElection | null, roundManager: RoundManager) {
+  private constructor(serverId: string, server: Server, leaderElection: LeaderElection | null) {
     this.serverId = serverId;
     this.server = server;
     this.leaderElection = leaderElection;
@@ -113,6 +113,7 @@ export class AggregatorGateway {
       smt,
       storage.blockStorage,
       storage.recordStorage,
+      storage.blockRecordsStorage,
       storage.commitmentStorage,
       storage.smtStorage,
     );
@@ -148,7 +149,11 @@ export class AggregatorGateway {
     app.get('/health', (req: Request, res: Response): any => {
       return res.status(200).json({
         status: 'ok',
-        role: config.highAvailability?.enabled ? (leaderElection && leaderElection.isCurrentLeader() ? 'leader' : 'follower') : 'standalone',
+        role: config.highAvailability?.enabled
+          ? leaderElection && leaderElection.isCurrentLeader()
+            ? 'leader'
+            : 'follower'
+          : 'standalone',
         serverId: serverId,
       });
     });
@@ -238,7 +243,7 @@ export class AggregatorGateway {
       console.log(`Leader election process started for server ${serverId}.`);
     }
 
-    return new AggregatorGateway(serverId, server, leaderElection, roundManager);
+    return new AggregatorGateway(serverId, server, leaderElection);
   }
 
   private static onBecomeLeader(aggregatorServerId: string, roundManager: RoundManager): void {
@@ -298,7 +303,7 @@ export class AggregatorGateway {
     if (!this.blockCreationActive) {
       return;
     }
-    
+
     const time = Date.now();
     this.blockCreationInterval = setTimeout(
       async () => {

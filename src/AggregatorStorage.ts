@@ -5,7 +5,9 @@ import { ICommitmentStorage } from './commitment/ICommitmentStorage.js';
 import { BlockStorage } from './hashchain/BlockStorage.js';
 import { IBlockStorage } from './hashchain/IBlockStorage.js';
 import { AggregatorRecordStorage } from './records/AggregatorRecordStorage.js';
+import { BlockRecordsStorage } from './records/BlockRecordsStorage.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
+import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { SmtStorage } from './smt/SmtStorage.js';
 
@@ -13,12 +15,14 @@ export class AggregatorStorage {
   public readonly smtStorage: ISmtStorage;
   public readonly blockStorage: IBlockStorage;
   public readonly recordStorage: IAggregatorRecordStorage;
+  public readonly blockRecordsStorage: IBlockRecordsStorage;
   public readonly commitmentStorage: ICommitmentStorage;
 
   private constructor() {
     this.smtStorage = new SmtStorage();
     this.blockStorage = new BlockStorage();
     this.recordStorage = new AggregatorRecordStorage();
+    this.blockRecordsStorage = new BlockRecordsStorage();
     this.commitmentStorage = new CommitmentStorage();
   }
 

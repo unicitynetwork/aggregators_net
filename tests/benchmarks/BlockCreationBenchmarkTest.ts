@@ -234,6 +234,7 @@ describe('Block Creation Performance Benchmarks', () => {
       smt,
       storage.blockStorage,
       storage.recordStorage,
+      storage.blockRecordsStorage,
       storage.commitmentStorage,
       storage.smtStorage,
     );
@@ -248,12 +249,12 @@ describe('Block Creation Performance Benchmarks', () => {
 
       const aggregatorRecords: AggregatorRecord[] = [];
       const smtLeaves: SmtNode[] = [];
-      
+
       for (const commitment of commitments) {
         aggregatorRecords.push(
           new AggregatorRecord(commitment.requestId, commitment.transactionHash, commitment.authenticator),
         );
-        
+
         const nodePath = commitment.requestId.toBigInt();
         const nodeValue = commitment.transactionHash.data;
         smtLeaves.push(new SmtNode(nodePath, nodeValue));
@@ -261,14 +262,13 @@ describe('Block Creation Performance Benchmarks', () => {
 
       const prepStart = performance.now();
       const recordStorageStart = performance.now();
-      
+
       const recordStoragePromise =
         aggregatorRecords.length > 0 ? this.recordStorage.putBatch(aggregatorRecords) : Promise.resolve(true);
-      
+
       const smtLeafStorageStart = performance.now();
-      const smtLeafStoragePromise = 
-        smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
-      
+      const smtLeafStoragePromise = smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
+
       let totalSmtTime = 0;
       for (const leaf of smtLeaves) {
         const smtStart = performance.now();
@@ -278,7 +278,7 @@ describe('Block Creation Performance Benchmarks', () => {
 
       await recordStoragePromise;
       const totalRecordStorageTime = performance.now() - recordStorageStart;
-      
+
       await smtLeafStoragePromise;
       const totalSmtLeafStorageTime = performance.now() - smtLeafStorageStart;
 

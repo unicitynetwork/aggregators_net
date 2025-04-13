@@ -29,14 +29,14 @@ describe('High Availability Tests', () => {
 
     // Wait a moment to ensure all connections are properly closed
     console.log('Waiting for connections to close...');
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // Close mongoose connection
     console.log('Closing MongoDB connection...');
     await mongoose.connection.close();
-    
+
     // Wait again to ensure all connections have been closed
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     if (mongoContainer) {
       console.log('\nStopping MongoDB container...');
@@ -98,12 +98,12 @@ describe('High Availability Tests', () => {
     console.log(response1.data);
     console.log(response2.data);
     console.log(response3.data);
-    
+
     // All servers should return 200 OK
     expect(response1.status).toBe(200);
     expect(response2.status).toBe(200);
     expect(response3.status).toBe(200);
-    
+
     const leaders = [response1, response2, response3].filter(
       (response) => response && response.status === 200 && response.data?.role === 'leader',
     );
@@ -176,7 +176,7 @@ describe('High Availability Tests', () => {
     );
 
     // All remaining servers should return 200 OK
-    remainingResponses.forEach(response => {
+    remainingResponses.forEach((response) => {
       expect(response.status).toBe(200);
     });
 
@@ -189,7 +189,7 @@ describe('High Availability Tests', () => {
     console.log('New leader elected:', newLeaderId);
 
     expect(newLeaderId).not.toBe(currentLeaderId);
-    
+
     const newFollowers = remainingResponses.filter(
       (response) => response && response.status === 200 && response.data?.role === 'follower',
     );
@@ -197,36 +197,39 @@ describe('High Availability Tests', () => {
     expect(newFollowers.length).toBe(1);
     console.log('----- TEST 2 COMPLETED -----\n');
   });
-  
+
   it('Should allow all servers to process requests', async () => {
     console.log('\n----- TEST 3: All Servers Processing Requests -----');
-    
+
     const mockRequest = {
       jsonrpc: '2.0',
       method: 'get_no_deletion_proof',
       params: {},
-      id: 1
+      id: 1,
     };
-    
+
     const responses = await Promise.all(
-      gateways.filter(g => !g.isLeader()).map((_, i) => {
-        const port = 3001 + i;
-        return axios.post(`http://localhost:${port}/`, mockRequest)
-          .catch(e => e.response || { status: 0, data: null });
-      })
+      gateways
+        .filter((g) => !g.isLeader())
+        .map((_, i) => {
+          const port = 3001 + i;
+          return axios
+            .post(`http://localhost:${port}/`, mockRequest)
+            .catch((e) => e.response || { status: 0, data: null });
+        }),
     );
-    
-    responses.forEach(response => {
+
+    responses.forEach((response) => {
       // We expect error 500 due to unimplemented method, but it should not be 503 Service Unavailable
       expect(response.status).not.toBe(503);
-      
+
       // Even with an error, it should have processed the request rather than rejecting it
       if (response.data && response.data.error) {
         expect(response.data.error.message).not.toContain('Service unavailable (standby node)');
         expect(response.data.error.message).toContain('Internal error');
       }
     });
-    
+
     console.log('All servers are able to process requests');
     console.log('----- TEST 3 COMPLETED -----\n');
   });

@@ -8,8 +8,9 @@ import { Block } from './hashchain/Block.js';
 import { IBlockStorage } from './hashchain/IBlockStorage.js';
 import { AggregatorRecord } from './records/AggregatorRecord.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
-import { SmtNode } from './smt/SmtNode.js';
+import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
+import { SmtNode } from './smt/SmtNode.js';
 
 export class RoundManager {
   public constructor(
@@ -18,6 +19,7 @@ export class RoundManager {
     public readonly smt: SparseMerkleTree,
     public readonly blockStorage: IBlockStorage,
     public readonly recordStorage: IAggregatorRecordStorage,
+    public readonly blockRecordsStorage: IBlockRecordsStorage,
     public readonly commitmentStorage: ICommitmentStorage,
     public readonly smtStorage: ISmtStorage,
   ) {}
@@ -37,7 +39,7 @@ export class RoundManager {
 
     const aggregatorRecords: AggregatorRecord[] = [];
     const smtLeaves: SmtNode[] = [];
-    
+
     if (commitments && commitments.length > 0) {
       for (const commitment of commitments) {
         aggregatorRecords.push(
@@ -58,8 +60,7 @@ export class RoundManager {
       recordStoragePromise =
         aggregatorRecords.length > 0 ? this.recordStorage.putBatch(aggregatorRecords) : Promise.resolve(true);
 
-      smtLeafStoragePromise =
-        smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
+      smtLeafStoragePromise = smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
     } catch (error) {
       console.error('Failed to start storing records and SMT leaves:', error);
       throw error;
@@ -108,6 +109,10 @@ export class RoundManager {
         null, // TODO add noDeletionProof
       );
       await this.blockStorage.put(block);
+      await this.blockRecordsStorage.put({
+        blockNumber: blockNumber,
+        requestIds: commitments.map((commitment) => commitment.requestId),
+      });
 
       if (commitments.length > 0) {
         await this.commitmentStorage.confirmBlockProcessed();
