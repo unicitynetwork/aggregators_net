@@ -37,7 +37,7 @@ export class RoundManager {
 
     const aggregatorRecords: AggregatorRecord[] = [];
     const smtLeaves: SmtNode[] = [];
-
+    
     if (commitments && commitments.length > 0) {
       for (const commitment of commitments) {
         aggregatorRecords.push(
@@ -112,6 +112,8 @@ export class RoundManager {
       if (commitments.length > 0) {
         await this.commitmentStorage.confirmBlockProcessed();
       }
+
+      console.log(`Block ${blockNumber} created successfully with ${commitments.length} commitments`);
 
       return block;
     } catch (error) {
