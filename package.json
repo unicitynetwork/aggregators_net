@@ -31,8 +31,7 @@
     "express": "4.21.2",
     "mongodb": "6.15.0",
     "mongoose": "8.12.1",
-    "pino": "9.6.0",
-    "pino-pretty": "13.0.0"
+    "winston": "3.17.0"
   },
   "devDependencies": {
     "@babel/preset-env": "7.26.9",
@@ -42,7 +41,6 @@
     "@types/cors": "2.8.17",
     "@types/express": "5.0.1",
     "@types/jest": "29.5.14",
-    "@types/pino": "7.0.4",
     "axios": "1.8.4",
     "babel-jest": "29.7.0",
     "babel-loader": "10.0.0",
