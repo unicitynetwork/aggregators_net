@@ -65,13 +65,20 @@ export class AggregatorGateway {
   private serverId: string;
   private server: Server;
   private leaderElection: LeaderElection | null;
-  private static blockCreationInterval: NodeJS.Timeout | null = null;
-  private static blockCreationActive: boolean = false;
+  private roundManager: RoundManager;
+  private static blockCreationActive = false;
+  private static blockCreationTimer: NodeJS.Timeout | null = null;
 
-  private constructor(serverId: string, server: Server, leaderElection: LeaderElection | null, roundManager: RoundManager) {
+  private constructor(
+    serverId: string,
+    server: Server,
+    leaderElection: LeaderElection | null,
+    roundManager: RoundManager
+  ) {
     this.serverId = serverId;
     this.server = server;
     this.leaderElection = leaderElection;
+    this.roundManager = roundManager;
   }
 
   public static async create(config: IGatewayConfig = {}): Promise<AggregatorGateway> {
@@ -85,7 +92,7 @@ export class AggregatorGateway {
         sslKeyPath: config.aggregatorConfig?.sslKeyPath ?? '',
       },
       highAvailability: {
-        enabled: config.highAvailability?.enabled ?? true,
+        enabled: config.highAvailability?.enabled !== false,
         lockTtlSeconds: config.highAvailability?.lockTtlSeconds ?? 30,
         leaderHeartbeatInterval: config.highAvailability?.leaderHeartbeatInterval ?? 10000,
         leaderElectionPollingInterval: config.highAvailability?.leaderElectionPollingInterval ?? 5000,
@@ -148,7 +155,7 @@ export class AggregatorGateway {
     app.get('/health', (req: Request, res: Response): any => {
       return res.status(200).json({
         status: 'ok',
-        role: config.highAvailability?.enabled ? (leaderElection && leaderElection.isCurrentLeader() ? 'leader' : 'follower') : 'standalone',
+        role: config.highAvailability?.enabled !== false ? (leaderElection && leaderElection.isCurrentLeader() ? 'leader' : 'follower') : 'standalone',
         serverId: serverId,
       });
     });
@@ -250,9 +257,9 @@ export class AggregatorGateway {
   private static onLoseLeadership(aggregatorServerId: string): void {
     console.log(`Server ${aggregatorServerId} lost leadership.`);
     this.blockCreationActive = false;
-    if (this.blockCreationInterval) {
-      clearTimeout(this.blockCreationInterval);
-      this.blockCreationInterval = null;
+    if (this.blockCreationTimer) {
+      clearTimeout(this.blockCreationTimer);
+      this.blockCreationTimer = null;
     }
   }
 
@@ -300,7 +307,7 @@ export class AggregatorGateway {
     }
     
     const time = Date.now();
-    this.blockCreationInterval = setTimeout(
+    this.blockCreationTimer = setTimeout(
       async () => {
         try {
           if (this.blockCreationActive) {
@@ -327,9 +334,9 @@ export class AggregatorGateway {
     await this.leaderElection?.shutdown();
     this.server?.close();
     AggregatorGateway.blockCreationActive = false;
-    if (AggregatorGateway.blockCreationInterval) {
-      clearTimeout(AggregatorGateway.blockCreationInterval);
-      AggregatorGateway.blockCreationInterval = null;
+    if (AggregatorGateway.blockCreationTimer) {
+      clearTimeout(AggregatorGateway.blockCreationTimer);
+      AggregatorGateway.blockCreationTimer = null;
     }
   }
 
@@ -337,7 +344,7 @@ export class AggregatorGateway {
    * Check if this instance is the current leader.
    */
   public isLeader(): boolean {
-    return this.leaderElection?.isCurrentLeader() || false;
+    return this.leaderElection ? this.leaderElection.isCurrentLeader() : true;
   }
 
   /**
@@ -345,5 +352,12 @@ export class AggregatorGateway {
    */
   public getServerId(): string {
     return this.serverId;
+  }
+
+  /**
+   * Returns the RoundManager instance
+   */
+  public getRoundManager(): RoundManager {
+    return this.roundManager;
   }
 }

@@ -59,11 +59,11 @@ The gateway uses a MongoDB-based leader election mechanism where all servers pro
 
 ### Configuration
 
-Configure the HA system through environment variables:
+The high availability mode is **enabled by default**. Configure the HA system through environment variables:
 
 | Variable | Description | Default |
 |---|---|---|
-| `ENABLE_HIGH_AVAILABILITY` | Enable/disable HA mode | `true` |
+| `DISABLE_HIGH_AVAILABILITY` | Disable HA mode (set to 'true' to disable) | `false` |
 | `LOCK_TTL_SECONDS` | Lock validity period | `30` |
 | `LEADER_HEARTBEAT_INTERVAL` | Leader heartbeat frequency | `10000` (10s) |
 | `LEADER_ELECTION_POLLING_INTERVAL` | Follower polling frequency | `5000` (5s) |

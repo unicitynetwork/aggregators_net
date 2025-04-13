@@ -12,6 +12,8 @@ import { SmtNode } from './smt/SmtNode.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 
 export class RoundManager {
+  private commitmentCounter: number = 0;
+
   public constructor(
     public readonly config: IAggregatorConfig,
     public readonly alphabillClient: IAlphabillClient,
@@ -34,6 +36,10 @@ export class RoundManager {
 
   public async createBlock(): Promise<Block> {
     const commitments = await this.commitmentStorage.getCommitmentsForBlock();
+    
+    if (commitments && commitments.length > 0) {
+      this.commitmentCounter += commitments.length;
+    }
 
     const aggregatorRecords: AggregatorRecord[] = [];
     const smtLeaves: SmtNode[] = [];
@@ -120,5 +126,12 @@ export class RoundManager {
       console.error('Failed to create block:', error);
       throw error;
     }
+  }
+
+  /**
+   * Returns the total number of commitments processed so far
+   */
+  public getCommitmentCount(): number {
+    return this.commitmentCounter;
   }
 }
