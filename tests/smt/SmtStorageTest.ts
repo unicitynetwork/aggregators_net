@@ -1,7 +1,7 @@
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { StartedTestContainer } from 'testcontainers';
 
-import logger from '../../src/Logger.js';
+import logger from '../../src/logger.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
 import { SmtStorage, LeafModel } from '../../src/smt/SmtStorage.js';
 import { startMongoDb, stopMongoDb } from '../TestContainers.js';

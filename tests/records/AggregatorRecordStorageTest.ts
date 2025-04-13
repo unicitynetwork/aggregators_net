@@ -8,7 +8,7 @@ import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { StartedTestContainer } from 'testcontainers';
 
-import logger from '../../src/Logger.js';
+import logger from '../../src/logger.js';
 import { AggregatorRecord } from '../../src/records/AggregatorRecord.js';
 import { AggregatorRecordStorage } from '../../src/records/AggregatorRecordStorage.js';
 import { startMongoDb, stopMongoDb } from '../TestContainers.js';

@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import { ILeadershipStorage } from './ILeadershipStorage.js';
-import logger from '../Logger.js';
+import logger from '../logger.js';
 
 interface ILeaderElectionOptions {
   heartbeatInterval: number; // How often to send heartbeats

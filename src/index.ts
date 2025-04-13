@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 
 import { AggregatorGateway } from './AggregatorGateway.js';
-import logger from './Logger.js';
+import logger from './logger.js';
 
 dotenv.config();
 

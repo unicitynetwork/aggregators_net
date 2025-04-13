@@ -1,7 +1,7 @@
 import mongoose, { model } from 'mongoose';
 
 import { ILeadershipStorage } from './ILeadershipStorage.js';
-import logger from '../Logger.js';
+import logger from '../logger.js';
 
 interface ILockDocument {
   lockId: string;

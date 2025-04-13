@@ -4,7 +4,7 @@ import { MongoClient } from 'mongodb';
 import mongoose from 'mongoose';
 
 import { AggregatorGateway } from '../../src/AggregatorGateway.js';
-import logger from '../../src/Logger.js';
+import logger from '../../src/logger.js';
 
 describe('High Availability Tests', () => {
   let mongoClient: MongoClient;

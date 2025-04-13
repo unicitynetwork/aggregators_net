@@ -2,7 +2,7 @@ import { MongoDBContainer } from '@testcontainers/mongodb';
 import mongoose from 'mongoose';
 import { StartedTestContainer } from 'testcontainers';
 
-import logger from '../src/Logger.js';
+import logger from '../src/logger.js';
 
 export async function startMongoDb(): Promise<StartedTestContainer> {
   const container = await new MongoDBContainer('mongo:7').start();

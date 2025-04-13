@@ -4,7 +4,7 @@ import { CommitmentStorage } from './commitment/CommitmentStorage.js';
 import { ICommitmentStorage } from './commitment/ICommitmentStorage.js';
 import { BlockStorage } from './hashchain/BlockStorage.js';
 import { IBlockStorage } from './hashchain/IBlockStorage.js';
-import logger from './Logger.js';
+import logger from './logger.js';
 import { AggregatorRecordStorage } from './records/AggregatorRecordStorage.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';

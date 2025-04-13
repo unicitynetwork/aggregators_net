@@ -19,7 +19,7 @@ import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 
 import { IAlphabillClient } from './IAlphabillClient.js';
 import { SubmitHashResponse } from './SubmitHashResponse.js';
-import logger from '../../Logger.js';
+import logger from '../../logger.js';
 
 export class AlphabillClient implements IAlphabillClient {
   private constructor(

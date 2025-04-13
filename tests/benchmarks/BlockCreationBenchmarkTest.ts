@@ -13,7 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { AggregatorStorage } from '../../src/AggregatorStorage.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
 import { Block } from '../../src/hashchain/Block.js';
-import logger from '../../src/Logger.js';
+import logger from '../../src/logger.js';
 import { AggregatorRecord } from '../../src/records/AggregatorRecord.js';
 import { RoundManager } from '../../src/RoundManager.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
