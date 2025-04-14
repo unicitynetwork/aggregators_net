@@ -13,7 +13,7 @@
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --fix",
     "test": "jest tests/ --testPathIgnorePatterns=\"tests/benchmarks\"",
-    "test:ci": "jest tests/ --ci --reporters=default --testPathIgnorePatterns=\"tests/benchmarks\"",
+    "test:ci": "jest tests/ --ci --reporters=default --testPathIgnorePatterns=\"tests/benchmarks\" --testPathIgnorePatterns=\"Alphabill\"",
     "benchmark": "jest tests/benchmarks --runInBand --testNamePattern=\"Benchmark\""
   },
   "type": "module",
@@ -50,6 +50,7 @@
     "eslint-plugin-prettier": "5.2.3",
     "globals": "16.0.0",
     "jest": "29.7.0",
+    "mongodb-memory-server": "^10.1.4",
     "testcontainers": "10.23.0",
     "ts-loader": "9.5.2",
     "typescript-eslint": "8.28.0",

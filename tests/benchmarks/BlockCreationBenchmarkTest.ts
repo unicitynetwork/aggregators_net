@@ -244,7 +244,7 @@ describe('Block Creation Performance Benchmarks', () => {
       const endPreparationPhase = metrics.startPhase('preparation');
 
       const getCommitmentsEnd = metrics.startPhase('getCommitments');
-      const commitments = await this.commitmentStorage.getAll();
+      const commitments = await this.commitmentStorage.getCommitmentsForBlock();
       getCommitmentsEnd();
 
       const aggregatorRecords: AggregatorRecord[] = [];
@@ -312,6 +312,10 @@ describe('Block Creation Performance Benchmarks', () => {
       );
       await this.blockStorage.put(block);
       endDbPhase();
+
+      if (commitments.length > 0) {
+        await this.commitmentStorage.confirmBlockProcessed();
+      }
 
       return block;
     };

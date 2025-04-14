@@ -13,6 +13,8 @@ import { ISmtStorage } from './smt/ISmtStorage.js';
 import { SmtNode } from './smt/SmtNode.js';
 
 export class RoundManager {
+  private commitmentCounter: number = 0;
+
   public constructor(
     public readonly config: IAggregatorConfig,
     public readonly alphabillClient: IAlphabillClient,
@@ -34,7 +36,11 @@ export class RoundManager {
   }
 
   public async createBlock(): Promise<Block> {
-    const commitments = await this.commitmentStorage.getAll();
+    const commitments = await this.commitmentStorage.getCommitmentsForBlock();
+
+    if (commitments && commitments.length > 0) {
+      this.commitmentCounter += commitments.length;
+    }
 
     const aggregatorRecords: AggregatorRecord[] = [];
     const smtLeaves: SmtNode[] = [];
@@ -59,7 +65,8 @@ export class RoundManager {
       recordStoragePromise =
         aggregatorRecords.length > 0 ? this.recordStorage.putBatch(aggregatorRecords) : Promise.resolve(true);
 
-      smtLeafStoragePromise = smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
+      smtLeafStoragePromise =
+        smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
     } catch (error) {
       logger.error('Failed to start storing records and SMT leaves:', error);
       throw error;
@@ -108,10 +115,24 @@ export class RoundManager {
         null, // TODO add noDeletionProof
       );
       await this.blockStorage.put(block);
+
+      if (commitments.length > 0) {
+        await this.commitmentStorage.confirmBlockProcessed();
+      }
+
+      console.log(`Block ${blockNumber} created successfully with ${commitments.length} commitments`);
+
       return block;
     } catch (error) {
-      logger.error('Failed to create or store block:', error);
+      console.error('Failed to create block:', error);
       throw error;
     }
+  }
+
+  /**
+   * Returns the total number of commitments processed so far
+   */
+  public getCommitmentCount(): number {
+    return this.commitmentCounter;
   }
 }

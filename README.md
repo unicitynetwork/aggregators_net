@@ -43,37 +43,40 @@ The Unicity Aggregator implements a high availability system ensuring service co
 
 ### Leader Election System
 
-The gateway uses a MongoDB-based leader election mechanism to ensure only one server processes requests at any time:
+The gateway uses a MongoDB-based leader election mechanism where all servers process requests but only the leader creates blocks:
 
-- **Single Active Server**: Only one server is designated as leader
-- **Automatic Failover**: Standby servers automatically take over if the leader fails
+- **Distributed Processing**: All servers can handle API requests, improving scalability
+- **Leader Role**: Only one server (the leader) is responsible for block creation and hash submission to Alphabill
+- **Automatic Failover**: If the leader fails, another server automatically takes over block creation responsibilities
 - **Conflict Prevention**: MongoDB's atomic operations prevent split-brain scenarios
 
 ### How It Works
 
-1. **Distributed Lock**: Servers compete for a lock document in MongoDB
+1. **Distributed Lock**: Servers compete for a lock document in MongoDB to determine the leader
 2. **Heartbeats**: The active leader periodically updates its lock to maintain leadership
 3. **Automatic Expiration**: If the leader fails, its lock expires after a configurable timeout
-4. **Continuous Monitoring**: Standby servers regularly check for leadership opportunities
+4. **Continuous Monitoring**: Follower servers regularly check for leadership opportunities
 
 ### Configuration
 
-Configure the HA system through environment variables:
+The high availability mode is **enabled by default**. Configure the HA system through environment variables:
 
 | Variable | Description | Default |
 |---|---|---|
-| `ENABLE_HIGH_AVAILABILITY` | Enable/disable HA mode | `false` |
+| `DISABLE_HIGH_AVAILABILITY` | Disable HA mode (set to 'true' to disable) | `false` |
 | `LOCK_TTL_SECONDS` | Lock validity period | `30` |
-| `LEADER_HEARTBEAT_INTERVAL_MS` | Leader heartbeat frequency | `10000` (10s) |
-| `LEADER_ELECTION_POLLING_INTERVAL_MS` | Standby polling frequency | `5000` (5s) |
+| `LEADER_HEARTBEAT_INTERVAL` | Leader heartbeat frequency | `10000` (10s) |
+| `LEADER_ELECTION_POLLING_INTERVAL` | Follower polling frequency | `5000` (5s) |
 
 ### Health Endpoint
 
-The `/health` endpoint returns different status codes based on server role:
-- `200 OK`: Server is active leader (or standalone mode)
-- `503 Service Unavailable`: Server is in standby mode
+The `/health` endpoint provides status information about the server:
+- Returns `200 OK` for all servers, with role information in the response body:
+  - `{"status": "ok", "role": "leader", "serverId": "server-id"}` - Server is the active leader
+  - `{"status": "ok", "role": "follower", "serverId": "server-id"}` - Server is a follower
+  - `{"status": "ok", "role": "standalone", "serverId": "server-id"}` - Server is in standalone mode (HA disabled)
 
-This allows load balancers to route traffic only to the active server.
+This allows load balancers to monitor all servers while providing role information.
 
 ## SDK, Transport-Agnostic JavaScript Functions
 The `AggregatorAPI` class provides transport-agnostic functions for submitting requests and fetching proofs.
