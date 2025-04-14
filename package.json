@@ -13,7 +13,7 @@
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --fix",
     "test": "jest tests/ --testPathIgnorePatterns=\"tests/benchmarks\"",
-    "test:ci": "jest tests/ --ci --reporters=default --testPathIgnorePatterns=\"tests/benchmarks\"",
+    "test:ci": "jest tests/ --ci --reporters=default --testPathIgnorePatterns=\"tests/benchmarks\" --testPathIgnorePatterns=\"Alphabill\"",
     "benchmark": "jest tests/benchmarks --runInBand --testNamePattern=\"Benchmark\""
   },
   "type": "module",
