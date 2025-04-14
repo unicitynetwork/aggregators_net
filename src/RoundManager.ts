@@ -65,8 +65,7 @@ export class RoundManager {
       recordStoragePromise =
         aggregatorRecords.length > 0 ? this.recordStorage.putBatch(aggregatorRecords) : Promise.resolve(true);
 
-      smtLeafStoragePromise =
-        smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
+      smtLeafStoragePromise = smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
     } catch (error) {
       logger.error('Failed to start storing records and SMT leaves:', error);
       throw error;
@@ -120,7 +119,7 @@ export class RoundManager {
         await this.commitmentStorage.confirmBlockProcessed();
       }
 
-      console.log(`Block ${blockNumber} created successfully with ${commitments.length} commitments`);
+      logger.info(`Block ${blockNumber} created successfully with ${commitments.length} commitments`);
 
       return block;
     } catch (error) {

@@ -63,18 +63,18 @@ export interface IStorageConfig {
 }
 
 export class AggregatorGateway {
+  private static blockCreationActive = false;
+  private static blockCreationTimer: NodeJS.Timeout | null = null;
   private serverId: string;
   private server: Server;
   private leaderElection: LeaderElection | null;
   private roundManager: RoundManager;
-  private static blockCreationActive = false;
-  private static blockCreationTimer: NodeJS.Timeout | null = null;
 
   private constructor(
     serverId: string,
     server: Server,
     leaderElection: LeaderElection | null,
-    roundManager: RoundManager
+    roundManager: RoundManager,
   ) {
     this.serverId = serverId;
     this.server = server;
@@ -145,7 +145,7 @@ export class AggregatorGateway {
         serverId: serverId,
       });
     } else {
-      console.log('High availability mode is disabled.');
+      logger.info('High availability mode is disabled.');
       AggregatorGateway.blockCreationActive = true;
       AggregatorGateway.startNextBlock(roundManager);
     }
@@ -156,7 +156,12 @@ export class AggregatorGateway {
     app.get('/health', (req: Request, res: Response): any => {
       return res.status(200).json({
         status: 'ok',
-        role: config.highAvailability?.enabled !== false ? (leaderElection && leaderElection.isCurrentLeader() ? 'leader' : 'follower') : 'standalone',
+        role:
+          config.highAvailability?.enabled !== false
+            ? leaderElection && leaderElection.isCurrentLeader()
+              ? 'leader'
+              : 'follower'
+            : 'standalone',
         serverId: serverId,
       });
     });
@@ -250,13 +255,13 @@ export class AggregatorGateway {
   }
 
   private static onBecomeLeader(aggregatorServerId: string, roundManager: RoundManager): void {
-    console.log(`Server ${aggregatorServerId} became the leader.`);
+    logger.info(`Server ${aggregatorServerId} became the leader.`);
     this.blockCreationActive = true;
     this.startNextBlock(roundManager);
   }
 
   private static onLoseLeadership(aggregatorServerId: string): void {
-    console.log(`Server ${aggregatorServerId} lost leadership.`);
+    logger.info(`Server ${aggregatorServerId} lost leadership.`);
     this.blockCreationActive = false;
     if (this.blockCreationTimer) {
       clearTimeout(this.blockCreationTimer);
@@ -356,7 +361,7 @@ export class AggregatorGateway {
   }
 
   /**
-   * Returns the RoundManager instance
+   * Returns the RoundManager instance.
    */
   public getRoundManager(): RoundManager {
     return this.roundManager;
