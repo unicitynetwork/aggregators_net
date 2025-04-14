@@ -14,7 +14,11 @@ const logger: Logger = createLogger({
         format.colorize(),
         format.simple(),
         format.align(),
-        format.printf((info) => `[${info.timestamp}] ${info.level}: ${info.message}`),
+        format.errors({ stack: true }),
+        format.printf(({ timestamp, level, message, stack }) => {
+          const text = `${timestamp} ${level.toUpperCase()} ${message}`;
+          return stack ? text + '\n' + stack : text;
+        }),
       ),
     }),
     new transports.File({
