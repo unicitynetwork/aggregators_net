@@ -16,7 +16,7 @@ interface IBlock {
   forkId: number;
   timestamp: bigint;
   txProof: Uint8Array;
-  previousBlockHash: Uint8Array | null;
+  previousBlockHash: Uint8Array;
   rootHash: Uint8Array;
   noDeletionProofHash: Uint8Array | null;
 }
@@ -27,7 +27,7 @@ const BlockSchema = new mongoose.Schema({
   version: { required: true, type: Number },
   forkId: { required: true, type: Number },
   txProof: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
-  previousBlockHash: { required: false, type: SCHEMA_TYPES.UINT8_ARRAY },
+  previousBlockHash: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
   rootHash: { required: true, type: SCHEMA_TYPES.UINT8_ARRAY },
   noDeletionProofHash: { required: false, type: SCHEMA_TYPES.UINT8_ARRAY },
 });
@@ -43,7 +43,7 @@ export class BlockStorage implements IBlockStorage {
       forkId: block.forkId,
       timestamp: block.timestamp,
       txProof: block.txProof.encode(),
-      previousBlockHash: block.previousBlockHash ?? new Uint8Array(),
+      previousBlockHash: block.previousBlockHash,
       rootHash: block.rootHash.imprint,
       noDeletionProofHash: block.noDeletionProofHash,
     }).save();
@@ -67,7 +67,7 @@ export class BlockStorage implements IBlockStorage {
       stored.forkId,
       timestamp,
       decodedProof,
-      stored.previousBlockHash ?? null,
+      stored.previousBlockHash,
       rootHash,
       null, // TODO Add noDeletionProof
     );

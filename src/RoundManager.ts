@@ -13,6 +13,7 @@ import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js'
 import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { SmtNode } from './smt/SmtNode.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
 export class RoundManager {
   private commitmentCounter: number = 0;
@@ -120,7 +121,7 @@ export class RoundManager {
         this.config.forkId!,
         txProof.transactionProof.unicityCertificate.unicitySeal.timestamp,
         txProof,
-        previousBlockHash,
+        previousBlockHash ?? HexConverter.decode(this.config.initialBlockHash!),
         rootHash,
         null, // TODO add noDeletionProof
       );

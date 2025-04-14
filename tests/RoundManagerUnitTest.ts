@@ -85,6 +85,7 @@ describe('Round Manager Tests', () => {
       version: 1,
       forkId: 1,
       port: 9876,
+      initialBlockHash: '185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969',
     };
 
     // Initialize all dependencies

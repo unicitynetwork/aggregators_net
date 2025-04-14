@@ -13,6 +13,7 @@ async function main(): Promise<void> {
       chainId: process.env.CHAIN_ID ? parseInt(process.env.CHAIN_ID) : 1,
       version: process.env.VERSION ? parseInt(process.env.VERSION) : 1,
       forkId: process.env.FORK_ID ? parseInt(process.env.FORK_ID) : 1,
+      initialBlockHash: process.env.INITIAL_BLOCK_HASH ?? '',
       port: process.env.PORT ? parseInt(process.env.PORT) : 80,
       sslCertPath: process.env.SSL_CERT_PATH ?? '',
       sslKeyPath: process.env.SSL_KEY_PATH ?? '',
