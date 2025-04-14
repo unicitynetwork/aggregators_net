@@ -15,25 +15,26 @@ describe('Round Manager Tests', () => {
   jest.setTimeout(60000);
 
   let container: StartedMongoDBContainer;
+  let aggregator: AggregatorGateway;
 
   beforeAll(async () => {
     container = (await startMongoDb()) as StartedMongoDBContainer;
-  });
-
-  afterAll(() => {
-    stopMongoDb(container);
-  });
-
-  it('Submit commitment and create block', async () => {
     logger.info('Starting aggregator...');
-    const aggregator = await AggregatorGateway.create({
+    aggregator = await AggregatorGateway.create({
       alphabill: { useMock: true },
       storage: {
         uri: container.getConnectionString() + '?directConnection=true',
       },
     });
     logger.info('Aggregator running.');
+  });
 
+  afterAll(() => {
+    aggregator.stop();
+    stopMongoDb(container);
+  });
+
+  it('Submit commitment and create block', async () => {
     const unicitySigningService = new SigningService(
       HexConverter.decode('1DE87F189C3C9E42F93C90C95E2AC761BE9D0EB2FD1CA0FF3A9CE165C3DE96A9'),
     );
