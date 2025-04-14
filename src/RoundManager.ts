@@ -12,6 +12,7 @@ import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js'
 import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { SmtNode } from './smt/SmtNode.js';
+import { BlockRecordsStorage } from './records/BlockRecordsStorage.js';
 
 export class RoundManager {
   private commitmentCounter: number = 0;
@@ -139,5 +140,12 @@ export class RoundManager {
    */
   public getCommitmentCount(): number {
     return this.commitmentCounter;
+  }
+
+  /**
+   * Exposes the Block Records Storage.
+   */
+  public getBlockRecordsStorage(): BlockRecordsStorage {
+    return this.blockRecordsStorage;
   }
 }

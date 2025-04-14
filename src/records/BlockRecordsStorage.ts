@@ -42,4 +42,15 @@ export class BlockRecordsStorage implements IBlockRecordsStorage {
       stored.requestIds.map((requestId) => RequestId.fromDto(requestId.toString())),
     );
   }
+
+  public async getLatest(): Promise<BlockRecords | null> {
+    const stored = await BlockRecordsModel.findOne().sort({ blockNumber: 1});
+    if (!stored) {
+      return null;
+    }
+    return new BlockRecords(
+      stored.blockNumber,
+      stored.requestIds.map((requestId) => RequestId.fromDto(requestId.toString())),
+    );
+  }
 }
