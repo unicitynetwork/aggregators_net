@@ -8,11 +8,11 @@ import { Block } from './hashchain/Block.js';
 import { IBlockStorage } from './hashchain/IBlockStorage.js';
 import logger from './logger.js';
 import { AggregatorRecord } from './records/AggregatorRecord.js';
+import { BlockRecordsStorage } from './records/BlockRecordsStorage.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { SmtNode } from './smt/SmtNode.js';
-import { BlockRecordsStorage } from './records/BlockRecordsStorage.js';
 
 export class RoundManager {
   private commitmentCounter: number = 0;

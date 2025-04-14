@@ -44,7 +44,7 @@ export class BlockRecordsStorage implements IBlockRecordsStorage {
   }
 
   public async getLatest(): Promise<BlockRecords | null> {
-    const stored = await BlockRecordsModel.findOne().sort({ blockNumber: 1});
+    const stored = await BlockRecordsModel.findOne().sort({ blockNumber: 1 });
     if (!stored) {
       return null;
     }
