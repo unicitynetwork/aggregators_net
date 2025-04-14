@@ -38,7 +38,7 @@ describe('Sparse Merkle Tree Performance Benchmarks', () => {
     newOperationsCount: number,
     description: string,
   ): Promise<ISmtBenchmarkResult> {
-    logger.info(`\nRunning benchmark: ${description}`);
+    logger.info(`Running benchmark: ${description}`);
     logger.info(`Pre-populating tree with ${existingTreeSize} leaves...`);
 
     const smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
@@ -91,14 +91,14 @@ describe('Sparse Merkle Tree Performance Benchmarks', () => {
   }
 
   function printResults(result: ISmtBenchmarkResult): void {
-    logger.info('\n----- SMT Benchmark Results -----');
+    logger.info('----- SMT Benchmark Results -----');
     logger.info(`Test: ${result.testDescription}`);
     logger.info(`Final tree size: ${result.treeSize} leaves`);
     logger.info(`Operations: Added ${result.operationCount} new leaves`);
     logger.info(`Total time: ${result.totalTimeMs.toFixed(2)}ms`);
     logger.info(`Operations per second: ${result.operationsPerSecond.toFixed(2)}`);
     logger.info(`Average time per operation: ${result.averageTimePerOpMs.toFixed(4)}ms`);
-    logger.info('---------------------------\n');
+    logger.info('---------------------------');
   }
 
   test('SMT with empty tree and 1,000 operations', async () => {

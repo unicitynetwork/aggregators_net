@@ -31,18 +31,18 @@ describe('SMT Storage Tests', () => {
       new SmtNode(2n ** 256n - 1n, new Uint8Array([7, 8, 9])),
     ];
 
-    logger.info('\nStoring test nodes...');
+    logger.info('Storing test nodes...');
     for (const node of testNodes) {
       logger.info(`Storing node with path ${node.path} (hex: ${node.path.toString(16)})`);
       const result = await storage.put(node);
       logger.info(`Store result: ${result}`);
     }
 
-    logger.info('\nRetrieving all nodes...');
+    logger.info('Retrieving all nodes...');
     const retrieved = await storage.getAll();
     logger.info(`Retrieved ${retrieved.length} nodes`);
 
-    logger.info('\nData comparison:');
+    logger.info('Data comparison:');
     for (let i = 0; i < testNodes.length; i++) {
       const original = testNodes[i];
       const stored = retrieved.find((n) => n.path === original.path);
@@ -69,11 +69,11 @@ describe('SMT Storage Tests', () => {
       batchTestNodes.push(new SmtNode(path, value));
     }
 
-    logger.info('\nStoring test nodes in batch...');
+    logger.info('Storing test nodes in batch...');
     const result = await storage.putBatch(batchTestNodes);
     expect(result).toBe(true);
 
-    logger.info('\nRetrieving all nodes...');
+    logger.info('Retrieving all nodes...');
     const retrieved = await storage.getAll();
     logger.info(`Retrieved ${retrieved.length} nodes`);
 

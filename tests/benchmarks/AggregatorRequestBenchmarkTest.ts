@@ -58,7 +58,7 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
   let mongoUri: string;
 
   beforeAll(async () => {
-    logger.info('\n=========== STARTING PERFORMANCE BENCHMARK ===========');
+    logger.info('=========== STARTING PERFORMANCE BENCHMARK ===========');
 
     mongoContainer = await new MongoDBContainer('mongo:7').start();
     mongoUri = mongoContainer.getConnectionString();
@@ -97,7 +97,7 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
   });
 
   afterAll(async () => {
-    logger.info('\nCleaning up test resources...');
+    logger.info('Cleaning up test resources...');
 
     if (gateway) {
       logger.info('Stopping AggregatorGateway...');
@@ -116,7 +116,7 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
       await mongoContainer.stop();
     }
 
-    logger.info('=========== FINISHED PERFORMANCE BENCHMARK ===========\n');
+    logger.info('=========== FINISHED PERFORMANCE BENCHMARK ===========');
   });
 
   it('should process a large batch of commitments efficiently', async () => {

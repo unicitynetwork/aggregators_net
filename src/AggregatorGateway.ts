@@ -121,6 +121,7 @@ export class AggregatorGateway {
       smt,
       storage.blockStorage,
       storage.recordStorage,
+      storage.blockRecordsStorage,
       storage.commitmentStorage,
       storage.smtStorage,
     );

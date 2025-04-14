@@ -19,7 +19,7 @@ import { RoundManager } from '../../src/RoundManager.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
 import { MockAlphabillClient } from '../consensus/alphabill/MockAlphabillClient.js';
 
-interface IBenchmarkResult {
+interface BenchmarkResult {
   numCommitments: number;
   totalTimeMs: number;
   phases: {
@@ -58,7 +58,7 @@ class TimingMetricsCollector {
     this.results[metricName] = value;
   }
 
-  getBenchmarkResult(numCommitments: number): IBenchmarkResult {
+  getBenchmarkResult(numCommitments: number): BenchmarkResult {
     return {
       numCommitments,
       totalTimeMs: performance.now() - this.startTime,
@@ -235,6 +235,7 @@ describe('Block Creation Performance Benchmarks', () => {
       smt,
       storage.blockStorage,
       storage.recordStorage,
+      storage.blockRecordsStorage,
       storage.commitmentStorage,
       storage.smtStorage,
     );
@@ -323,7 +324,7 @@ describe('Block Creation Performance Benchmarks', () => {
     return roundManager;
   }
 
-  async function runBenchmark(commitmentCount: number): Promise<IBenchmarkResult> {
+  async function runBenchmark(commitmentCount: number): Promise<BenchmarkResult> {
     const roundManager = createInstrumentedRoundManager();
     const commitments = await generateCommitments(commitmentCount);
 
@@ -338,12 +339,12 @@ describe('Block Creation Performance Benchmarks', () => {
     return result;
   }
 
-  async function formatResult(result: IBenchmarkResult): Promise<void> {
-    logger.info('\n----- Benchmark Results -----');
+  async function formatResult(result: BenchmarkResult): Promise<void> {
+    logger.info('----- Benchmark Results -----');
     logger.info(`Number of commitments: ${result.numCommitments}`);
     logger.info(`Total time: ${result.totalTimeMs.toFixed(2)}ms`);
 
-    logger.info('\nPhase breakdown:');
+    logger.info('Phase breakdown:');
     logger.info(
       `- Preparation:  ${result.phases.preparation.toFixed(2)}ms (${((result.phases.preparation * 100) / result.totalTimeMs).toFixed(2)}%)`,
     );
@@ -356,7 +357,7 @@ describe('Block Creation Performance Benchmarks', () => {
 
     if (result.phases.preparationDetails) {
       const pd = result.phases.preparationDetails;
-      logger.info('\nPreparation phase details:');
+      logger.info('Preparation phase details:');
       logger.info(
         `- Get commitments: ${pd.getCommitments.toFixed(2)}ms (${((pd.getCommitments * 100) / result.phases.preparation).toFixed(2)}% of prep)`,
       );
@@ -371,7 +372,7 @@ describe('Block Creation Performance Benchmarks', () => {
       );
     }
 
-    logger.info('---------------------------\n');
+    logger.info('---------------------------');
   }
 
   test('Benchmark with 10 commitments', async () => {

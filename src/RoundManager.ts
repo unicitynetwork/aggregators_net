@@ -8,7 +8,9 @@ import { Block } from './hashchain/Block.js';
 import { IBlockStorage } from './hashchain/IBlockStorage.js';
 import logger from './logger.js';
 import { AggregatorRecord } from './records/AggregatorRecord.js';
+import { BlockRecordsStorage } from './records/BlockRecordsStorage.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
+import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { SmtNode } from './smt/SmtNode.js';
 
@@ -21,6 +23,7 @@ export class RoundManager {
     public readonly smt: SparseMerkleTree,
     public readonly blockStorage: IBlockStorage,
     public readonly recordStorage: IAggregatorRecordStorage,
+    public readonly blockRecordsStorage: IBlockRecordsStorage,
     public readonly commitmentStorage: ICommitmentStorage,
     public readonly smtStorage: ISmtStorage,
   ) {}
@@ -122,6 +125,10 @@ export class RoundManager {
         null, // TODO add noDeletionProof
       );
       await this.blockStorage.put(block);
+      await this.blockRecordsStorage.put({
+        blockNumber: blockNumber,
+        requestIds: commitments.map((commitment) => commitment.requestId),
+      });
 
       if (commitments && commitments.length > 0) {
         await this.commitmentStorage.confirmBlockProcessed();
@@ -144,5 +151,12 @@ export class RoundManager {
    */
   public getCommitmentCount(): number {
     return this.commitmentCounter;
+  }
+
+  /**
+   * Exposes the Block Records Storage.
+   */
+  public getBlockRecordsStorage(): BlockRecordsStorage {
+    return this.blockRecordsStorage;
   }
 }
