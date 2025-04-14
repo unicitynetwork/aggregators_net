@@ -26,18 +26,23 @@ export class RoundManager {
   ) {}
 
   public async submitCommitment(commitment: Commitment): Promise<boolean> {
+    const loggerWithMetadata = logger.child({ requestId: commitment.requestId.toString() });
     try {
       await this.commitmentStorage.put(commitment);
       return true;
     } catch (error) {
-      logger.error('Failed to submit commitment:', error);
+      loggerWithMetadata.error('Failed to submit commitment:', error);
       return false;
     }
   }
 
   public async createBlock(): Promise<Block> {
+    const blockNumber = await this.blockStorage.getNextBlockNumber();
     const commitments = await this.commitmentStorage.getCommitmentsForBlock();
+
     const commitmentCount = commitments?.length || 0;
+    const loggerWithMetadata = logger.child({ blockNumber: blockNumber, commitmentsSize: commitmentCount });
+    loggerWithMetadata.info(`Starting to create block ${blockNumber}...`);
 
     const aggregatorRecords: AggregatorRecord[] = [];
     const smtLeaves: SmtNode[] = [];
@@ -64,7 +69,7 @@ export class RoundManager {
 
       smtLeafStoragePromise = smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
     } catch (error) {
-      logger.error('Failed to start storing records and SMT leaves:', error);
+      loggerWithMetadata.error('Failed to start storing records and SMT leaves:', error);
       throw error;
     }
 
@@ -77,9 +82,9 @@ export class RoundManager {
           // Check if the error is "Cannot add leaf inside branch" which indicates
           // the leaf is already in the tree - this is not a fatal error
           if (error instanceof Error && error.message.includes('Cannot add leaf inside branch')) {
-            logger.warn(`Leaf already exists in tree for path ${leaf.path} - skipping`);
+            loggerWithMetadata.warn(`Leaf already exists in tree for path ${leaf.path} - skipping`);
           } else {
-            logger.error('Failed to add leaf to SMT:', error);
+            loggerWithMetadata.error('Failed to add leaf to SMT:', error);
             throw error;
           }
         }
@@ -89,7 +94,7 @@ export class RoundManager {
     try {
       await Promise.all([recordStoragePromise, smtLeafStoragePromise]);
     } catch (error) {
-      logger.error('Failed to store records and SMT leaves:', error);
+      loggerWithMetadata.error('Failed to store records and SMT leaves:', error);
       throw error;
     }
 
@@ -98,14 +103,13 @@ export class RoundManager {
     try {
       submitHashResponse = await this.alphabillClient.submitHash(rootHash);
     } catch (error) {
-      logger.error('Failed to submit hash to Alphabill:', error);
+      loggerWithMetadata.error('Failed to submit hash to Alphabill:', error);
       throw error;
     }
 
     try {
       const txProof = submitHashResponse.txProof;
       const previousBlockHash = submitHashResponse.previousBlockHash;
-      const blockNumber = await this.blockStorage.getNextBlockNumber();
       const block = new Block(
         blockNumber,
         this.config.chainId!,
@@ -121,16 +125,16 @@ export class RoundManager {
 
       if (commitments && commitments.length > 0) {
         await this.commitmentStorage.confirmBlockProcessed();
-        
+
         // Only increment the counter if we successfully processed the block
         this.commitmentCounter += commitmentCount;
       }
 
-      logger.info(`Block ${blockNumber} created successfully with ${commitmentCount} commitments`);
+      loggerWithMetadata.info(`Block ${blockNumber} created successfully with ${commitmentCount} commitments`);
 
       return block;
     } catch (error) {
-      console.error('Failed to create block:', error);
+      loggerWithMetadata.error('Failed to create block:', error);
       throw error;
     }
   }

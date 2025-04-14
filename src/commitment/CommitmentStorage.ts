@@ -130,7 +130,7 @@ export class CommitmentStorage implements ICommitmentStorage {
 
       return true;
     } catch (error) {
-      console.error('Failed to store commitment:', error);
+      logger.error('Failed to store commitment:', error);
       throw error;
     }
   }
@@ -182,8 +182,10 @@ export class CommitmentStorage implements ICommitmentStorage {
         });
       }
     } else if (cursor.status === CursorStatus.IN_PROGRESS) {
-      logger.debug(`Cursor is IN_PROGRESS. lastProcessedSequenceId: ${cursor.lastProcessedSequenceId}, currentBatchEndSequenceId: ${cursor.currentBatchEndSequenceId}`);
-      
+      logger.debug(
+        `Cursor is IN_PROGRESS. lastProcessedSequenceId: ${cursor.lastProcessedSequenceId}, currentBatchEndSequenceId: ${cursor.currentBatchEndSequenceId}`,
+      );
+
       if (cursor.lastProcessedSequenceId !== undefined && cursor.currentBatchEndSequenceId !== undefined) {
         const query = {
           sequenceId: {
@@ -216,7 +218,7 @@ export class CommitmentStorage implements ICommitmentStorage {
   public async confirmBlockProcessed(): Promise<boolean> {
     const currentCursor = await CursorCheckpointModel.findById('commitmentCursor');
     logger.debug(`Confirming block processed. Current cursor: ${JSON.stringify(currentCursor)}`);
-    
+
     if (!currentCursor || currentCursor.currentBatchEndSequenceId === undefined) {
       logger.info('Error: Cannot confirm block processed - cursor not found or missing currentBatchEndSequenceId');
       return false;

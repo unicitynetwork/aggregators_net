@@ -323,7 +323,7 @@ export class AggregatorGateway {
             }
           }
         } catch (error) {
-          console.error('Failed to create block:', error);
+          logger.error('Failed to create block:', error);
           if (this.blockCreationActive) {
             this.startNextBlock(roundManager);
           }

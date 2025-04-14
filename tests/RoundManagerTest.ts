@@ -1,20 +1,20 @@
-import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
-import mongoose from 'mongoose';
+import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import mongoose from 'mongoose';
 
 import { IAggregatorConfig } from '../src/AggregatorGateway.js';
-import { RoundManager } from '../src/RoundManager.js';
 import { Commitment } from '../src/commitment/Commitment.js';
 import { CommitmentStorage } from '../src/commitment/CommitmentStorage.js';
 import { MockAlphabillClient } from './consensus/alphabill/MockAlphabillClient.js';
 import { BlockStorage } from '../src/hashchain/BlockStorage.js';
 import logger from '../src/logger.js';
 import { AggregatorRecordStorage } from '../src/records/AggregatorRecordStorage.js';
+import { RoundManager } from '../src/RoundManager.js';
 import { SmtStorage } from '../src/smt/SmtStorage.js';
 
 describe('Round Manager Tests', () => {
@@ -43,7 +43,7 @@ describe('Round Manager Tests', () => {
       const txHashBytes = new TextEncoder().encode(`tx-${i}-test`);
       const transactionHash = new DataHash(HashAlgorithm.SHA256, txHashBytes);
 
-      // Create a simple authenticator 
+      // Create a simple authenticator
       const publicKey = new Uint8Array(32);
       const sigBytes = new Uint8Array(65);
       sigBytes[64] = 0;
@@ -76,9 +76,9 @@ describe('Round Manager Tests', () => {
   });
 
   beforeEach(async () => {
-    // Clear all collections 
+    // Clear all collections
     await mongoose.connection.dropDatabase();
-    
+
     const config: IAggregatorConfig = {
       chainId: 1,
       version: 1,
@@ -102,46 +102,46 @@ describe('Round Manager Tests', () => {
       blockStorage,
       recordStorage,
       commitmentStorage,
-      smtStorage
+      smtStorage,
     );
   });
 
   it('should resume block creation from incomplete state after a failure', async () => {
     // Create and submit test commitments to storage
     const commitments = await createTestCommitments(5);
-    
+
     // Submit the commitments directly to the storage
     for (const commitment of commitments) {
       await commitmentStorage.put(commitment);
     }
-    
+
     // Verify commitments are in the database before we start
     const initialCount = await mongoose.connection.collection('commitments').countDocuments();
     expect(initialCount).toBe(5);
-    
+
     // Make SMT storage fail during first attempt
     const smtStorageSpy = jest.spyOn(smtStorage, 'putBatch');
     smtStorageSpy.mockRejectedValueOnce(new Error('Simulated SMT storage failure'));
-    
+
     // Expect the first createBlock attempt to fail
     await expect(roundManager.createBlock()).rejects.toThrow('Simulated SMT storage failure');
-    
+
     // Clear the SMT storage failure mock
     smtStorageSpy.mockRestore();
-    
+
     // Now createBlock should succeed and process the same commitments
     const block = await roundManager.createBlock();
-    
+
     // Verify block was created
     expect(block).toBeDefined();
     expect(block.index).toBe(1n);
-    
+
     // Commit counter should reflect the successful attempt
     expect(roundManager.getCommitmentCount()).toBe(5);
-    
+
     // Commitments should be marked as processed
     const afterProcessCount = await mongoose.connection.collection('commitments').countDocuments();
     // We still expect commitments to be in the database, but they should be processed
     expect(afterProcessCount).toBe(5);
   });
-}); 
+});

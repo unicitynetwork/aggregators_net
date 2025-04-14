@@ -6,6 +6,7 @@ import mongoose, { model } from 'mongoose';
 
 import { AggregatorRecord } from './AggregatorRecord.js';
 import { IAggregatorRecordStorage } from './IAggregatorRecordStorage.js';
+import logger from '../logger.js';
 import { SCHEMA_TYPES } from '../StorageSchemaTypes.js';
 
 interface IAggregatorRecord {
@@ -34,17 +35,23 @@ const AggregatorRecordModel = model<IAggregatorRecord>('AggregatorRecord', Aggre
 
 export class AggregatorRecordStorage implements IAggregatorRecordStorage {
   public async put(record: AggregatorRecord): Promise<boolean> {
-    await new AggregatorRecordModel({
-      requestId: record.requestId.toBigInt(),
-      transactionHash: record.transactionHash.imprint,
-      authenticator: {
-        algorithm: record.authenticator.algorithm,
-        publicKey: record.authenticator.publicKey,
-        signature: record.authenticator.signature.encode(),
-        stateHash: record.authenticator.stateHash.imprint,
-      },
-    }).save();
-    return true;
+    const loggerWithMetadata = logger.child({ requestId: record.requestId.toString() });
+    try {
+      await new AggregatorRecordModel({
+        requestId: record.requestId.toBigInt(),
+        transactionHash: record.transactionHash.imprint,
+        authenticator: {
+          algorithm: record.authenticator.algorithm,
+          publicKey: record.authenticator.publicKey,
+          signature: record.authenticator.signature.encode(),
+          stateHash: record.authenticator.stateHash.imprint,
+        },
+      }).save();
+      return true;
+    } catch (error) {
+      loggerWithMetadata.error('Failed to store aggregator record:', error);
+      throw error;
+    }
   }
 
   public async putBatch(records: AggregatorRecord[]): Promise<boolean> {
@@ -66,18 +73,18 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
                 publicKey: record.authenticator.publicKey,
                 signature: record.authenticator.signature.encode(),
                 stateHash: record.authenticator.stateHash.imprint,
-              }
-            }
+              },
+            },
           },
-          upsert: true
-        }
+          upsert: true,
+        },
       }));
 
       await AggregatorRecordModel.bulkWrite(operations);
       return true;
     } catch (error) {
       // Log and rethrow the error
-      console.error('Error in AggregatorRecordStorage putBatch:', error);
+      logger.error('Error in AggregatorRecordStorage putBatch:', error);
       throw error;
     }
   }
