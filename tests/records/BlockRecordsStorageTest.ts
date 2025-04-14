@@ -6,7 +6,6 @@ import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { StartedTestContainer } from 'testcontainers';
 
-import { BlockStorage } from '../../src/hashchain/BlockStorage.js';
 import { BlockRecordsStorage } from '../../src/records/BlockRecordsStorage.js';
 import { startMongoDb, stopMongoDb } from '../TestContainers.js';
 

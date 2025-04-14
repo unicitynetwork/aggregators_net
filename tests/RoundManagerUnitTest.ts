@@ -14,9 +14,9 @@ import { MockAlphabillClient } from './consensus/alphabill/MockAlphabillClient.j
 import { BlockStorage } from '../src/hashchain/BlockStorage.js';
 import logger from '../src/logger.js';
 import { AggregatorRecordStorage } from '../src/records/AggregatorRecordStorage.js';
+import { BlockRecordsStorage } from '../src/records/BlockRecordsStorage.js';
 import { RoundManager } from '../src/RoundManager.js';
 import { SmtStorage } from '../src/smt/SmtStorage.js';
-import { BlockRecordsStorage } from '../src/records/BlockRecordsStorage.js';
 
 describe('Round Manager Tests', () => {
   jest.setTimeout(90000);

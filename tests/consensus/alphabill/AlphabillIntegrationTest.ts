@@ -180,5 +180,5 @@ describe('Alphabill Client Integration Tests', () => {
     const firstBlock = await aggregator.getRoundManager().getBlockStorage().get(1n);
     expect(firstBlock!.index).toEqual(1n);
     expect(HexConverter.encode(firstBlock!.previousBlockHash)).toEqual(initialBlockHash);
-  })
+  });
 });
