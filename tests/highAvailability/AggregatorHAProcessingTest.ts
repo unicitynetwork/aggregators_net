@@ -116,7 +116,7 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
     }
 
     if (!isLeader) {
-      console.warn('WARNING: First gateway did not become leader within retry limit');
+      logger.warn('WARNING: First gateway did not become leader within retry limit');
     }
 
     // Start second gateway (will become follower)
@@ -165,7 +165,7 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
     }
 
     if (!setupVerified) {
-      console.warn('WARNING: Leader/follower setup could not be verified within retry limit');
+      logger.warn('WARNING: Leader/follower setup could not be verified within retry limit');
     }
 
     logger.info('Both gateways started successfully');

@@ -92,7 +92,7 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
       const response = await axios.get('http://localhost:9876/health');
       logger.info('Gateway health check:', response.data);
     } catch (error) {
-      console.warn('Failed to check gateway health:', (error as Error).message);
+      logger.warn('Failed to check gateway health:', (error as Error).message);
     }
   });
 
