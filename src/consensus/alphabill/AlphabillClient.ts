@@ -19,6 +19,7 @@ import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 
 import { IAlphabillClient } from './IAlphabillClient.js';
 import { SubmitHashResponse } from './SubmitHashResponse.js';
+import logger from '../../logger.js';
 
 export class AlphabillClient implements IAlphabillClient {
   private constructor(
@@ -41,7 +42,7 @@ export class AlphabillClient implements IAlphabillClient {
     const alwaysTrueProofFactory = new AlwaysTrueProofFactory();
     const units = await tokenClient.getUnitsByOwnerId(signingService.publicKey);
     if (units.nonFungibleTokens.length > 0) {
-      console.log('NFT already exists, skipping initial Alphabill setup.');
+      logger.info('NFT already exists, skipping initial Alphabill setup.');
       return new AlphabillClient(
         signingService,
         tokenClient,
@@ -51,7 +52,7 @@ export class AlphabillClient implements IAlphabillClient {
         alwaysTrueProofFactory,
       );
     }
-    console.log('Setting up Alphabill client...');
+    logger.info('Setting up Alphabill client...');
     const feeCredits = units.feeCreditRecords;
     if (feeCredits.length == 0) {
       throw new Error('No fee credits found.');
@@ -60,7 +61,7 @@ export class AlphabillClient implements IAlphabillClient {
     const round = (await tokenClient.getRoundInfo()).roundNumber;
     const identifier = new Uint8Array([1, 2, 3]);
     const tokenTypeUnitId = new UnitIdWithType(identifier, TokenPartitionUnitType.NON_FUNGIBLE_TOKEN_TYPE);
-    console.log(`Creating NFT type with unit ID ${tokenTypeUnitId}.`);
+    logger.info(`Creating NFT type with unit ID ${tokenTypeUnitId}.`);
 
     const createNonFungibleTokenTypeTransactionOrder = await CreateNonFungibleTokenType.create({
       dataUpdatePredicate: new AlwaysTruePredicate(),
@@ -87,9 +88,9 @@ export class AlphabillClient implements IAlphabillClient {
       CreateNonFungibleTokenType,
     );
     const txStatus = createNonFungibleTokenTypeProof.transactionRecord.serverMetadata.successIndicator;
-    console.log(`Create NFT type transaction status - ${TransactionStatus[txStatus]}.`);
+    logger.info(`Create NFT type transaction status - ${TransactionStatus[txStatus]}.`);
 
-    console.log(`Creating NFT.`);
+    logger.info(`Creating NFT.`);
     const createNonFungibleTokenTransactionOrder = await CreateNonFungibleToken.create({
       data: NonFungibleTokenData.create(new Uint8Array()),
       dataUpdatePredicate: new AlwaysTruePredicate(),
@@ -111,11 +112,11 @@ export class AlphabillClient implements IAlphabillClient {
       CreateNonFungibleToken,
     );
     const createNftTxStatus = createNonFungibleTokenProof.transactionRecord.serverMetadata.successIndicator;
-    console.log(`Create NFT transaction status - ${TransactionStatus[createNftTxStatus]}.`);
+    logger.info(`Create NFT transaction status - ${TransactionStatus[createNftTxStatus]}.`);
     if (createNftTxStatus !== TransactionStatus.Successful) {
       throw new Error('Alphabill client setup failed.');
     }
-    console.log('Alphabill client setup successful.');
+    logger.info('Alphabill client setup successful.');
     return new AlphabillClient(
       signingService,
       tokenClient,
@@ -163,7 +164,7 @@ export class AlphabillClient implements IAlphabillClient {
       UpdateNonFungibleToken,
     );
     const updateNftTxStatus = updateNonFungibleTokenProof.transactionRecord.serverMetadata.successIndicator;
-    console.log(`Update NFT transaction status - ${TransactionStatus[updateNftTxStatus]}.`);
+    logger.info(`Update NFT transaction status - ${TransactionStatus[updateNftTxStatus]}.`);
     return new SubmitHashResponse(token.data, updateNonFungibleTokenProof);
   }
 }

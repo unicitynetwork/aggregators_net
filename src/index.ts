@@ -1,11 +1,12 @@
 import dotenv from 'dotenv';
 
 import { AggregatorGateway } from './AggregatorGateway.js';
+import logger from './logger.js';
 
 dotenv.config();
 
 async function main(): Promise<void> {
-  console.log('Starting Aggregator Gateway...');
+  logger.info('Starting Aggregator Gateway...');
 
   const gateway = await AggregatorGateway.create({
     aggregatorConfig: {
@@ -39,11 +40,11 @@ async function main(): Promise<void> {
       uri: process.env.MONGODB_URI ?? 'mongodb://localhost:27017/',
     },
   });
-  console.log('Aggregator Gateway started successfully');
+  logger.info('Aggregator Gateway started successfully');
 
   ['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach((signal) => {
     process.on(signal, async () => {
-      console.log('Shutting down Aggregator Gateway...');
+      logger.info('Shutting down Aggregator Gateway...');
       await gateway.stop();
       process.exit(0);
     });
@@ -51,6 +52,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  console.error('Fatal error:', error);
+  logger.error('Fatal error:', error);
   process.exit(1);
 });

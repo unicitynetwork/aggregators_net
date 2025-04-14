@@ -6,7 +6,9 @@ import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { v4 as uuidv4 } from 'uuid';
 
-interface SmtBenchmarkResult {
+import logger from '../../src/logger.js';
+
+interface ISmtBenchmarkResult {
   testDescription: string;
   treeSize: number;
   operationCount: number;
@@ -18,7 +20,7 @@ interface SmtBenchmarkResult {
 describe('Sparse Merkle Tree Performance Benchmarks', () => {
   jest.setTimeout(600000);
 
-  async function generateUniqueRequestId(index: number): Promise<RequestId> {
+  function generateUniqueRequestId(index: number): Promise<RequestId> {
     const idStr = `state-${index}-${uuidv4()}`;
     const stateHashBytes = new TextEncoder().encode(idStr);
     const stateHash = new DataHash(HashAlgorithm.SHA256, stateHashBytes);
@@ -35,9 +37,9 @@ describe('Sparse Merkle Tree Performance Benchmarks', () => {
     existingTreeSize: number,
     newOperationsCount: number,
     description: string,
-  ): Promise<SmtBenchmarkResult> {
-    console.log(`\nRunning benchmark: ${description}`);
-    console.log(`Pre-populating tree with ${existingTreeSize} leaves...`);
+  ): Promise<ISmtBenchmarkResult> {
+    logger.info(`\nRunning benchmark: ${description}`);
+    logger.info(`Pre-populating tree with ${existingTreeSize} leaves...`);
 
     const smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
 
@@ -51,11 +53,11 @@ describe('Sparse Merkle Tree Performance Benchmarks', () => {
 
       // Log progress for large trees
       if (i > 0 && i % 10000 === 0) {
-        console.log(`  Added ${i} leaves to the tree...`);
+        logger.info(`  Added ${i} leaves to the tree...`);
       }
     }
 
-    console.log(`Tree populated with ${existingTreeSize} leaves. Starting benchmark...`);
+    logger.info(`Tree populated with ${existingTreeSize} leaves. Starting benchmark...`);
 
     // Generate new leaves for the benchmark
     const newLeaves: { path: bigint; value: Uint8Array }[] = [];
@@ -65,7 +67,7 @@ describe('Sparse Merkle Tree Performance Benchmarks', () => {
       newLeaves.push({ path: requestId.toBigInt(), value });
     }
 
-    console.log(`Adding ${newOperationsCount} new leaves...`);
+    logger.info(`Adding ${newOperationsCount} new leaves...`);
     const startTime = performance.now();
 
     for (const leaf of newLeaves) {
@@ -75,7 +77,7 @@ describe('Sparse Merkle Tree Performance Benchmarks', () => {
     const totalTime = performance.now() - startTime;
     const operationsPerSecond = (newOperationsCount / totalTime) * 1000;
 
-    const result: SmtBenchmarkResult = {
+    const result: ISmtBenchmarkResult = {
       testDescription: description,
       treeSize: existingTreeSize + newOperationsCount,
       operationCount: newOperationsCount,
@@ -88,15 +90,15 @@ describe('Sparse Merkle Tree Performance Benchmarks', () => {
     return result;
   }
 
-  function printResults(result: SmtBenchmarkResult): void {
-    console.log('\n----- SMT Benchmark Results -----');
-    console.log(`Test: ${result.testDescription}`);
-    console.log(`Final tree size: ${result.treeSize} leaves`);
-    console.log(`Operations: Added ${result.operationCount} new leaves`);
-    console.log(`Total time: ${result.totalTimeMs.toFixed(2)}ms`);
-    console.log(`Operations per second: ${result.operationsPerSecond.toFixed(2)}`);
-    console.log(`Average time per operation: ${result.averageTimePerOpMs.toFixed(4)}ms`);
-    console.log('---------------------------\n');
+  function printResults(result: ISmtBenchmarkResult): void {
+    logger.info('\n----- SMT Benchmark Results -----');
+    logger.info(`Test: ${result.testDescription}`);
+    logger.info(`Final tree size: ${result.treeSize} leaves`);
+    logger.info(`Operations: Added ${result.operationCount} new leaves`);
+    logger.info(`Total time: ${result.totalTimeMs.toFixed(2)}ms`);
+    logger.info(`Operations per second: ${result.operationsPerSecond.toFixed(2)}`);
+    logger.info(`Average time per operation: ${result.averageTimePerOpMs.toFixed(4)}ms`);
+    logger.info('---------------------------\n');
   }
 
   test('SMT with empty tree and 1,000 operations', async () => {

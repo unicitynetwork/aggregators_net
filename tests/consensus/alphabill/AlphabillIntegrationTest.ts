@@ -19,6 +19,7 @@ import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 'testcontainers';
 
 import { AggregatorGateway } from '../../../src/AggregatorGateway.js';
+import logger from '../../../src/logger.js';
 import { SubmitCommitmentStatus } from '../../../src/SubmitCommitmentResponse.js';
 
 describe('Alphabill Client Integration Tests', () => {
@@ -43,7 +44,7 @@ describe('Alphabill Client Integration Tests', () => {
   let unicitySigningService: SigningService;
 
   beforeAll(async () => {
-    console.log(
+    logger.info(
       'Setting up test environment with Alphabill root node, permissioned token partition node and MongoDB...',
     );
     mongoContainer = await new MongoDBContainer('mongo:7').start();
@@ -52,13 +53,13 @@ describe('Alphabill Client Integration Tests', () => {
       .withWaitStrategy('alphabill-tokens-1', Wait.forHealthCheck())
       .withStartupTimeout(15000)
       .up();
-    console.log('Setup successful.');
+    logger.info('Setup successful.');
 
     // Wait for Alphabill nodes to start up
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
     // Set fee credit
-    console.log('Setting fee credit...');
+    logger.info('Setting fee credit...');
     const tokenClient = createTokenClient({ transport: http(tokenPartitionUrl) });
     const ownerPredicate = PayToPublicKeyHashPredicate.create(alphabillSigningService.publicKey);
     const round = (await tokenClient.getRoundInfo()).roundNumber;
@@ -77,9 +78,9 @@ describe('Alphabill Client Integration Tests', () => {
     const setFeeCreditHash = await tokenClient.sendTransaction(setFeeCreditTransactionOrder);
     const setFeeCreditProof = await tokenClient.waitTransactionProof(setFeeCreditHash, SetFeeCredit);
     expect(setFeeCreditProof.transactionRecord.serverMetadata.successIndicator).toEqual(TransactionStatus.Successful);
-    console.log('Setting fee credit successful.');
+    logger.info('Setting fee credit successful.');
 
-    console.log('Starting aggregator...');
+    logger.info('Starting aggregator...');
     aggregator = await AggregatorGateway.create({
       alphabill: {
         privateKey: privateKey,
@@ -91,7 +92,7 @@ describe('Alphabill Client Integration Tests', () => {
         uri: mongoContainer.getConnectionString() + '?directConnection=true',
       },
     });
-    console.log('Aggregator running.');
+    logger.info('Aggregator running.');
     stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2])).digest();
     transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2])).digest();
     unicitySigningService = new SigningService(HexConverter.decode(privateKey));
@@ -122,7 +123,7 @@ describe('Alphabill Client Integration Tests', () => {
     expect(submitCommitmentResponse.status).toEqual(200);
     const submitCommitmentData = await submitCommitmentResponse.json();
     expect(submitCommitmentData).not.toBeNull();
-    console.log('Submit commitment response: ' + JSON.stringify(submitCommitmentData, null, 2));
+    logger.info('Submit commitment response: ' + JSON.stringify(submitCommitmentData, null, 2));
 
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
@@ -168,6 +169,6 @@ describe('Alphabill Client Integration Tests', () => {
     const submitCommitmentData = await submitCommitmentResponse.json();
     expect(submitCommitmentData).not.toBeNull();
     expect(submitCommitmentData.status).toEqual(SubmitCommitmentStatus.REQUEST_ID_MISMATCH);
-    console.log('Submit commitment response: ' + JSON.stringify(submitCommitmentData, null, 2));
+    logger.info('Submit commitment response: ' + JSON.stringify(submitCommitmentData, null, 2));
   });
 });
