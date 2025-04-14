@@ -21,6 +21,9 @@ describe('Round Manager Tests', () => {
     container = (await startMongoDb()) as StartedMongoDBContainer;
     logger.info('Starting aggregator...');
     aggregator = await AggregatorGateway.create({
+      aggregatorConfig: {
+        port: 1111,
+      },
       alphabill: { useMock: true },
       storage: {
         uri: container.getConnectionString() + '?directConnection=true',
