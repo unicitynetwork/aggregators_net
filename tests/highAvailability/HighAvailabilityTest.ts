@@ -13,7 +13,7 @@ describe('High Availability Tests', () => {
   jest.setTimeout(60000);
 
   beforeAll(async () => {
-    logger.info('\n=========== STARTING HA TESTS ===========');
+    logger.info('=========== STARTING HA TESTS ===========');
 
     mongoContainer = await new MongoDBContainer('mongo:7').start();
     mongoUri = mongoContainer.getConnectionString();
@@ -40,15 +40,15 @@ describe('High Availability Tests', () => {
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     if (mongoContainer) {
-      logger.info('\nStopping MongoDB container...');
+      logger.info('Stopping MongoDB container...');
       mongoContainer.stop({ timeout: 10 });
     }
 
-    logger.info('\n=========== FINISHED ALL HA TESTS ===========');
+    logger.info('=========== FINISHED ALL HA TESTS ===========');
   });
 
   it('Should elect a single leader among multiple server instances', async () => {
-    logger.info('\n----- TEST 1: Leader Election -----');
+    logger.info('----- TEST 1: Leader Election -----');
     const gatewayConfiguration = {
       highAvailability: {
         enabled: true,
@@ -117,11 +117,11 @@ describe('High Availability Tests', () => {
     );
 
     expect(followers.length).toBe(2);
-    logger.info('----- TEST 1 COMPLETED -----\n');
+    logger.info('----- TEST 1 COMPLETED -----');
   });
 
   it('Should elect a new leader when current leader goes down', async () => {
-    logger.info('\n----- TEST 2: Leader Failover -----');
+    logger.info('----- TEST 2: Leader Failover -----');
     const responses = await Promise.all([
       axios.get('http://localhost:3001/health').catch((e) => e.response || { status: 0, data: null }),
       axios.get('http://localhost:3002/health').catch((e) => e.response || { status: 0, data: null }),
@@ -196,11 +196,11 @@ describe('High Availability Tests', () => {
     );
 
     expect(newFollowers.length).toBe(1);
-    logger.info('----- TEST 2 COMPLETED -----\n');
+    logger.info('----- TEST 2 COMPLETED -----');
   });
 
   it('Should allow all servers to process requests', async () => {
-    logger.info('\n----- TEST 3: All Servers Processing Requests -----');
+    logger.info('----- TEST 3: All Servers Processing Requests -----');
 
     const mockRequest = {
       jsonrpc: '2.0',
@@ -232,6 +232,6 @@ describe('High Availability Tests', () => {
     });
 
     logger.info('All servers are able to process requests');
-    logger.info('----- TEST 3 COMPLETED -----\n');
+    logger.info('----- TEST 3 COMPLETED -----');
   });
 });

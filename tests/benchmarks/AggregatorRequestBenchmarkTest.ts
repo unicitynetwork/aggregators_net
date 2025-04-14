@@ -58,7 +58,7 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
   let mongoUri: string;
 
   beforeAll(async () => {
-    logger.info('\n=========== STARTING PERFORMANCE BENCHMARK ===========');
+    logger.info('=========== STARTING PERFORMANCE BENCHMARK ===========');
 
     mongoContainer = await new MongoDBContainer('mongo:7').start();
     mongoUri = mongoContainer.getConnectionString();
@@ -92,12 +92,12 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
       const response = await axios.get('http://localhost:9876/health');
       logger.info('Gateway health check:', response.data);
     } catch (error) {
-      console.warn('Failed to check gateway health:', (error as Error).message);
+      logger.warn('Failed to check gateway health:', (error as Error).message);
     }
   });
 
   afterAll(async () => {
-    logger.info('\nCleaning up test resources...');
+    logger.info('Cleaning up test resources...');
 
     if (gateway) {
       logger.info('Stopping AggregatorGateway...');
@@ -116,7 +116,7 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
       await mongoContainer.stop();
     }
 
-    logger.info('=========== FINISHED PERFORMANCE BENCHMARK ===========\n');
+    logger.info('=========== FINISHED PERFORMANCE BENCHMARK ===========');
   });
 
   it('should process a large batch of commitments efficiently', async () => {
@@ -175,13 +175,13 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
               });
               return true;
             } else {
-              console.error(`Failed response for commitment ${i + index}:`, response.data);
+              logger.error(`Failed response for commitment ${i + index}:`, response.data);
               failCount++;
               return false;
             }
           })
           .catch((error) => {
-            console.error(`Exception submitting commitment ${i + index}:`, error.message);
+            logger.error(`Exception submitting commitment ${i + index}:`, error.message);
             failCount++;
             return false;
           });
