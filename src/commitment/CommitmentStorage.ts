@@ -130,7 +130,7 @@ export class CommitmentStorage implements ICommitmentStorage {
 
       return true;
     } catch (error) {
-      console.error('Failed to store commitment:', error);
+      logger.error('Failed to store commitment:', error);
       throw error;
     }
   }

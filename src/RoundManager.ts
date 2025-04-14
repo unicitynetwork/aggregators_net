@@ -129,7 +129,7 @@ export class RoundManager {
 
       return block;
     } catch (error) {
-      console.error('Failed to create block:', error);
+      logger.error('Failed to create block:', error);
       throw error;
     }
   }

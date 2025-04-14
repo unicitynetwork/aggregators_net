@@ -340,11 +340,11 @@ describe('Block Creation Performance Benchmarks', () => {
   }
 
   async function formatResult(result: BenchmarkResult): Promise<void> {
-    logger.info('\n----- Benchmark Results -----');
+    logger.info('----- Benchmark Results -----');
     logger.info(`Number of commitments: ${result.numCommitments}`);
     logger.info(`Total time: ${result.totalTimeMs.toFixed(2)}ms`);
 
-    logger.info('\nPhase breakdown:');
+    logger.info('Phase breakdown:');
     logger.info(
       `- Preparation:  ${result.phases.preparation.toFixed(2)}ms (${((result.phases.preparation * 100) / result.totalTimeMs).toFixed(2)}%)`,
     );
@@ -357,7 +357,7 @@ describe('Block Creation Performance Benchmarks', () => {
 
     if (result.phases.preparationDetails) {
       const pd = result.phases.preparationDetails;
-      logger.info('\nPreparation phase details:');
+      logger.info('Preparation phase details:');
       logger.info(
         `- Get commitments: ${pd.getCommitments.toFixed(2)}ms (${((pd.getCommitments * 100) / result.phases.preparation).toFixed(2)}% of prep)`,
       );
@@ -372,7 +372,7 @@ describe('Block Creation Performance Benchmarks', () => {
       );
     }
 
-    logger.info('---------------------------\n');
+    logger.info('---------------------------');
   }
 
   test('Benchmark with 10 commitments', async () => {

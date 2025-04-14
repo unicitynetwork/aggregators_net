@@ -4,6 +4,7 @@ import mongoose, { model } from 'mongoose';
 import { SCHEMA_TYPES } from '../StorageSchemaTypes.js';
 import { BlockRecords } from './BlockRecords.js';
 import { IBlockRecordsStorage } from './IBlockRecordsStorage.js';
+import logger from '../logger.js';
 
 interface IBlockRecords {
   blockNumber: bigint;
@@ -25,7 +26,7 @@ export class BlockRecordsStorage implements IBlockRecordsStorage {
         requestIds: blockRecords.requestIds.map((requestId) => requestId.toDto()),
       }).save();
     } catch (error) {
-      console.error('Failed to add block records: ', error);
+      logger.error('Failed to add block records: ', error);
       throw error;
     }
     return true;

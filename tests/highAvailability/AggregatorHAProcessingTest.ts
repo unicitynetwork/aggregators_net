@@ -57,7 +57,7 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
   let mongoUri: string;
 
   beforeAll(async () => {
-    logger.info('\n=========== STARTING HA MODE PROCESSING TEST ===========');
+    logger.info('=========== STARTING HA MODE PROCESSING TEST ===========');
 
     mongoContainer = await new MongoDBContainer('mongo:7').start();
     mongoUri = mongoContainer.getConnectionString();
@@ -172,7 +172,7 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
   });
 
   afterAll(async () => {
-    logger.info('\nCleaning up test resources...');
+    logger.info('Cleaning up test resources...');
 
     if (leaderGateway) {
       logger.info('Stopping leader AggregatorGateway...');
@@ -196,7 +196,7 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
       await mongoContainer.stop();
     }
 
-    logger.info('=========== FINISHED HA MODE PROCESSING TEST ===========\n');
+    logger.info('=========== FINISHED HA MODE PROCESSING TEST ===========');
   });
 
   it('should process all commitments submitted to both leader and follower', async () => {
@@ -240,13 +240,13 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
               submittedRequestIds.add(requestId);
               return true;
             } else {
-              console.error(`Failed response for commitment (leader) ${i + index}:`, response.data);
+              logger.error(`Failed response for commitment (leader) ${i + index}:`, response.data);
               failCount++;
               return false;
             }
           })
           .catch((error) => {
-            console.error(`Exception submitting commitment (leader) ${i + index}:`, error.message);
+            logger.error(`Exception submitting commitment (leader) ${i + index}:`, error.message);
             failCount++;
             return false;
           });
@@ -275,13 +275,13 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
                 submittedRequestIds.add(requestId);
                 return true;
               } else {
-                console.error(`Failed response for commitment (follower) ${i + batchSize + index}:`, response.data);
+                logger.error(`Failed response for commitment (follower) ${i + batchSize + index}:`, response.data);
                 failCount++;
                 return false;
               }
             })
             .catch((error) => {
-              console.error(`Exception submitting commitment (follower) ${i + batchSize + index}:`, error.message);
+              logger.error(`Exception submitting commitment (follower) ${i + batchSize + index}:`, error.message);
               failCount++;
               return false;
             });

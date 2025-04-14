@@ -66,14 +66,14 @@ describe('Mongo Replica Set Tests', () => {
     }
     const storage = await AggregatorStorage.init(process.env.MONGODB_URI);
 
-    logger.info('\nStoring test data...');
+    logger.info('Storing test data...');
     const testLeaf = new SmtNode(BigInt(1), new Uint8Array([1, 2, 3]));
     await storage.smtStorage.put(testLeaf);
     logger.info('Test data stored successfully');
     const initialLeaves = await storage.smtStorage.getAll();
     logger.info(`Initially stored ${initialLeaves.length} leaves`);
 
-    logger.info('\nStopping primary node to simulate failure...');
+    logger.info('Stopping primary node to simulate failure...');
     const failoverStart = Date.now();
 
     let failoverComplete = false;
@@ -143,7 +143,7 @@ describe('Mongo Replica Set Tests', () => {
       throw new Error('Failover timed out after 30 seconds');
     }
 
-    logger.info('\nReading data after primary failure...');
+    logger.info('Reading data after primary failure...');
     const leaves = await storage.smtStorage.getAll();
     logger.info(`Successfully retrieved ${leaves.length} leaves after failover`);
 
@@ -152,11 +152,11 @@ describe('Mongo Replica Set Tests', () => {
     }
 
     const retrievedLeaf = leaves[0];
-    logger.info('\nData verification:');
+    logger.info('Data verification:');
     expect(retrievedLeaf.path).toEqual(testLeaf.path);
     expect(HexConverter.encode(retrievedLeaf.value)).toEqual(HexConverter.encode(testLeaf.value));
 
-    logger.info('\nTesting write after failover...');
+    logger.info('Testing write after failover...');
     const newLeaf = new SmtNode(BigInt(2), new Uint8Array([4, 5, 6]));
     await storage.smtStorage.put(newLeaf);
     logger.info('Successfully wrote new leaf after failover');
