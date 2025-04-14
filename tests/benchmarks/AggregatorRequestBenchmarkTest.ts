@@ -45,7 +45,7 @@ async function generateTestCommitments(count: number): Promise<Commitment[]> {
   return commitments;
 }
 
-async function wait(ms: number): Promise<void> {
+function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -92,7 +92,7 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
       const response = await axios.get('http://localhost:9876/health');
       logger.info('Gateway health check:', response.data);
     } catch (error) {
-      console.warn('Failed to check gateway health:', (error as Error).message);
+      logger.warn('Failed to check gateway health:', (error as Error).message);
     }
   });
 
@@ -175,13 +175,13 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
               });
               return true;
             } else {
-              console.error(`Failed response for commitment ${i + index}:`, response.data);
+              logger.error(`Failed response for commitment ${i + index}:`, response.data);
               failCount++;
               return false;
             }
           })
           .catch((error) => {
-            console.error(`Exception submitting commitment ${i + index}:`, error.message);
+            logger.error(`Exception submitting commitment ${i + index}:`, error.message);
             failCount++;
             return false;
           });
@@ -198,17 +198,17 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
     // Wait a bit more to ensure all pending blocks are processed
     logger.info(`Waiting for all blocks to be processed...`);
     await new Promise((resolve) => setTimeout(resolve, 5000));
-    
+
     const roundManager = gateway.getRoundManager();
     const processedCount = roundManager.getCommitmentCount();
-    
+
     logger.info(`Processed commitment count from RoundManager: ${processedCount}`);
     expect(processedCount).toBe(successCount);
-    
+
     // Calculate and display the success rate
     const successRate = (successCount / requestCount) * 100;
     logger.info(`Commitment processing success rate: ${successRate.toFixed(2)}%`);
-    
+
     if (processedCount < successCount) {
       logger.warn(`Some commitments were not processed: Submitted ${successCount}, Processed ${processedCount}`);
     }

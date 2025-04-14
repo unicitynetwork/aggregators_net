@@ -6,8 +6,8 @@ import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
+import mongoose from 'mongoose';
 import { StartedTestContainer } from 'testcontainers';
-import mongoose, { model } from 'mongoose';
 
 import logger from '../../src/logger.js';
 import { AggregatorRecord } from '../../src/records/AggregatorRecord.js';
@@ -102,7 +102,7 @@ describe('Aggregator Record Storage Tests', () => {
   it('Try to store same batch of records twice', async () => {
     // Clear the collection first using mongoose directly
     await mongoose.connection.collection('aggregatorrecords').deleteMany({});
-    
+
     const storage = new AggregatorRecordStorage();
     const signingService = await SigningService.createFromSecret(SigningService.generatePrivateKey());
     const records: AggregatorRecord[] = [];
@@ -110,7 +110,9 @@ describe('Aggregator Record Storage Tests', () => {
     // Create 3 records
     for (let i = 0; i < 3; i++) {
       const stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([10, 20, 30, i])).digest();
-      const transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([40, 50, 60, i])).digest();
+      const transactionHash = await new DataHasher(HashAlgorithm.SHA256)
+        .update(new Uint8Array([40, 50, 60, i]))
+        .digest();
       const requestId = await RequestId.create(signingService.publicKey, stateHash);
       const authenticator = await Authenticator.create(signingService, transactionHash, stateHash);
       const record = new AggregatorRecord(requestId, transactionHash, authenticator);
@@ -121,12 +123,12 @@ describe('Aggregator Record Storage Tests', () => {
     logger.info('First batch insertion...');
     const firstResult = await storage.putBatch(records);
     expect(firstResult).toBeTruthy();
-    
+
     // Second insertion of the same batch should also succeed with the upsert implementation
     logger.info('Second batch insertion (same records)...');
     const secondResult = await storage.putBatch(records);
     expect(secondResult).toBeTruthy();
-    
+
     // Now create records with the same request IDs but different transaction hashes
     const modifiedRecords: AggregatorRecord[] = [];
     for (const record of records) {
@@ -134,18 +136,18 @@ describe('Aggregator Record Storage Tests', () => {
         .update(new Uint8Array([100, 110, 120]))
         .digest();
       const newAuthenticator = await Authenticator.create(
-        signingService, 
+        signingService,
         newTransactionHash,
-        record.authenticator.stateHash
+        record.authenticator.stateHash,
       );
       modifiedRecords.push(new AggregatorRecord(record.requestId, newTransactionHash, newAuthenticator));
     }
-    
+
     // This should succeed and update the existing records
     logger.info('Third batch insertion (same request IDs, different transaction hashes)...');
     const thirdResult = await storage.putBatch(modifiedRecords);
     expect(thirdResult).toBeTruthy();
-    
+
     // Verify we get the updated records
     for (const record of modifiedRecords) {
       const retrieved = await storage.get(record.requestId);

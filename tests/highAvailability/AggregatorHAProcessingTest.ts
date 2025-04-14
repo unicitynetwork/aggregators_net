@@ -116,7 +116,7 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
     }
 
     if (!isLeader) {
-      console.warn('WARNING: First gateway did not become leader within retry limit');
+      logger.warn('WARNING: First gateway did not become leader within retry limit');
     }
 
     // Start second gateway (will become follower)
@@ -165,7 +165,7 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
     }
 
     if (!setupVerified) {
-      console.warn('WARNING: Leader/follower setup could not be verified within retry limit');
+      logger.warn('WARNING: Leader/follower setup could not be verified within retry limit');
     }
 
     logger.info('Both gateways started successfully');
@@ -240,13 +240,13 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
               submittedRequestIds.add(requestId);
               return true;
             } else {
-              console.error(`Failed response for commitment (leader) ${i + index}:`, response.data);
+              logger.error(`Failed response for commitment (leader) ${i + index}:`, response.data);
               failCount++;
               return false;
             }
           })
           .catch((error) => {
-            console.error(`Exception submitting commitment (leader) ${i + index}:`, error.message);
+            logger.error(`Exception submitting commitment (leader) ${i + index}:`, error.message);
             failCount++;
             return false;
           });
@@ -275,13 +275,13 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
                 submittedRequestIds.add(requestId);
                 return true;
               } else {
-                console.error(`Failed response for commitment (follower) ${i + batchSize + index}:`, response.data);
+                logger.error(`Failed response for commitment (follower) ${i + batchSize + index}:`, response.data);
                 failCount++;
                 return false;
               }
             })
             .catch((error) => {
-              console.error(`Exception submitting commitment (follower) ${i + batchSize + index}:`, error.message);
+              logger.error(`Exception submitting commitment (follower) ${i + batchSize + index}:`, error.message);
               failCount++;
               return false;
             });

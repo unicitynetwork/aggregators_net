@@ -1,7 +1,7 @@
+import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { StartedTestContainer } from 'testcontainers';
-import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
-import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 
 import logger from '../../src/logger.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
@@ -88,9 +88,9 @@ describe('SMT Storage Tests', () => {
   it('Try to store the same batch of SMT nodes twice', async () => {
     // Clear the collection first
     await LeafModel.deleteMany({});
-    
+
     const storage = new SmtStorage();
-    
+
     // Create test nodes
     const testNodes: SmtNode[] = [];
     for (let i = 0; i < 3; i++) {
@@ -98,17 +98,17 @@ describe('SMT Storage Tests', () => {
       const value = new Uint8Array([10 + i, 20 + i, 30 + i]);
       testNodes.push(new SmtNode(path, value));
     }
-    
+
     // First insertion should succeed
     logger.info('\nFirst batch insertion of SMT nodes...');
     const firstResult = await storage.putBatch(testNodes);
     expect(firstResult).toBe(true);
-    
+
     // Second insertion of the same batch should also succeed with our new upsert implementation
     logger.info('\nSecond batch insertion of same SMT nodes...');
     const secondResult = await storage.putBatch(testNodes);
     expect(secondResult).toBe(true);
-    
+
     // Now try with modified values for the same paths
     const modifiedNodes: SmtNode[] = [];
     for (let i = 0; i < 3; i++) {
@@ -117,16 +117,16 @@ describe('SMT Storage Tests', () => {
       const value = new Uint8Array([50 + i, 60 + i, 70 + i]);
       modifiedNodes.push(new SmtNode(path, value));
     }
-    
+
     // This should also succeed and should update the values
     logger.info('\nThird batch insertion (same paths, new values)...');
     const thirdResult = await storage.putBatch(modifiedNodes);
     expect(thirdResult).toBe(true);
-    
+
     // Verify the nodes were updated with new values
     const allNodes = await storage.getAll();
     for (const node of modifiedNodes) {
-      const retrieved = allNodes.find(n => n.path === node.path);
+      const retrieved = allNodes.find((n) => n.path === node.path);
       expect(retrieved).toBeDefined();
       expect(retrieved!.path).toEqual(node.path);
       // Should match the modified values, not the original ones
@@ -136,16 +136,16 @@ describe('SMT Storage Tests', () => {
 
   it('Try adding the same leaf to SMT tree twice', async () => {
     const smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
-    
+
     // Create a test leaf
     const path = BigInt(12345);
     const value = new Uint8Array([1, 2, 3, 4, 5]);
-    
+
     // Add the leaf the first time
     await smt.addLeaf(path, value);
     const rootHashAfterFirstAddition = smt.rootHash;
     logger.info(`Root hash after first addition: ${rootHashAfterFirstAddition.toString()}`);
-    
+
     // Try to add the same leaf again - this should throw an error
     // with message "Cannot add leaf inside branch"
     try {
@@ -157,7 +157,7 @@ describe('SMT Storage Tests', () => {
       // We expect an error with this specific message
       expect((error as Error).message).toContain('Cannot add leaf inside branch');
     }
-    
+
     // Try adding a different path but same value - this should work
     const differentPath = BigInt(54321);
     try {

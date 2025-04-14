@@ -2,6 +2,7 @@ import mongoose, { model } from 'mongoose';
 
 import { ISmtStorage } from './ISmtStorage.js';
 import { SmtNode } from './SmtNode.js';
+import logger from '../logger.js';
 import { SCHEMA_TYPES } from '../StorageSchemaTypes.js';
 
 interface ISmtNode {
@@ -41,15 +42,15 @@ export class SmtStorage implements ISmtStorage {
         updateOne: {
           filter: { path: leaf.path },
           update: { $set: { path: leaf.path, value: leaf.value } },
-          upsert: true
-        }
+          upsert: true,
+        },
       }));
 
       await LeafModel.bulkWrite(operations);
       return true;
     } catch (error) {
       // Log and rethrow the error
-      console.error('Error in SmtStorage putBatch:', error);
+      logger.error('Error in SmtStorage putBatch:', error);
       throw error;
     }
   }

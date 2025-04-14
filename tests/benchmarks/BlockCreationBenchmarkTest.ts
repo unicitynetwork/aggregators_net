@@ -19,7 +19,7 @@ import { RoundManager } from '../../src/RoundManager.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
 import { MockAlphabillClient } from '../consensus/alphabill/MockAlphabillClient.js';
 
-interface BenchmarkResult {
+interface IBenchmarkResult {
   numCommitments: number;
   totalTimeMs: number;
   phases: {
@@ -58,7 +58,7 @@ class TimingMetricsCollector {
     this.results[metricName] = value;
   }
 
-  getBenchmarkResult(numCommitments: number): BenchmarkResult {
+  getBenchmarkResult(numCommitments: number): IBenchmarkResult {
     return {
       numCommitments,
       totalTimeMs: performance.now() - this.startTime,
@@ -323,7 +323,7 @@ describe('Block Creation Performance Benchmarks', () => {
     return roundManager;
   }
 
-  async function runBenchmark(commitmentCount: number): Promise<BenchmarkResult> {
+  async function runBenchmark(commitmentCount: number): Promise<IBenchmarkResult> {
     const roundManager = createInstrumentedRoundManager();
     const commitments = await generateCommitments(commitmentCount);
 
@@ -338,7 +338,7 @@ describe('Block Creation Performance Benchmarks', () => {
     return result;
   }
 
-  async function formatResult(result: BenchmarkResult): Promise<void> {
+  async function formatResult(result: IBenchmarkResult): Promise<void> {
     logger.info('\n----- Benchmark Results -----');
     logger.info(`Number of commitments: ${result.numCommitments}`);
     logger.info(`Total time: ${result.totalTimeMs.toFixed(2)}ms`);

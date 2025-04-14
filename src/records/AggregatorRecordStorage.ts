@@ -73,18 +73,18 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
                 publicKey: record.authenticator.publicKey,
                 signature: record.authenticator.signature.encode(),
                 stateHash: record.authenticator.stateHash.imprint,
-              }
-            }
+              },
+            },
           },
-          upsert: true
-        }
+          upsert: true,
+        },
       }));
 
       await AggregatorRecordModel.bulkWrite(operations);
       return true;
     } catch (error) {
       // Log and rethrow the error
-      console.error('Error in AggregatorRecordStorage putBatch:', error);
+      logger.error('Error in AggregatorRecordStorage putBatch:', error);
       throw error;
     }
   }
