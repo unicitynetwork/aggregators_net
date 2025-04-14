@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import { ILeadershipStorage } from './ILeadershipStorage.js';
+import logger from '../logger.js';
 
 interface ILeaderElectionOptions {
   heartbeatInterval: number; // How often to send heartbeats
@@ -59,7 +60,7 @@ export class LeaderElection {
     const initialLeadershipAcquired = await this.tryAcquireLeadership();
 
     if (!initialLeadershipAcquired) {
-      console.log(`Server ${this.SERVER_ID} failed to acquire leadership lock, running in standby mode`);
+      logger.info(`Server ${this.SERVER_ID} failed to acquire leadership lock, running in standby mode`);
     }
 
     // Start polling for leadership
@@ -88,13 +89,13 @@ export class LeaderElection {
       try {
         await this.storage.releaseLock(this.LOCK_ID, this.SERVER_ID);
       } catch (error) {
-        console.error('Error releasing leadership lock:', error);
+        logger.error('Error releasing leadership lock:', error);
       } finally {
         this.isLeader = false;
       }
     }
 
-    console.log('Leader election process shutdown completed.');
+    logger.info('Leader election process shutdown completed.');
   }
 
   /**
@@ -128,7 +129,7 @@ export class LeaderElection {
 
       return false;
     } catch (error) {
-      console.error('Error during leader election:', error);
+      logger.error('Error during leader election:', error);
       if (this.isLeader) {
         this.stepDown();
       }
@@ -149,11 +150,11 @@ export class LeaderElection {
         const success = await this.storage.updateHeartbeat(this.LOCK_ID, this.SERVER_ID);
 
         if (!success) {
-          console.log('Lost leadership during heartbeat, stepping down.');
+          logger.info('Lost leadership during heartbeat, stepping down.');
           this.stepDown();
         }
       } catch (error) {
-        console.error('Error updating heartbeat:', error);
+        logger.error('Error updating heartbeat:', error);
         this.stepDown();
       }
     }, this.HEARTBEAT_INTERVAL);

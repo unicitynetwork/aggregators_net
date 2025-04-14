@@ -21,6 +21,7 @@ import { AlphabillClient } from './consensus/alphabill/AlphabillClient.js';
 import { IAlphabillClient } from './consensus/alphabill/IAlphabillClient.js';
 import { LeaderElection } from './highAvailability/LeaderElection.js';
 import { LeadershipStorage } from './highAvailability/LeadershipStorage.js';
+import logger from './logger.js';
 import { RoundManager } from './RoundManager.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
@@ -62,16 +63,23 @@ export interface IStorageConfig {
 }
 
 export class AggregatorGateway {
+  private static blockCreationActive = false;
+  private static blockCreationTimer: NodeJS.Timeout | null = null;
   private serverId: string;
   private server: Server;
   private leaderElection: LeaderElection | null;
-  private static blockCreationInterval: NodeJS.Timeout | null = null;
-  private static blockCreationActive: boolean = false;
+  private roundManager: RoundManager;
 
-  private constructor(serverId: string, server: Server, leaderElection: LeaderElection | null) {
+  private constructor(
+    serverId: string,
+    server: Server,
+    leaderElection: LeaderElection | null,
+    roundManager: RoundManager,
+  ) {
     this.serverId = serverId;
     this.server = server;
     this.leaderElection = leaderElection;
+    this.roundManager = roundManager;
   }
 
   public static async create(config: IGatewayConfig = {}): Promise<AggregatorGateway> {
@@ -85,7 +93,7 @@ export class AggregatorGateway {
         sslKeyPath: config.aggregatorConfig?.sslKeyPath ?? '',
       },
       highAvailability: {
-        enabled: config.highAvailability?.enabled ?? true,
+        enabled: config.highAvailability?.enabled !== false,
         lockTtlSeconds: config.highAvailability?.lockTtlSeconds ?? 30,
         leaderHeartbeatInterval: config.highAvailability?.leaderHeartbeatInterval ?? 10000,
         leaderElectionPollingInterval: config.highAvailability?.leaderElectionPollingInterval ?? 5000,
@@ -138,7 +146,7 @@ export class AggregatorGateway {
         serverId: serverId,
       });
     } else {
-      console.log('High availability mode is disabled.');
+      logger.info('High availability mode is disabled.');
       AggregatorGateway.blockCreationActive = true;
       AggregatorGateway.startNextBlock(roundManager);
     }
@@ -149,11 +157,12 @@ export class AggregatorGateway {
     app.get('/health', (req: Request, res: Response): any => {
       return res.status(200).json({
         status: 'ok',
-        role: config.highAvailability?.enabled
-          ? leaderElection && leaderElection.isCurrentLeader()
-            ? 'leader'
-            : 'follower'
-          : 'standalone',
+        role:
+          config.highAvailability?.enabled !== false
+            ? leaderElection && leaderElection.isCurrentLeader()
+              ? 'leader'
+              : 'follower'
+            : 'standalone',
         serverId: serverId,
       });
     });
@@ -214,7 +223,7 @@ export class AggregatorGateway {
           }
         }
       } catch (error) {
-        console.error(`Error processing ${req.body.method}:`, error);
+        logger.error(`Error processing ${req.body.method}:`, error);
         return res.status(500).json({
           jsonrpc: '2.0',
           error: {
@@ -235,29 +244,29 @@ export class AggregatorGateway {
 
     server.listen(port, () => {
       const protocol = server instanceof https.Server ? 'HTTPS' : 'HTTP';
-      console.log(`Unicity Aggregator (${protocol}) listening on port ${port} with server ID ${serverId}`);
+      logger.info(`Unicity Aggregator (${protocol}) listening on port ${port} with server ID ${serverId}`);
     });
 
     if (config.highAvailability?.enabled && leaderElection) {
       await leaderElection.start();
-      console.log(`Leader election process started for server ${serverId}.`);
+      logger.info(`Leader election process started for server ${serverId}.`);
     }
 
-    return new AggregatorGateway(serverId, server, leaderElection);
+    return new AggregatorGateway(serverId, server, leaderElection, roundManager);
   }
 
   private static onBecomeLeader(aggregatorServerId: string, roundManager: RoundManager): void {
-    console.log(`Server ${aggregatorServerId} became the leader.`);
+    logger.info(`Server ${aggregatorServerId} became the leader.`);
     this.blockCreationActive = true;
     this.startNextBlock(roundManager);
   }
 
   private static onLoseLeadership(aggregatorServerId: string): void {
-    console.log(`Server ${aggregatorServerId} lost leadership.`);
+    logger.info(`Server ${aggregatorServerId} lost leadership.`);
     this.blockCreationActive = false;
-    if (this.blockCreationInterval) {
-      clearTimeout(this.blockCreationInterval);
-      this.blockCreationInterval = null;
+    if (this.blockCreationTimer) {
+      clearTimeout(this.blockCreationTimer);
+      this.blockCreationTimer = null;
     }
   }
 
@@ -267,10 +276,10 @@ export class AggregatorGateway {
   ): Promise<IAlphabillClient> {
     const { useMock, privateKey, tokenPartitionUrl, tokenPartitionId, networkId } = config;
     if (useMock) {
-      console.log(`Server ${aggregatorServerId} using mock AlphabillClient.`);
+      logger.info(`Server ${aggregatorServerId} using mock AlphabillClient.`);
       return new MockAlphabillClient();
     }
-    console.log(`Server ${aggregatorServerId} using real AlphabillClient.`);
+    logger.info(`Server ${aggregatorServerId} using real AlphabillClient.`);
     if (!privateKey) {
       throw new Error('Alphabill private key must be defined in hex encoding.');
     }
@@ -291,10 +300,10 @@ export class AggregatorGateway {
     const smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
     const smtLeaves = await smtStorage.getAll();
     if (smtLeaves.length > 0) {
-      console.log(`Server ${aggregatorServerId} found %s leaves from storage.`, smtLeaves.length);
-      console.log('Constructing tree...');
+      logger.info(`Server ${aggregatorServerId} found %s leaves from storage.`, smtLeaves.length);
+      logger.info('Constructing tree...');
       smtLeaves.forEach((leaf) => smt.addLeaf(leaf.path, leaf.value));
-      console.log('Tree with root hash %s constructed successfully.', smt.rootHash.toString());
+      logger.info('Tree with root hash %s constructed successfully.', smt.rootHash.toString());
     }
     return smt;
   }
@@ -305,7 +314,7 @@ export class AggregatorGateway {
     }
 
     const time = Date.now();
-    this.blockCreationInterval = setTimeout(
+    this.blockCreationTimer = setTimeout(
       async () => {
         try {
           if (this.blockCreationActive) {
@@ -332,9 +341,9 @@ export class AggregatorGateway {
     await this.leaderElection?.shutdown();
     this.server?.close();
     AggregatorGateway.blockCreationActive = false;
-    if (AggregatorGateway.blockCreationInterval) {
-      clearTimeout(AggregatorGateway.blockCreationInterval);
-      AggregatorGateway.blockCreationInterval = null;
+    if (AggregatorGateway.blockCreationTimer) {
+      clearTimeout(AggregatorGateway.blockCreationTimer);
+      AggregatorGateway.blockCreationTimer = null;
     }
   }
 
@@ -342,7 +351,7 @@ export class AggregatorGateway {
    * Check if this instance is the current leader.
    */
   public isLeader(): boolean {
-    return this.leaderElection?.isCurrentLeader() || false;
+    return this.leaderElection ? this.leaderElection.isCurrentLeader() : true;
   }
 
   /**
@@ -350,5 +359,12 @@ export class AggregatorGateway {
    */
   public getServerId(): string {
     return this.serverId;
+  }
+
+  /**
+   * Returns the RoundManager instance.
+   */
+  public getRoundManager(): RoundManager {
+    return this.roundManager;
   }
 }

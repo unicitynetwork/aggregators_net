@@ -7,6 +7,7 @@ import mongoose, { model } from 'mongoose';
 import { SCHEMA_TYPES } from '../StorageSchemaTypes.js';
 import { Commitment } from './Commitment.js';
 import { ICommitmentStorage } from './ICommitmentStorage.js';
+import logger from '../logger.js';
 
 interface ICommitment {
   requestId: string;
@@ -116,12 +117,12 @@ export class CommitmentStorage implements ICommitmentStorage {
           success = true;
         } catch (error: any) {
           retries++;
-          console.log(`Error inserting commitment (attempt ${retries}): ${error.message}`);
+          logger.info(`Error inserting commitment (attempt ${retries}): ${error.message}`);
 
           if (retries < this.retryAttempts) {
             await new Promise((resolve) => setTimeout(resolve, this.retryDelay * retries));
           } else {
-            console.log(`Failed to insert commitment after ${this.retryAttempts} attempts.`);
+            logger.info(`Failed to insert commitment after ${this.retryAttempts} attempts.`);
             throw error;
           }
         }
@@ -156,7 +157,7 @@ export class CommitmentStorage implements ICommitmentStorage {
         const expectedCount = endSequenceId - startSequenceId + 1;
 
         if (sequenceIds.length < expectedCount) {
-          console.log(
+          logger.info(
             `WARNING: Sequence ID gap detected! Range ${startSequenceId}-${endSequenceId} should have ${expectedCount} items but found ${sequenceIds.length}`,
           );
 
@@ -169,7 +170,7 @@ export class CommitmentStorage implements ICommitmentStorage {
           }
         }
 
-        console.log(`Batch: Got ${commitments.length} commitments, sequence range ${startSequenceId}-${endSequenceId}`);
+        logger.info(`Batch: Got ${commitments.length} commitments, sequence range ${startSequenceId}-${endSequenceId}`);
 
         await this.updateCursor({
           status: CursorStatus.IN_PROGRESS,
@@ -187,7 +188,7 @@ export class CommitmentStorage implements ICommitmentStorage {
 
         commitments = await CommitmentModel.find(query).sort({ sequenceId: 1 });
       } else {
-        console.log(`Cursor is IN_PROGRESS but missing sequence ID boundaries`);
+        logger.info(`Cursor is IN_PROGRESS but missing sequence ID boundaries`);
       }
     }
 
@@ -209,7 +210,7 @@ export class CommitmentStorage implements ICommitmentStorage {
   public async confirmBlockProcessed(): Promise<boolean> {
     const currentCursor = await CursorCheckpointModel.findById('commitmentCursor');
     if (!currentCursor || !currentCursor.currentBatchEndSequenceId) {
-      console.log('Error: Cannot confirm block processed - cursor not found or missing currentBatchEndSequenceId');
+      logger.info('Error: Cannot confirm block processed - cursor not found or missing currentBatchEndSequenceId');
       return false;
     }
 
@@ -260,7 +261,7 @@ export class CommitmentStorage implements ICommitmentStorage {
       return [];
     }
 
-    console.log(`Missing sequence IDs: ${gaps.join(', ')}`);
+    logger.info(`Missing sequence IDs: ${gaps.join(', ')}`);
 
     // Look for these commitments with retry logic
     const recoveredCommitments: any[] = [];
@@ -273,13 +274,13 @@ export class CommitmentStorage implements ICommitmentStorage {
       });
 
       if (foundCommitments.length > 0) {
-        console.log(
+        logger.info(
           `Found ${foundCommitments.length} of ${gaps.length} commitments with missing sequence IDs on try ${this.retryAttempts - retriesLeft + 1}!`,
         );
 
         // Add the missing commitments to our results
         foundCommitments.forEach((c) => {
-          console.log(`  ID: ${c._id}, SeqID: ${c.sequenceId}, RequestID: ${c.requestId}`);
+          logger.info(`  ID: ${c._id}, SeqID: ${c.sequenceId}, RequestID: ${c.requestId}`);
           recoveredCommitments.push(c);
 
           const index = gaps.indexOf(c.sequenceId);
@@ -291,7 +292,7 @@ export class CommitmentStorage implements ICommitmentStorage {
         stillMissingCount = gaps.length;
 
         if (stillMissingCount === 0) {
-          console.log(`All missing commitments found after ${this.retryAttempts - retriesLeft + 1} attempts!`);
+          logger.info(`All missing commitments found after ${this.retryAttempts - retriesLeft + 1} attempts!`);
           break;
         }
       }
@@ -301,14 +302,14 @@ export class CommitmentStorage implements ICommitmentStorage {
       }
 
       retriesLeft--;
-      console.log(
+      logger.info(
         `Still missing ${stillMissingCount} commitments. Retrying after delay... (${retriesLeft} retries left)`,
       );
       await new Promise((resolve) => setTimeout(resolve, this.retryDelay * (this.retryAttempts - retriesLeft)));
     }
 
     if (stillMissingCount > 0) {
-      console.log(
+      logger.info(
         `WARNING: Unable to find ${stillMissingCount} commitments with sequence IDs: ${gaps.join(', ')} after ${this.retryAttempts} attempts`,
       );
     }

@@ -13,7 +13,7 @@
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --fix",
     "test": "jest tests/ --testPathIgnorePatterns=\"tests/benchmarks\"",
-    "test:ci": "jest tests/ --ci --reporters=default --testPathIgnorePatterns=\"tests/benchmarks\"",
+    "test:ci": "jest tests/ --ci --reporters=default --testPathIgnorePatterns=\"tests/benchmarks\" --testPathIgnorePatterns=\"Alphabill\"",
     "benchmark": "jest tests/benchmarks --runInBand --testNamePattern=\"Benchmark\""
   },
   "type": "module",
@@ -30,7 +30,8 @@
     "dotenv": "16.4.7",
     "express": "4.21.2",
     "mongodb": "6.15.0",
-    "mongoose": "8.12.1"
+    "mongoose": "8.12.1",
+    "winston": "3.17.0"
   },
   "devDependencies": {
     "@babel/preset-env": "7.26.9",

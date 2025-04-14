@@ -4,6 +4,7 @@ import { CommitmentStorage } from './commitment/CommitmentStorage.js';
 import { ICommitmentStorage } from './commitment/ICommitmentStorage.js';
 import { BlockStorage } from './hashchain/BlockStorage.js';
 import { IBlockStorage } from './hashchain/IBlockStorage.js';
+import logger from './logger.js';
 import { AggregatorRecordStorage } from './records/AggregatorRecordStorage.js';
 import { BlockRecordsStorage } from './records/BlockRecordsStorage.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
@@ -28,40 +29,40 @@ export class AggregatorStorage {
 
   public static async init(uri: string): Promise<AggregatorStorage> {
     try {
-      console.log('Connecting to MongoDB URI %s.', uri);
-      await mongoose.connect(uri, {
+      logger.info('Connecting to MongoDB URI %s.', uri);
+      const mongooseOptions = {
         connectTimeoutMS: 15000,
         heartbeatFrequencyMS: 1000,
         serverSelectionTimeoutMS: 30000,
-      });
+      };
+      await mongoose
+        .connect(uri, mongooseOptions)
+        .then(() => logger.info('Connected to MongoDB successfully.'))
+        .catch((err) => logger.error('Failed to connect to MongoDB: ', err));
 
       mongoose.connection.on('error', (error) => {
-        console.error('MongoDB connection error: ', error);
+        logger.error('MongoDB connection error: ', error);
       });
 
       mongoose.connection.on('disconnected', () => {
-        console.log('MongoDB disconnected.');
+        logger.info('MongoDB disconnected.');
       });
 
       mongoose.connection.on('reconnected', () => {
-        console.log('MongoDB reconnected successfully.');
+        logger.info('MongoDB reconnected successfully.');
       });
 
-      console.log('Connected to MongoDB successfully.');
       return new AggregatorStorage();
     } catch (error) {
-      console.error('Failed to connect to MongoDB: ', error);
+      logger.error('Failed to connect to MongoDB: ', error);
       throw error;
     }
   }
 
   public async close(): Promise<void> {
-    try {
-      await mongoose.disconnect();
-      console.log('MongoDB connection closed.');
-    } catch (error) {
-      console.error('Error closing MongoDB connection: ', error);
-      throw error;
-    }
+    await mongoose
+      .disconnect()
+      .then(() => 'MongoDB connection closed.')
+      .catch((err) => logger.error('Error closing MongoDB connection: ', err));
   }
 }

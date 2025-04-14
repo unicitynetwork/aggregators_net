@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { AggregatorGateway, IGatewayConfig } from '../../src/AggregatorGateway.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
+import logger from '../../src/logger.js';
 import { SubmitCommitmentStatus } from '../../src/SubmitCommitmentResponse.js';
 
 async function generateTestCommitments(count: number): Promise<Commitment[]> {
@@ -57,11 +58,11 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
   let mongoUri: string;
 
   beforeAll(async () => {
-    console.log('\n=========== STARTING PERFORMANCE BENCHMARK ===========');
+    logger.info('\n=========== STARTING PERFORMANCE BENCHMARK ===========');
 
     mongoContainer = await new MongoDBContainer('mongo:7').start();
     mongoUri = mongoContainer.getConnectionString();
-    console.log(`Connecting to MongoDB test container, using connection URI: ${mongoUri}`);
+    logger.info(`Connecting to MongoDB test container, using connection URI: ${mongoUri}`);
 
     const testConfig: IGatewayConfig = {
       aggregatorConfig: {
@@ -81,41 +82,41 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
       },
     };
 
-    console.log('Starting AggregatorGateway...');
+    logger.info('Starting AggregatorGateway...');
     gateway = await AggregatorGateway.create(testConfig);
 
     await new Promise((resolve) => setTimeout(resolve, 3000));
-    console.log('AggregatorGateway started successfully');
+    logger.info('AggregatorGateway started successfully');
 
     try {
       const response = await axios.get('http://localhost:9876/health');
-      console.log('Gateway health check:', response.data);
+      logger.info('Gateway health check:', response.data);
     } catch (error) {
-      console.warn('Failed to check gateway health:', error.message);
+      console.warn('Failed to check gateway health:', (error as Error).message);
     }
   });
 
   afterAll(async () => {
-    console.log('\nCleaning up test resources...');
+    logger.info('\nCleaning up test resources...');
 
     if (gateway) {
-      console.log('Stopping AggregatorGateway...');
+      logger.info('Stopping AggregatorGateway...');
       await gateway.stop();
     }
 
     if (mongoose.connection.readyState !== 0) {
-      console.log('Closing MongoDB connection...');
+      logger.info('Closing MongoDB connection...');
       await mongoose.connection.close();
     }
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     if (mongoContainer) {
-      console.log('Stopping MongoDB container...');
+      logger.info('Stopping MongoDB container...');
       await mongoContainer.stop();
     }
 
-    console.log('=========== FINISHED PERFORMANCE BENCHMARK ===========\n');
+    logger.info('=========== FINISHED PERFORMANCE BENCHMARK ===========\n');
   });
 
   it('should process a large batch of commitments efficiently', async () => {
@@ -125,7 +126,7 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
     const startGenerateTime = performance.now();
     const commitments = await generateTestCommitments(requestCount);
     const generateTime = performance.now() - startGenerateTime;
-    console.log(`Generated ${commitments.length} commitments in ${generateTime.toFixed(2)}ms`);
+    logger.info(`Generated ${commitments.length} commitments in ${generateTime.toFixed(2)}ms`);
 
     const baseUrl = `http://localhost:9876`;
 
@@ -144,7 +145,7 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
     >();
 
     // Submit commitments in batches to avoid overwhelming the server
-    console.log(`Submitting ${requestCount} commitments in batches of ${batchSize}...`);
+    logger.info(`Submitting ${requestCount} commitments in batches of ${batchSize}...`);
     for (let i = 0; i < commitments.length; i += batchSize) {
       const batch = commitments.slice(i, i + batchSize);
 
@@ -190,7 +191,7 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
     }
 
     const submissionTime = performance.now() - startTime;
-    console.log(
+    logger.info(
       `${requestCount} commitments submitted in ${submissionTime.toFixed(2)}ms (${(submissionTime / requestCount).toFixed(2)}ms per commitment)`,
     );
 

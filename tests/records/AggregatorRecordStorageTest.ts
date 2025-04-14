@@ -8,6 +8,7 @@ import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { StartedTestContainer } from 'testcontainers';
 
+import logger from '../../src/logger.js';
 import { AggregatorRecord } from '../../src/records/AggregatorRecord.js';
 import { AggregatorRecordStorage } from '../../src/records/AggregatorRecordStorage.js';
 import { startMongoDb, stopMongoDb } from '../TestContainers.js';
@@ -34,16 +35,16 @@ describe('Aggregator Record Storage Tests', () => {
     const authenticator = await Authenticator.create(signingService, transactionHash, stateHash);
     const aggregatorRecord = new AggregatorRecord(requestId, transactionHash, authenticator);
 
-    console.log('Storing record...');
+    logger.info('Storing record...');
     const stored = await storage.put(aggregatorRecord);
-    console.log('Store result:', stored);
+    logger.info('Store result:', stored);
 
-    console.log('Retrieving record...');
+    logger.info('Retrieving record...');
     const retrieved = await storage.get(requestId);
     expect(retrieved).not.toBeNull();
     assert(retrieved);
-    console.log('Retrieved successfully');
-    console.log('Data comparison:');
+    logger.info('Retrieved successfully');
+    logger.info('Data comparison:');
     expect(retrieved.requestId.toBigInt()).toEqual(aggregatorRecord.requestId.toBigInt());
     expect(retrieved.transactionHash.equals(aggregatorRecord.transactionHash)).toBeTruthy();
     expect(HexConverter.encode(retrieved.authenticator.signature.bytes)).toEqual(
@@ -72,13 +73,13 @@ describe('Aggregator Record Storage Tests', () => {
       requestIds.push(requestId);
     }
 
-    console.log('Storing records in batch...');
+    logger.info('Storing records in batch...');
     const stored = await storage.putBatch(records);
-    console.log('Batch store result:', stored);
+    logger.info('Batch store result:', stored);
     expect(stored).toBeTruthy();
 
     for (let i = 0; i < records.length; i++) {
-      console.log(`Retrieving record ${i + 1}...`);
+      logger.info(`Retrieving record ${i + 1}...`);
       const retrieved = await storage.get(requestIds[i]);
       expect(retrieved).not.toBeNull();
       assert(retrieved);

@@ -6,6 +6,7 @@ import { ICommitmentStorage } from './commitment/ICommitmentStorage.js';
 import { IAlphabillClient } from './consensus/alphabill/IAlphabillClient.js';
 import { Block } from './hashchain/Block.js';
 import { IBlockStorage } from './hashchain/IBlockStorage.js';
+import logger from './logger.js';
 import { AggregatorRecord } from './records/AggregatorRecord.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
@@ -13,6 +14,8 @@ import { ISmtStorage } from './smt/ISmtStorage.js';
 import { SmtNode } from './smt/SmtNode.js';
 
 export class RoundManager {
+  private commitmentCounter: number = 0;
+
   public constructor(
     public readonly config: IAggregatorConfig,
     public readonly alphabillClient: IAlphabillClient,
@@ -29,13 +32,17 @@ export class RoundManager {
       await this.commitmentStorage.put(commitment);
       return true;
     } catch (error) {
-      console.error('Failed to submit commitment:', error);
+      logger.error('Failed to submit commitment:', error);
       return false;
     }
   }
 
   public async createBlock(): Promise<Block> {
     const commitments = await this.commitmentStorage.getCommitmentsForBlock();
+
+    if (commitments && commitments.length > 0) {
+      this.commitmentCounter += commitments.length;
+    }
 
     const aggregatorRecords: AggregatorRecord[] = [];
     const smtLeaves: SmtNode[] = [];
@@ -62,7 +69,7 @@ export class RoundManager {
 
       smtLeafStoragePromise = smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
     } catch (error) {
-      console.error('Failed to start storing records and SMT leaves:', error);
+      logger.error('Failed to start storing records and SMT leaves:', error);
       throw error;
     }
 
@@ -71,7 +78,7 @@ export class RoundManager {
         try {
           await this.smt.addLeaf(leaf.path, leaf.value);
         } catch (error) {
-          console.error('Failed to add leaf to SMT:', error);
+          logger.error('Failed to add leaf to SMT:', error);
           throw error;
         }
       }
@@ -80,7 +87,7 @@ export class RoundManager {
     try {
       await Promise.all([recordStoragePromise, smtLeafStoragePromise]);
     } catch (error) {
-      console.error('Failed to store records and SMT leaves:', error);
+      logger.error('Failed to store records and SMT leaves:', error);
       throw error;
     }
 
@@ -89,7 +96,7 @@ export class RoundManager {
     try {
       submitHashResponse = await this.alphabillClient.submitHash(rootHash);
     } catch (error) {
-      console.error('Failed to submit hash to Alphabill:', error);
+      logger.error('Failed to submit hash to Alphabill:', error);
       throw error;
     }
 
@@ -118,12 +125,19 @@ export class RoundManager {
         await this.commitmentStorage.confirmBlockProcessed();
       }
 
-      console.log(`Block ${blockNumber} created successfully with ${commitments.length} commitments`);
+      logger.info(`Block ${blockNumber} created successfully with ${commitments.length} commitments`);
 
       return block;
     } catch (error) {
       console.error('Failed to create block:', error);
       throw error;
     }
+  }
+
+  /**
+   * Returns the total number of commitments processed so far
+   */
+  public getCommitmentCount(): number {
+    return this.commitmentCounter;
   }
 }
