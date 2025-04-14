@@ -45,10 +45,6 @@ async function generateTestCommitments(count: number): Promise<Commitment[]> {
   return commitments;
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 // TODO fix test
 describe.skip('Aggregator Request Performance Benchmark', () => {
   jest.setTimeout(300000); // 5 minutes max for the test
