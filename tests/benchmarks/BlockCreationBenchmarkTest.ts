@@ -18,6 +18,7 @@ import { AggregatorRecord } from '../../src/records/AggregatorRecord.js';
 import { RoundManager } from '../../src/RoundManager.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
 import { MockAlphabillClient } from '../consensus/alphabill/MockAlphabillClient.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
 interface BenchmarkResult {
   numCommitments: number;
@@ -298,7 +299,8 @@ describe('Block Creation Performance Benchmarks', () => {
 
       const endDbPhase = metrics.startPhase('blockFinalization');
       const txProof = submitHashResponse.txProof;
-      const previousBlockHash = submitHashResponse.previousBlockHash;
+      const previousBlockHash = submitHashResponse.previousBlockHash ??
+        HexConverter.decode('185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969');
       const blockNumber = await this.blockStorage.getNextBlockNumber();
       const block = new Block(
         blockNumber,

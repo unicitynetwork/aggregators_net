@@ -113,7 +113,7 @@ export class RoundManager {
 
     try {
       const txProof = submitHashResponse.txProof;
-      const previousBlockHash = submitHashResponse.previousBlockHash;
+      const previousBlockHash = blockNumber !== 1n ? submitHashResponse.previousBlockHash : HexConverter.decode(this.config.initialBlockHash!);
       const block = new Block(
         blockNumber,
         this.config.chainId!,
@@ -121,7 +121,7 @@ export class RoundManager {
         this.config.forkId!,
         txProof.transactionProof.unicityCertificate.unicitySeal.timestamp,
         txProof,
-        previousBlockHash ?? HexConverter.decode(this.config.initialBlockHash!),
+        previousBlockHash!,
         rootHash,
         null, // TODO add noDeletionProof
       );
@@ -155,9 +155,16 @@ export class RoundManager {
   }
 
   /**
+   * Exposes the Block Storage.
+   */
+  public getBlockStorage(): IBlockStorage {
+    return this.blockStorage;
+  }
+
+  /**
    * Exposes the Block Records Storage.
    */
-  public getBlockRecordsStorage(): BlockRecordsStorage {
+  public getBlockRecordsStorage(): IBlockRecordsStorage {
     return this.blockRecordsStorage;
   }
 }

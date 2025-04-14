@@ -24,13 +24,12 @@ describe('Block Records Storage Tests', () => {
   });
 
   it('Store and retrieve block records', async () => {
-    const blockStorage = new BlockStorage();
     const storage = new BlockRecordsStorage();
     const signingService = await SigningService.createFromSecret(SigningService.generatePrivateKey());
     const stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2, 3])).digest();
     const requestId = await RequestId.create(signingService.publicKey, stateHash);
 
-    const blockNumber = await blockStorage.getNextBlockNumber();
+    const blockNumber = 1n;
     const stored = await storage.put({
       blockNumber: blockNumber,
       requestIds: [requestId],

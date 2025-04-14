@@ -34,6 +34,7 @@ describe('Alphabill Client Integration Tests', () => {
   const tokenPartitionUrl = 'http://localhost:8003/rpc';
   const networkId = 3;
   const tokenPartitionId = 2;
+  const initialBlockHash = '185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969';
 
   let mongoContainer: StartedMongoDBContainer;
   let stateHash: DataHash;
@@ -82,6 +83,9 @@ describe('Alphabill Client Integration Tests', () => {
 
     logger.info('Starting aggregator...');
     aggregator = await AggregatorGateway.create({
+      aggregatorConfig: {
+        initialBlockHash: initialBlockHash,
+      },
       alphabill: {
         privateKey: privateKey,
         networkId: networkId,
@@ -171,4 +175,10 @@ describe('Alphabill Client Integration Tests', () => {
     expect(submitCommitmentData.status).toEqual(SubmitCommitmentStatus.REQUEST_ID_MISMATCH);
     logger.info('Submit commitment response: ' + JSON.stringify(submitCommitmentData, null, 2));
   });
+
+  it('Validate first block hash is set to initial block hash', async () => {
+    const firstBlock = await aggregator.getRoundManager().getBlockStorage().get(1n);
+    expect(firstBlock!.index).toEqual(1n);
+    expect(HexConverter.encode(firstBlock!.previousBlockHash)).toEqual(initialBlockHash);
+  })
 });
