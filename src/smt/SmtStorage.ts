@@ -35,12 +35,22 @@ export class SmtStorage implements ISmtStorage {
       return true;
     }
 
-    const documents = leaves.map((leaf) => ({
-      path: leaf.path,
-      value: leaf.value,
-    }));
+    try {
+      // Use bulkWrite with updateOne operations that only insert new nodes
+      const operations = leaves.map((leaf) => ({
+        updateOne: {
+          filter: { path: leaf.path },
+          update: { $setOnInsert: { path: leaf.path, value: leaf.value } },
+          upsert: true
+        }
+      }));
 
-    await LeafModel.insertMany(documents, { ordered: false });
-    return true;
+      await LeafModel.bulkWrite(operations);
+      return true;
+    } catch (error) {
+      // Log and rethrow the error
+      console.error('Error in SmtStorage putBatch:', error);
+      throw error;
+    }
   }
 }

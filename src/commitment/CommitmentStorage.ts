@@ -162,11 +162,14 @@ export class CommitmentStorage implements ICommitmentStorage {
           );
 
           // Try to find and recover missing commitments
-          const missingCommitments = await this.findMissingCommitments(sequenceIds);
-
-          if (missingCommitments.length > 0) {
-            commitments.push(...missingCommitments);
-            commitments.sort((a, b) => a.sequenceId - b.sequenceId);
+          try {
+            const missingCommitments = await this.findMissingCommitments(sequenceIds);
+            if (missingCommitments.length > 0) {
+              commitments.push(...missingCommitments);
+              commitments.sort((a, b) => a.sequenceId - b.sequenceId);
+            }
+          } catch (error) {
+            logger.error('Error finding missing commitments:', error);
           }
         }
 
@@ -175,20 +178,25 @@ export class CommitmentStorage implements ICommitmentStorage {
         await this.updateCursor({
           status: CursorStatus.IN_PROGRESS,
           currentBatchEndSequenceId: endSequenceId,
+          lastProcessedSequenceId: cursor.lastProcessedSequenceId ?? 0,
         });
       }
     } else if (cursor.status === CursorStatus.IN_PROGRESS) {
-      if (cursor.lastProcessedSequenceId && cursor.currentBatchEndSequenceId) {
+      logger.debug(
+        `Cursor is IN_PROGRESS. lastProcessedSequenceId: ${cursor.lastProcessedSequenceId}, currentBatchEndSequenceId: ${cursor.currentBatchEndSequenceId}`,
+      );
+
+      if (cursor.lastProcessedSequenceId !== undefined && cursor.currentBatchEndSequenceId !== undefined) {
         const query = {
           sequenceId: {
             $gt: cursor.lastProcessedSequenceId,
             $lte: cursor.currentBatchEndSequenceId,
           },
         };
-
         commitments = await CommitmentModel.find(query).sort({ sequenceId: 1 });
+        logger.debug(`IN_PROGRESS found ${commitments.length} commitments`);
       } else {
-        logger.info(`Cursor is IN_PROGRESS but missing sequence ID boundaries`);
+        logger.info(`ERROR: Cursor is IN_PROGRESS but missing sequence ID boundaries`);
       }
     }
 
@@ -209,13 +217,16 @@ export class CommitmentStorage implements ICommitmentStorage {
 
   public async confirmBlockProcessed(): Promise<boolean> {
     const currentCursor = await CursorCheckpointModel.findById('commitmentCursor');
-    if (!currentCursor || !currentCursor.currentBatchEndSequenceId) {
+    logger.debug(`Confirming block processed. Current cursor: ${JSON.stringify(currentCursor)}`);
+
+    if (!currentCursor || currentCursor.currentBatchEndSequenceId === undefined) {
       logger.info('Error: Cannot confirm block processed - cursor not found or missing currentBatchEndSequenceId');
       return false;
     }
 
     const endSequenceId = currentCursor.currentBatchEndSequenceId;
 
+    logger.debug(`Updating cursor from IN_PROGRESS to COMPLETE, setting lastProcessedSequenceId to ${endSequenceId}`);
     const result = await CursorCheckpointModel.updateOne(
       { _id: 'commitmentCursor', status: CursorStatus.IN_PROGRESS },
       {
@@ -226,15 +237,19 @@ export class CommitmentStorage implements ICommitmentStorage {
         },
       },
     );
-    return result.modifiedCount > 0;
+    const success = result.modifiedCount > 0;
+    logger.debug(`Confirmation result: ${success ? 'SUCCESS' : 'FAILED'}`);
+    return success;
   }
 
   private async getOrInitializeCursor(): Promise<ICursorCheckpoint> {
     let cursor = await CursorCheckpointModel.findById('commitmentCursor');
     if (!cursor) {
+      logger.debug('Creating new cursor checkpoint with initial values');
       cursor = await CursorCheckpointModel.create({
         _id: 'commitmentCursor',
         status: CursorStatus.COMPLETE,
+        lastProcessedSequenceId: 0,
       });
     }
 
@@ -242,7 +257,11 @@ export class CommitmentStorage implements ICommitmentStorage {
   }
 
   private async updateCursor(updates: Partial<ICursorCheckpoint>): Promise<void> {
+    logger.debug(`Updating cursor: ${JSON.stringify(updates)}`);
     await CursorCheckpointModel.findByIdAndUpdate('commitmentCursor', updates, { upsert: true });
+    // Log the updated cursor for debugging
+    const updatedCursor = await CursorCheckpointModel.findById('commitmentCursor');
+    logger.debug(`Updated cursor state: ${JSON.stringify(updatedCursor)}`);
   }
 
   private async findMissingCommitments(sequenceIds: number[]): Promise<any[]> {

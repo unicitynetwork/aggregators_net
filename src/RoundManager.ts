@@ -43,10 +43,8 @@ export class RoundManager {
     const blockNumber = await this.blockStorage.getNextBlockNumber();
     const commitments = await this.commitmentStorage.getCommitmentsForBlock();
 
-    if (commitments && commitments.length > 0) {
-      this.commitmentCounter += commitments.length;
-    }
-    const loggerWithMetadata = logger.child({ blockNumber: blockNumber, commitmentsSize: commitments.length });
+    const commitmentCount = commitments?.length || 0;
+    const loggerWithMetadata = logger.child({ blockNumber: blockNumber, commitmentsSize: commitmentCount });
     loggerWithMetadata.info(`Starting to create block ${blockNumber}...`);
 
     const aggregatorRecords: AggregatorRecord[] = [];
@@ -78,13 +76,20 @@ export class RoundManager {
       throw error;
     }
 
+    // Add leaves to the SMT tree
     if (smtLeaves.length > 0) {
       for (const leaf of smtLeaves) {
         try {
           await this.smt.addLeaf(leaf.path, leaf.value);
         } catch (error) {
-          loggerWithMetadata.error('Failed to add leaf to SMT:', error);
-          throw error;
+          // Check if the error is "Cannot add leaf inside branch" which indicates
+          // the leaf is already in the tree - this is not a fatal error
+          if (error instanceof Error && error.message.includes('Cannot add leaf inside branch')) {
+            loggerWithMetadata.warn(`Leaf already exists in tree for path ${leaf.path} - skipping`);
+          } else {
+            loggerWithMetadata.error('Failed to add leaf to SMT:', error);
+            throw error;
+          }
         }
       }
     }
@@ -125,11 +130,14 @@ export class RoundManager {
         requestIds: commitments.map((commitment) => commitment.requestId),
       });
 
-      if (commitments.length > 0) {
+      if (commitments && commitments.length > 0) {
         await this.commitmentStorage.confirmBlockProcessed();
+
+        // Only increment the counter if we successfully processed the block
+        this.commitmentCounter += commitmentCount;
       }
 
-      loggerWithMetadata.info(`Block ${blockNumber} created successfully with ${commitments.length} commitments`);
+      loggerWithMetadata.info(`Block ${blockNumber} created successfully with ${commitmentCount} commitments`);
 
       return block;
     } catch (error) {

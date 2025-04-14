@@ -7,6 +7,7 @@ import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { StartedTestContainer } from 'testcontainers';
+import mongoose, { model } from 'mongoose';
 
 import logger from '../../src/logger.js';
 import { AggregatorRecord } from '../../src/records/AggregatorRecord.js';
@@ -96,5 +97,89 @@ describe('Aggregator Record Storage Tests', () => {
       expect(retrieved.authenticator.stateHash.equals(originalRecord.authenticator.stateHash)).toBeTruthy();
       expect(retrieved.authenticator.algorithm).toEqual(originalRecord.authenticator.algorithm);
     }
+  });
+
+  it('Try to store same batch of records twice', async () => {
+    // Clear the collection first using mongoose directly
+    await mongoose.connection.collection('aggregatorrecords').deleteMany({});
+    
+    const storage = new AggregatorRecordStorage();
+    const signingService = await SigningService.createFromSecret(SigningService.generatePrivateKey());
+    const records: AggregatorRecord[] = [];
+
+    // Create 3 records
+    for (let i = 0; i < 3; i++) {
+      const stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([10, 20, 30, i])).digest();
+      const transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([40, 50, 60, i])).digest();
+      const requestId = await RequestId.create(signingService.publicKey, stateHash);
+      const authenticator = await Authenticator.create(signingService, transactionHash, stateHash);
+      const record = new AggregatorRecord(requestId, transactionHash, authenticator);
+      records.push(record);
+    }
+
+    // First insertion should succeed
+    logger.info('First batch insertion...');
+    const firstResult = await storage.putBatch(records);
+    expect(firstResult).toBeTruthy();
+    
+    // Save original transaction hashes to verify they don't change
+    const originalHashes = records.map(record => ({
+      requestId: record.requestId,
+      transactionHash: record.transactionHash
+    }));
+    
+    // Second insertion of the same batch should also succeed, but won't modify records
+    logger.info('Second batch insertion (same records)...');
+    const secondResult = await storage.putBatch(records);
+    expect(secondResult).toBeTruthy();
+    
+    // Now create records with the same request IDs but different transaction hashes
+    const modifiedRecords: AggregatorRecord[] = [];
+    for (const record of records) {
+      const newTransactionHash = await new DataHasher(HashAlgorithm.SHA256)
+        .update(new Uint8Array([100, 110, 120]))
+        .digest();
+      const newAuthenticator = await Authenticator.create(
+        signingService, 
+        newTransactionHash,
+        record.authenticator.stateHash
+      );
+      modifiedRecords.push(new AggregatorRecord(record.requestId, newTransactionHash, newAuthenticator));
+    }
+    
+    // This should succeed but won't update existing records due to $setOnInsert
+    logger.info('Third batch insertion (same request IDs, different transaction hashes)...');
+    const thirdResult = await storage.putBatch(modifiedRecords);
+    expect(thirdResult).toBeTruthy();
+    
+    // Verify the records still have their original transaction hashes
+    for (const original of originalHashes) {
+      const retrieved = await storage.get(original.requestId);
+      expect(retrieved).not.toBeNull();
+      expect(retrieved!.requestId.toBigInt()).toEqual(original.requestId.toBigInt());
+      // Should still have the original transaction hash, not the modified one
+      expect(retrieved!.transactionHash.equals(original.transactionHash)).toBeTruthy();
+    }
+    
+    // Add a new record with a completely new requestId - this should be inserted
+    const stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([99, 99, 99])).digest();
+    const transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([88, 88, 88])).digest();
+    const requestId = await RequestId.create(signingService.publicKey, stateHash);
+    const authenticator = await Authenticator.create(signingService, transactionHash, stateHash);
+    const newRecord = new AggregatorRecord(requestId, transactionHash, authenticator);
+    
+    const mixedBatch = [...modifiedRecords, newRecord];
+    logger.info('Fourth batch insertion (mix of existing and new records)...');
+    const fourthResult = await storage.putBatch(mixedBatch);
+    expect(fourthResult).toBeTruthy();
+    
+    // Verify the new record was inserted
+    const retrievedNew = await storage.get(requestId);
+    expect(retrievedNew).not.toBeNull();
+    expect(retrievedNew!.transactionHash.equals(transactionHash)).toBeTruthy();
+    
+    // Count total records - should be 4 (original 3 + new 1)
+    const recordCount = await mongoose.connection.collection('aggregatorrecords').countDocuments();
+    expect(recordCount).toBe(4);
   });
 });

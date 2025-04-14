@@ -59,19 +59,34 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
       return true;
     }
 
-    const recordDocuments = records.map((record) => ({
-      requestId: record.requestId.toBigInt(),
-      transactionHash: record.transactionHash.imprint,
-      authenticator: {
-        algorithm: record.authenticator.algorithm,
-        publicKey: record.authenticator.publicKey,
-        signature: record.authenticator.signature.encode(),
-        stateHash: record.authenticator.stateHash.imprint,
-      },
-    }));
+    try {
+      // Use bulkWrite with insertOne operations that will not update existing records
+      const operations = records.map((record) => ({
+        updateOne: {
+          filter: { requestId: record.requestId.toBigInt() },
+          update: {
+            $setOnInsert: {
+              requestId: record.requestId.toBigInt(),
+              transactionHash: record.transactionHash.imprint,
+              authenticator: {
+                algorithm: record.authenticator.algorithm,
+                publicKey: record.authenticator.publicKey,
+                signature: record.authenticator.signature.encode(),
+                stateHash: record.authenticator.stateHash.imprint,
+              },
+            },
+          },
+          upsert: true,
+        },
+      }));
 
-    await AggregatorRecordModel.insertMany(recordDocuments);
-    return true;
+      await AggregatorRecordModel.bulkWrite(operations);
+      return true;
+    } catch (error) {
+      // Log and rethrow the error
+      logger.error('Error in AggregatorRecordStorage putBatch:', error);
+      throw error;
+    }
   }
 
   public async get(requestId: RequestId): Promise<AggregatorRecord | null> {

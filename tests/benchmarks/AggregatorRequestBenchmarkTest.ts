@@ -45,10 +45,6 @@ async function generateTestCommitments(count: number): Promise<Commitment[]> {
   return commitments;
 }
 
-async function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 // TODO fix test
 describe.skip('Aggregator Request Performance Benchmark', () => {
   jest.setTimeout(300000); // 5 minutes max for the test
@@ -195,8 +191,22 @@ describe.skip('Aggregator Request Performance Benchmark', () => {
       `${requestCount} commitments submitted in ${submissionTime.toFixed(2)}ms (${(submissionTime / requestCount).toFixed(2)}ms per commitment)`,
     );
 
-    // Add a check for any remaining pending commitments
     // Wait a bit more to ensure all pending blocks are processed
+    logger.info(`Waiting for all blocks to be processed...`);
     await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    const roundManager = gateway.getRoundManager();
+    const processedCount = roundManager.getCommitmentCount();
+
+    logger.info(`Processed commitment count from RoundManager: ${processedCount}`);
+    expect(processedCount).toBe(successCount);
+
+    // Calculate and display the success rate
+    const successRate = (successCount / requestCount) * 100;
+    logger.info(`Commitment processing success rate: ${successRate.toFixed(2)}%`);
+
+    if (processedCount < successCount) {
+      logger.warn(`Some commitments were not processed: Submitted ${successCount}, Processed ${processedCount}`);
+    }
   });
 });
