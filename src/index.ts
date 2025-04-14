@@ -17,7 +17,7 @@ async function main(): Promise<void> {
       sslKeyPath: process.env.SSL_KEY_PATH ?? '',
     },
     highAvailability: {
-      enabled: process.env.ENABLE_HIGH_AVAILABILITY === 'true',
+      enabled: process.env.DISABLE_HIGH_AVAILABILITY !== 'true',
       lockTtlSeconds: process.env.LOCK_TTL_SECONDS ? parseInt(process.env.LOCK_TTL_SECONDS) : 30,
       leaderHeartbeatInterval: process.env.LEADER_HEARTBEAT_INTERVAL
         ? parseInt(process.env.LEADER_HEARTBEAT_INTERVAL)
