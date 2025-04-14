@@ -37,10 +37,7 @@ export class RoundManager {
 
   public async createBlock(): Promise<Block> {
     const commitments = await this.commitmentStorage.getCommitmentsForBlock();
-
-    if (commitments && commitments.length > 0) {
-      this.commitmentCounter += commitments.length;
-    }
+    const commitmentCount = commitments?.length || 0;
 
     const aggregatorRecords: AggregatorRecord[] = [];
     const smtLeaves: SmtNode[] = [];
@@ -71,13 +68,20 @@ export class RoundManager {
       throw error;
     }
 
+    // Add leaves to the SMT tree
     if (smtLeaves.length > 0) {
       for (const leaf of smtLeaves) {
         try {
           await this.smt.addLeaf(leaf.path, leaf.value);
         } catch (error) {
-          logger.error('Failed to add leaf to SMT:', error);
-          throw error;
+          // Check if the error is "Cannot add leaf inside branch" which indicates
+          // the leaf is already in the tree - this is not a fatal error
+          if (error instanceof Error && error.message.includes('Cannot add leaf inside branch')) {
+            logger.warn(`Leaf already exists in tree for path ${leaf.path} - skipping`);
+          } else {
+            logger.error('Failed to add leaf to SMT:', error);
+            throw error;
+          }
         }
       }
     }
@@ -115,11 +119,14 @@ export class RoundManager {
       );
       await this.blockStorage.put(block);
 
-      if (commitments.length > 0) {
+      if (commitments && commitments.length > 0) {
         await this.commitmentStorage.confirmBlockProcessed();
+        
+        // Only increment the counter if we successfully processed the block
+        this.commitmentCounter += commitmentCount;
       }
 
-      logger.info(`Block ${blockNumber} created successfully with ${commitments.length} commitments`);
+      logger.info(`Block ${blockNumber} created successfully with ${commitmentCount} commitments`);
 
       return block;
     } catch (error) {
