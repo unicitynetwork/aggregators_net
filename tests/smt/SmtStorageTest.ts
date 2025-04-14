@@ -104,7 +104,13 @@ describe('SMT Storage Tests', () => {
     const firstResult = await storage.putBatch(testNodes);
     expect(firstResult).toBe(true);
     
-    // Second insertion of the same batch should also succeed with our new upsert implementation
+    // Save original values to verify they don't change
+    const originalNodes = testNodes.map(node => ({
+      path: node.path,
+      value: new Uint8Array(node.value)
+    }));
+    
+    // Second insertion of the same batch should succeed but won't modify the nodes
     logger.info('\nSecond batch insertion of same SMT nodes...');
     const secondResult = await storage.putBatch(testNodes);
     expect(secondResult).toBe(true);
@@ -118,20 +124,42 @@ describe('SMT Storage Tests', () => {
       modifiedNodes.push(new SmtNode(path, value));
     }
     
-    // This should also succeed and should update the values
+    // This should succeed but won't update the existing nodes due to $setOnInsert
     logger.info('\nThird batch insertion (same paths, new values)...');
     const thirdResult = await storage.putBatch(modifiedNodes);
     expect(thirdResult).toBe(true);
     
-    // Verify the nodes were updated with new values
+    // Verify the nodes still have their original values
     const allNodes = await storage.getAll();
-    for (const node of modifiedNodes) {
-      const retrieved = allNodes.find(n => n.path === node.path);
+    for (const original of originalNodes) {
+      const retrieved = allNodes.find(n => n.path === original.path);
       expect(retrieved).toBeDefined();
-      expect(retrieved!.path).toEqual(node.path);
-      // Should match the modified values, not the original ones
-      expect(HexConverter.encode(retrieved!.value)).toEqual(HexConverter.encode(node.value));
+      expect(retrieved!.path).toEqual(original.path);
+      // Should still match the original values, not the modified ones
+      expect(HexConverter.encode(retrieved!.value)).toEqual(HexConverter.encode(original.value));
     }
+    
+    // Add a new node with a completely new path - this should be inserted
+    const newNode = new SmtNode(BigInt(9999), new Uint8Array([99, 99, 99]));
+    
+    const mixedBatch = [...modifiedNodes, newNode];
+    logger.info('\nFourth batch insertion (mix of existing and new nodes)...');
+    const fourthResult = await storage.putBatch(mixedBatch);
+    expect(fourthResult).toBe(true);
+    
+    // Get updated list of all nodes after the fourth insertion
+    const updatedNodes = await storage.getAll();
+    
+    // Verify the new node was inserted
+    const retrievedNew = updatedNodes.find(n => n.path === newNode.path);
+    expect(retrievedNew).toBeDefined();
+    if (retrievedNew) {
+      expect(retrievedNew.path).toEqual(newNode.path);
+      expect(HexConverter.encode(retrievedNew.value)).toEqual(HexConverter.encode(newNode.value));
+    }
+    
+    // Count total nodes - should be 4 (original 3 + new 1)
+    expect(updatedNodes.length).toBe(4);
   });
 
   it('Try adding the same leaf to SMT tree twice', async () => {

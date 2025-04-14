@@ -36,11 +36,11 @@ export class SmtStorage implements ISmtStorage {
     }
 
     try {
-      // Use bulkWrite with updateOne operations that upsert
+      // Use bulkWrite with updateOne operations that only insert new nodes
       const operations = leaves.map((leaf) => ({
         updateOne: {
           filter: { path: leaf.path },
-          update: { $set: { path: leaf.path, value: leaf.value } },
+          update: { $setOnInsert: { path: leaf.path, value: leaf.value } },
           upsert: true
         }
       }));

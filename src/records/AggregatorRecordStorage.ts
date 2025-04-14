@@ -53,12 +53,12 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
     }
 
     try {
-      // Use bulkWrite with updateOne operations that upsert
+      // Use bulkWrite with insertOne operations that will not update existing records
       const operations = records.map((record) => ({
         updateOne: {
           filter: { requestId: record.requestId.toBigInt() },
           update: {
-            $set: {
+            $setOnInsert: {
               requestId: record.requestId.toBigInt(),
               transactionHash: record.transactionHash.imprint,
               authenticator: {
