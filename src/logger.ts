@@ -11,9 +11,7 @@ const logger: Logger = createLogger({
     new transports.Console({
       format: format.combine(
         format.timestamp(),
-        format.colorize(),
         format.simple(),
-        format.align(),
         format.errors({ stack: true }),
         format.printf(({ timestamp, level, message, stack }) => {
           const text = `${timestamp} ${level.toUpperCase()} ${message}`;

@@ -38,6 +38,7 @@ export interface IAggregatorConfig {
   chainId?: number;
   version?: number;
   forkId?: number;
+  initialBlockHash?: string;
   sslCertPath?: string;
   sslKeyPath?: string;
   port?: number;
@@ -88,6 +89,9 @@ export class AggregatorGateway {
         chainId: config.aggregatorConfig?.chainId ?? 1,
         version: config.aggregatorConfig?.version ?? 1,
         forkId: config.aggregatorConfig?.forkId ?? 1,
+        initialBlockHash:
+          config.aggregatorConfig?.initialBlockHash ??
+          '185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969',
         port: config.aggregatorConfig?.port ?? 80,
         sslCertPath: config.aggregatorConfig?.sslCertPath ?? '',
         sslKeyPath: config.aggregatorConfig?.sslKeyPath ?? '',

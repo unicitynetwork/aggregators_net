@@ -1,4 +1,5 @@
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
 import { IAggregatorConfig } from './AggregatorGateway.js';
 import { Commitment } from './commitment/Commitment.js';
@@ -8,7 +9,6 @@ import { Block } from './hashchain/Block.js';
 import { IBlockStorage } from './hashchain/IBlockStorage.js';
 import logger from './logger.js';
 import { AggregatorRecord } from './records/AggregatorRecord.js';
-import { BlockRecordsStorage } from './records/BlockRecordsStorage.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
@@ -113,7 +113,8 @@ export class RoundManager {
 
     try {
       const txProof = submitHashResponse.txProof;
-      const previousBlockHash = submitHashResponse.previousBlockHash;
+      const previousBlockHash =
+        blockNumber !== 1n ? submitHashResponse.previousBlockHash : HexConverter.decode(this.config.initialBlockHash!);
       const block = new Block(
         blockNumber,
         this.config.chainId!,
@@ -121,7 +122,7 @@ export class RoundManager {
         this.config.forkId!,
         txProof.transactionProof.unicityCertificate.unicitySeal.timestamp,
         txProof,
-        previousBlockHash,
+        previousBlockHash!,
         rootHash,
         null, // TODO add noDeletionProof
       );
@@ -155,9 +156,16 @@ export class RoundManager {
   }
 
   /**
+   * Exposes the Block Storage.
+   */
+  public getBlockStorage(): IBlockStorage {
+    return this.blockStorage;
+  }
+
+  /**
    * Exposes the Block Records Storage.
    */
-  public getBlockRecordsStorage(): BlockRecordsStorage {
+  public getBlockRecordsStorage(): IBlockRecordsStorage {
     return this.blockRecordsStorage;
   }
 }
