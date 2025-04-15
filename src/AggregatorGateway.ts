@@ -193,6 +193,7 @@ export class AggregatorGateway {
       try {
         switch (req.body.method) {
           case 'submit_commitment': {
+            logger.info(`Received submit_commitment request: ${req.body.params.requestId}`);
             const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
             const transactionHash: DataHash = DataHash.fromDto(req.body.params.transactionHash);
             const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
@@ -204,6 +205,7 @@ export class AggregatorGateway {
             return res.send(JSON.stringify(response.toDto()));
           }
           case 'get_inclusion_proof': {
+            logger.info(`Received get_inclusion_proof request: ${req.body.params.requestId}`);
             const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
             const inclusionProof = await aggregatorService.getInclusionProof(requestId);
             if (inclusionProof == null) {
@@ -300,10 +302,10 @@ export class AggregatorGateway {
     const smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
     const smtLeaves = await smtStorage.getAll();
     if (smtLeaves.length > 0) {
-      logger.info(`Server ${aggregatorServerId} found %s leaves from storage.`, smtLeaves.length);
+      logger.info(`Server ${aggregatorServerId} found ${smtLeaves.length} leaves from storage.`);
       logger.info('Constructing tree...');
       smtLeaves.forEach((leaf) => smt.addLeaf(leaf.path, leaf.value));
-      logger.info('Tree with root hash %s constructed successfully.', smt.rootHash.toString());
+      logger.info(`Tree with root hash ${smt.rootHash.toString()} constructed successfully.`);
     }
     return smt;
   }
