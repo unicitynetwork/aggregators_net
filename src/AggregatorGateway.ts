@@ -304,7 +304,9 @@ export class AggregatorGateway {
     if (smtLeaves.length > 0) {
       logger.info(`Server ${aggregatorServerId} found ${smtLeaves.length} leaves from storage.`);
       logger.info('Constructing tree...');
-      smtLeaves.forEach((leaf) => smt.addLeaf(leaf.path, leaf.value));
+      for (const leaf of smtLeaves) {
+        await smt.addLeaf(leaf.path, leaf.value);
+      }
       logger.info(`Tree with root hash ${smt.rootHash.toString()} constructed successfully.`);
     }
     return smt;
