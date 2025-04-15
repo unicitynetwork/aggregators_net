@@ -104,6 +104,7 @@ export class RoundManager {
     let submitHashResponse;
     const rootHash = this.smt.rootHash;
     try {
+      loggerWithMetadata.info(`Submitting hash to Alphabill: ${rootHash.toString()}`);
       submitHashResponse = await this.alphabillClient.submitHash(rootHash);
     } catch (error) {
       loggerWithMetadata.error('Failed to submit hash to Alphabill:', error);
