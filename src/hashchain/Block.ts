@@ -12,16 +12,16 @@ export class Block {
     public readonly forkId: number,
     public readonly timestamp: bigint,
     public readonly txProof: TransactionRecordWithProof<UpdateNonFungibleTokenTransactionOrder>,
-    private readonly _previousBlockHash: Uint8Array | null,
+    private readonly _previousBlockHash: Uint8Array,
     public readonly rootHash: DataHash,
     private readonly _noDeletionProofHash: Uint8Array | null,
   ) {
-    this._previousBlockHash = _previousBlockHash ? new Uint8Array(_previousBlockHash) : null;
+    this._previousBlockHash = new Uint8Array(_previousBlockHash);
     this._noDeletionProofHash = _noDeletionProofHash ? new Uint8Array(_noDeletionProofHash) : null;
   }
 
-  public get previousBlockHash(): Uint8Array | null {
-    return this._previousBlockHash ? new Uint8Array(this._previousBlockHash) : null;
+  public get previousBlockHash(): Uint8Array {
+    return new Uint8Array(this._previousBlockHash);
   }
 
   public get noDeletionProofHash(): Uint8Array | null {
@@ -37,7 +37,7 @@ export class Block {
         Fork ID: ${this.forkId}
         Timestamp: ${this.timestamp}
         ${this.txProof.toString()}
-        Previous Block Hash: ${this._previousBlockHash ? HexConverter.encode(this._previousBlockHash) : 'null'}
+        Previous Block Hash: ${HexConverter.encode(this._previousBlockHash)}
         Root Hash: ${this.rootHash.toString()}
         No Deletion Proof Hash: ${this._noDeletionProofHash ? HexConverter.encode(this._noDeletionProofHash) : 'null'}`;
   }
