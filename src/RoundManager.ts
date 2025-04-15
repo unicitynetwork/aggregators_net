@@ -16,6 +16,7 @@ import { SmtNode } from './smt/SmtNode.js';
 
 export class RoundManager {
   private commitmentCounter: number = 0;
+  private submitCounter: number = 0;
 
   public constructor(
     public readonly config: IAggregatorConfig,
@@ -32,6 +33,7 @@ export class RoundManager {
     const loggerWithMetadata = logger.child({ requestId: commitment.requestId.toString() });
     try {
       await this.commitmentStorage.put(commitment);
+      this.submitCounter++;
       return true;
     } catch (error) {
       loggerWithMetadata.error('Failed to submit commitment:', error);
@@ -139,7 +141,7 @@ export class RoundManager {
         this.commitmentCounter += commitmentCount;
       }
 
-      loggerWithMetadata.info(`Block ${blockNumber} created successfully with ${commitmentCount} commitments`);
+      loggerWithMetadata.info(`Block ${blockNumber} created successfully with ${commitmentCount} commitments (${this.commitmentCounter}/${this.submitCounter} total commitments processed)`);
 
       return block;
     } catch (error) {
