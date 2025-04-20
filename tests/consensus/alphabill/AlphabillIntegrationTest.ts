@@ -31,9 +31,9 @@ describe('Alphabill Client Integration Tests', () => {
   const privateKey = '1DE87F189C3C9E42F93C90C95E2AC761BE9D0EB2FD1CA0FF3A9CE165C3DE96A9';
   const alphabillSigningService = new DefaultSigningService(Base16Converter.decode(privateKey));
   const proofFactory = new PayToPublicKeyHashProofFactory(alphabillSigningService);
-  const tokenPartitionUrl = 'http://localhost:8003/rpc';
+  const tokenPartitionUrl = 'http://localhost:11003/rpc';
   const networkId = 3;
-  const tokenPartitionId = 2;
+  const tokenPartitionId = 5;
   const initialBlockHash = '185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969';
 
   let mongoContainer: StartedMongoDBContainer;
@@ -51,12 +51,12 @@ describe('Alphabill Client Integration Tests', () => {
     mongoContainer = await new MongoDBContainer('mongo:7').start();
     aggregatorEnvironment = await new DockerComposeEnvironment(composeFilePath, composeAlphabill)
       .withBuild()
-      .withWaitStrategy('alphabill-tokens-1', Wait.forHealthCheck())
+      .withWaitStrategy('alphabill-permissioned-tokens-1', Wait.forHealthCheck())
       .withStartupTimeout(15000)
       .up();
     logger.info('Setup successful.');
 
-    // Wait for Alphabill nodes to start up
+    // Wait for Alphabill nodes to sync up
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
     // Set fee credit
