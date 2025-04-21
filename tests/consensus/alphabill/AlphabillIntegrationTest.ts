@@ -33,6 +33,8 @@ describe('Alphabill Client Integration Tests', () => {
   const networkId = 3;
   const tokenPartitionId = 5;
   const initialBlockHash = '185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969';
+  const aggregatorPort = 3333;
+  const aggregatorUrl = 'http://localhost:' + aggregatorPort;
 
   let mongoContainer: StartedMongoDBContainer;
   let stateHash: DataHash;
@@ -83,6 +85,7 @@ describe('Alphabill Client Integration Tests', () => {
     aggregator = await AggregatorGateway.create({
       aggregatorConfig: {
         initialBlockHash: initialBlockHash,
+        port: aggregatorPort,
       },
       alphabill: {
         privateKey: privateKey,
@@ -109,7 +112,7 @@ describe('Alphabill Client Integration Tests', () => {
 
   it('Submit commitment to aggregator and wait for inclusion proof', async () => {
     const authenticator: Authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
-    const submitCommitmentResponse = await fetch('http://localhost:80', {
+    const submitCommitmentResponse = await fetch(aggregatorUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -129,7 +132,7 @@ describe('Alphabill Client Integration Tests', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
-    const getInclusionProofResponse = await fetch('http://localhost:80', {
+    const getInclusionProofResponse = await fetch(aggregatorUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -154,7 +157,7 @@ describe('Alphabill Client Integration Tests', () => {
       transactionHash,
       newStateHash,
     );
-    const submitCommitmentResponse = await fetch('http://localhost:80', {
+    const submitCommitmentResponse = await fetch(aggregatorUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
