@@ -23,8 +23,6 @@ import logger from '../../../src/logger.js';
 import { SubmitCommitmentStatus } from '../../../src/SubmitCommitmentResponse.js';
 
 describe('Alphabill Client Integration Tests', () => {
-  jest.setTimeout(60000);
-
   const composeFilePath = 'tests';
   const composeAlphabill = 'consensus/alphabill/docker/alphabill-docker-compose.yml';
 
@@ -101,13 +99,13 @@ describe('Alphabill Client Integration Tests', () => {
     transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2])).digest();
     unicitySigningService = new SigningService(HexConverter.decode(privateKey));
     requestId = await RequestId.create(unicitySigningService.publicKey, stateHash);
-  });
+  }, 60000);
 
   afterAll(() => {
     aggregatorEnvironment.down();
     aggregator.stop();
     mongoContainer.stop({ timeout: 10 });
-  });
+  }, 60000);
 
   it('Submit commitment to aggregator and wait for inclusion proof', async () => {
     const authenticator: Authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
@@ -147,7 +145,7 @@ describe('Alphabill Client Integration Tests', () => {
     const inclusionProof = InclusionProof.fromDto(JSON.parse(inclusionProofData));
     const verificationResult = await inclusionProof.verify(requestId.toBigInt());
     expect(verificationResult).toBeTruthy();
-  });
+  }, 60000);
 
   it('Re-submit commitment to aggregator with same requestID but different state, expect error', async () => {
     const newStateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([3, 4])).digest();
@@ -174,11 +172,11 @@ describe('Alphabill Client Integration Tests', () => {
     expect(submitCommitmentData).not.toBeNull();
     expect(submitCommitmentData.status).toEqual(SubmitCommitmentStatus.REQUEST_ID_MISMATCH);
     logger.info('Submit commitment response: ' + JSON.stringify(submitCommitmentData, null, 2));
-  });
+  }, 60000);
 
   it('Validate first block hash is set to initial block hash', async () => {
     const firstBlock = await aggregator.getRoundManager().getBlockStorage().get(1n);
     expect(firstBlock!.index).toEqual(1n);
     expect(HexConverter.encode(firstBlock!.previousBlockHash)).toEqual(initialBlockHash);
-  });
+  }, 60000);
 });
