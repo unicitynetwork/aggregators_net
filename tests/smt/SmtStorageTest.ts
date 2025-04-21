@@ -7,6 +7,7 @@ import logger from '../../src/logger.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
 import { SmtStorage, LeafModel } from '../../src/smt/SmtStorage.js';
 import { startMongoDb, stopMongoDb } from '../TestContainers.js';
+import mongoose from 'mongoose';
 
 describe('SMT Storage Tests', () => {
   jest.setTimeout(60000);
@@ -17,7 +18,11 @@ describe('SMT Storage Tests', () => {
     container = await startMongoDb();
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    if (mongoose.connection.readyState !== 0) {
+      logger.info('Closing mongoose connection...');
+      await mongoose.connection.close();
+    }
     stopMongoDb(container);
   });
 

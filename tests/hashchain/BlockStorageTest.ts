@@ -29,6 +29,7 @@ import { Block } from '../../src/hashchain/Block.js';
 import { BlockStorage } from '../../src/hashchain/BlockStorage.js';
 import logger from '../../src/logger.js';
 import { startMongoDb, stopMongoDb } from '../TestContainers.js';
+import mongoose from 'mongoose';
 
 describe('Block Storage Tests', () => {
   jest.setTimeout(60000);
@@ -39,7 +40,11 @@ describe('Block Storage Tests', () => {
     container = await startMongoDb();
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    if (mongoose.connection.readyState !== 0) {
+      logger.info('Closing mongoose connection...');
+      await mongoose.connection.close();
+    }
     stopMongoDb(container);
   });
 

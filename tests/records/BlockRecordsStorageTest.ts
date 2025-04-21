@@ -8,6 +8,8 @@ import { StartedTestContainer } from 'testcontainers';
 
 import { BlockRecordsStorage } from '../../src/records/BlockRecordsStorage.js';
 import { startMongoDb, stopMongoDb } from '../TestContainers.js';
+import mongoose from 'mongoose';
+import logger from '../../src/logger.js';
 
 describe('Block Records Storage Tests', () => {
   jest.setTimeout(60000);
@@ -18,7 +20,11 @@ describe('Block Records Storage Tests', () => {
     container = await startMongoDb();
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    if (mongoose.connection.readyState !== 0) {
+      logger.info('Closing mongoose connection...');
+      await mongoose.connection.close();
+    }
     stopMongoDb(container);
   });
 

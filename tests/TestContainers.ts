@@ -4,14 +4,16 @@ import { StartedTestContainer } from 'testcontainers';
 
 import logger from '../src/logger.js';
 
-export async function startMongoDb(): Promise<StartedTestContainer> {
+export async function startMongoDb(connectMongoose: boolean = true): Promise<StartedTestContainer> {
   const container = await new MongoDBContainer('mongo:7').start();
   const uri = container.getConnectionString();
   logger.info(`Connecting to MongoDB URI %s.`, uri);
-  await mongoose
-    .connect(uri, { serverSelectionTimeoutMS: 5000, directConnection: true })
-    .then(() => logger.info('Connected successfully.'))
-    .catch((err) => logger.error('Failed to connect to MongoDB: ', err));
+  if (connectMongoose) {
+    await mongoose
+      .connect(uri, { serverSelectionTimeoutMS: 5000, directConnection: true })
+      .then(() => logger.info('Connected successfully.'))
+      .catch((err) => logger.error('Failed to connect to MongoDB: ', err));
+  }
   return container;
 }
 

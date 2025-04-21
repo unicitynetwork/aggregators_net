@@ -23,7 +23,11 @@ describe('Aggregator Record Storage Tests', () => {
     container = await startMongoDb();
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    if (mongoose.connection.readyState !== 0) {
+      logger.info('Closing mongoose connection...');
+      await mongoose.connection.close();
+    }
     stopMongoDb(container);
   });
 
