@@ -17,24 +17,24 @@ import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 'testcontainers';
-
+import mongoose from 'mongoose';
 import { AggregatorGateway } from '../../../src/AggregatorGateway.js';
 import logger from '../../../src/logger.js';
 import { SubmitCommitmentStatus } from '../../../src/SubmitCommitmentResponse.js';
 
 describe('Alphabill Client Integration Tests', () => {
-  jest.setTimeout(60000);
-
   const composeFilePath = 'tests';
   const composeAlphabill = 'consensus/alphabill/docker/alphabill-docker-compose.yml';
 
   const privateKey = '1DE87F189C3C9E42F93C90C95E2AC761BE9D0EB2FD1CA0FF3A9CE165C3DE96A9';
   const alphabillSigningService = new DefaultSigningService(Base16Converter.decode(privateKey));
   const proofFactory = new PayToPublicKeyHashProofFactory(alphabillSigningService);
-  const tokenPartitionUrl = 'http://localhost:8003/rpc';
+  const tokenPartitionUrl = 'http://localhost:11003/rpc';
   const networkId = 3;
-  const tokenPartitionId = 2;
+  const tokenPartitionId = 5;
   const initialBlockHash = '185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969';
+  const aggregatorPort = 3333;
+  const aggregatorUrl = 'http://localhost:' + aggregatorPort;
 
   let mongoContainer: StartedMongoDBContainer;
   let stateHash: DataHash;
@@ -51,12 +51,12 @@ describe('Alphabill Client Integration Tests', () => {
     mongoContainer = await new MongoDBContainer('mongo:7').start();
     aggregatorEnvironment = await new DockerComposeEnvironment(composeFilePath, composeAlphabill)
       .withBuild()
-      .withWaitStrategy('alphabill-tokens-1', Wait.forHealthCheck())
+      .withWaitStrategy('alphabill-permissioned-tokens-1', Wait.forHealthCheck())
       .withStartupTimeout(15000)
       .up();
     logger.info('Setup successful.');
 
-    // Wait for Alphabill nodes to start up
+    // Wait for Alphabill nodes to sync up
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
     // Set fee credit
@@ -85,6 +85,7 @@ describe('Alphabill Client Integration Tests', () => {
     aggregator = await AggregatorGateway.create({
       aggregatorConfig: {
         initialBlockHash: initialBlockHash,
+        port: aggregatorPort,
       },
       alphabill: {
         privateKey: privateKey,
@@ -101,17 +102,26 @@ describe('Alphabill Client Integration Tests', () => {
     transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2])).digest();
     unicitySigningService = new SigningService(HexConverter.decode(privateKey));
     requestId = await RequestId.create(unicitySigningService.publicKey, stateHash);
-  });
+  }, 60000);
 
-  afterAll(() => {
-    aggregatorEnvironment.down();
-    aggregator.stop();
-    mongoContainer.stop({ timeout: 10 });
-  });
+  afterAll(async () => {
+    logger.info('Stopping aggregator...');
+    await aggregator.stop();
+    logger.info('Stopping environment...');
+    await aggregatorEnvironment.down();
+
+    if (mongoose.connection.readyState !== 0) {
+      logger.info('Closing mongoose connection...');
+      await mongoose.connection.close();
+    }
+
+    logger.info('Stopping mongo container...');
+    await mongoContainer.stop({ timeout: 10 });
+  }, 60000);
 
   it('Submit commitment to aggregator and wait for inclusion proof', async () => {
     const authenticator: Authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
-    const submitCommitmentResponse = await fetch('http://localhost:80', {
+    const submitCommitmentResponse = await fetch(aggregatorUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -131,7 +141,7 @@ describe('Alphabill Client Integration Tests', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
-    const getInclusionProofResponse = await fetch('http://localhost:80', {
+    const getInclusionProofResponse = await fetch(aggregatorUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -147,7 +157,7 @@ describe('Alphabill Client Integration Tests', () => {
     const inclusionProof = InclusionProof.fromDto(JSON.parse(inclusionProofData));
     const verificationResult = await inclusionProof.verify(requestId.toBigInt());
     expect(verificationResult).toBeTruthy();
-  });
+  }, 60000);
 
   it('Re-submit commitment to aggregator with same requestID but different state, expect error', async () => {
     const newStateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([3, 4])).digest();
@@ -156,7 +166,7 @@ describe('Alphabill Client Integration Tests', () => {
       transactionHash,
       newStateHash,
     );
-    const submitCommitmentResponse = await fetch('http://localhost:80', {
+    const submitCommitmentResponse = await fetch(aggregatorUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -174,11 +184,11 @@ describe('Alphabill Client Integration Tests', () => {
     expect(submitCommitmentData).not.toBeNull();
     expect(submitCommitmentData.status).toEqual(SubmitCommitmentStatus.REQUEST_ID_MISMATCH);
     logger.info('Submit commitment response: ' + JSON.stringify(submitCommitmentData, null, 2));
-  });
+  }, 60000);
 
   it('Validate first block hash is set to initial block hash', async () => {
     const firstBlock = await aggregator.getRoundManager().getBlockStorage().get(1n);
     expect(firstBlock!.index).toEqual(1n);
     expect(HexConverter.encode(firstBlock!.previousBlockHash)).toEqual(initialBlockHash);
-  });
+  }, 60000);
 });

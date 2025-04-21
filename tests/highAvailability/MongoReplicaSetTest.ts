@@ -35,10 +35,15 @@ describe('Mongo Replica Set Tests', () => {
     process.env.MONGODB_URI = replicaSet.uri;
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    if (mongoose.connection.readyState !== 0) {
+      logger.info('Closing mongoose connection...');
+      await mongoose.connection.close();
+    }
+
     for (const container of containers) {
       try {
-        container.stop({ timeout: 10 });
+        await container.stop({ timeout: 10 });
       } catch (e) {
         logger.error('Error stopping container:', e);
       }

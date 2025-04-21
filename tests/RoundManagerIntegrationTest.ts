@@ -10,6 +10,7 @@ import { startMongoDb, stopMongoDb } from './TestContainers.js';
 import { AggregatorGateway } from '../src/AggregatorGateway.js';
 import { Commitment } from '../src/commitment/Commitment.js';
 import logger from '../src/logger.js';
+import mongoose from 'mongoose';
 
 describe('Round Manager Tests', () => {
   jest.setTimeout(60000);
@@ -18,7 +19,7 @@ describe('Round Manager Tests', () => {
   let aggregator: AggregatorGateway;
 
   beforeAll(async () => {
-    container = (await startMongoDb()) as StartedMongoDBContainer;
+    container = (await startMongoDb(false)) as StartedMongoDBContainer;
     logger.info('Starting aggregator...');
     aggregator = await AggregatorGateway.create({
       aggregatorConfig: {
@@ -32,9 +33,15 @@ describe('Round Manager Tests', () => {
     logger.info('Aggregator running.');
   });
 
-  afterAll(() => {
-    aggregator.stop();
-    stopMongoDb(container);
+  afterAll(async () => {
+    await aggregator.stop();
+
+    if (mongoose.connection.readyState !== 0) {
+      logger.info('Closing mongoose connection...');
+      await mongoose.connection.close();
+    }
+
+    await stopMongoDb(container);
   });
 
   it('Submit commitment and create block', async () => {
