@@ -105,13 +105,17 @@ describe('Alphabill Client Integration Tests', () => {
   }, 60000);
 
   afterAll(async () => {
-    await aggregatorEnvironment.down();
+    logger.info('Stopping aggregator...');
     await aggregator.stop();
+    logger.info('Stopping environment...');
+    await aggregatorEnvironment.down();
 
     if (mongoose.connection.readyState !== 0) {
+      logger.info('Closing mongoose connection...');
       await mongoose.connection.close();
     }
 
+    logger.info('Stopping mongo container...');
     await mongoContainer.stop({ timeout: 10 });
   }, 60000);
 
