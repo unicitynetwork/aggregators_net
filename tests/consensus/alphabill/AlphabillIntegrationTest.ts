@@ -17,7 +17,7 @@ import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 'testcontainers';
-
+import mongoose from 'mongoose';
 import { AggregatorGateway } from '../../../src/AggregatorGateway.js';
 import logger from '../../../src/logger.js';
 import { SubmitCommitmentStatus } from '../../../src/SubmitCommitmentResponse.js';
@@ -104,10 +104,15 @@ describe('Alphabill Client Integration Tests', () => {
     requestId = await RequestId.create(unicitySigningService.publicKey, stateHash);
   }, 60000);
 
-  afterAll(() => {
-    aggregatorEnvironment.down();
-    aggregator.stop();
-    mongoContainer.stop({ timeout: 10 });
+  afterAll(async () => {
+    await aggregatorEnvironment.down();
+    await aggregator.stop();
+
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close();
+    }
+
+    await mongoContainer.stop({ timeout: 10 });
   }, 60000);
 
   it('Submit commitment to aggregator and wait for inclusion proof', async () => {
