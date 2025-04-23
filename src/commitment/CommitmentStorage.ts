@@ -99,12 +99,12 @@ export class CommitmentStorage implements ICommitmentStorage {
       const sequenceId = await getNextSequenceValue('commitment_counter');
       const commitmentData = {
         requestId: commitment.requestId.toDto(),
-        transactionHash: commitment.transactionHash.data,
+        transactionHash: commitment.transactionHash.imprint,
         authenticator: {
           algorithm: commitment.authenticator.algorithm,
           publicKey: commitment.authenticator.publicKey,
           signature: commitment.authenticator.signature.encode(),
-          stateHash: commitment.authenticator.stateHash.data,
+          stateHash: commitment.authenticator.stateHash.imprint,
         },
         sequenceId,
       };
