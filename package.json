@@ -25,7 +25,7 @@
   "dependencies": {
     "@alphabill/alphabill-js-sdk": "1.0.0-b13f7ce-rc.661b72e",
     "@types/node": "22.14.1",
-    "@unicitylabs/commons": "github:unicitynetwork/shared",
+    "@unicitylabs/commons": "^2.2.0-rc.40ace5e",
     "cors": "2.8.5",
     "dotenv": "16.5.0",
     "express": "5.1.0",
