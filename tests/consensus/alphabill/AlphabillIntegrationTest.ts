@@ -2,7 +2,6 @@ import { SetFeeCredit } from '@alphabill/alphabill-js-sdk/lib/fees/transactions/
 import { DefaultSigningService } from '@alphabill/alphabill-js-sdk/lib/signing/DefaultSigningService.js';
 import { createTokenClient, http } from '@alphabill/alphabill-js-sdk/lib/StateApiClientFactory.js';
 import { ClientMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/ClientMetadata.js';
-import { AlwaysTruePredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/AlwaysTruePredicate.js';
 import { PayToPublicKeyHashPredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/PayToPublicKeyHashPredicate.js';
 import { PayToPublicKeyHashProofFactory } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/PayToPublicKeyHashProofFactory.js';
 import { TransactionStatus } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionStatus.js';
@@ -74,7 +73,7 @@ describe('Alphabill Client Integration Tests', () => {
       partitionIdentifier: tokenPartitionId,
       stateLock: null,
       metadata: new ClientMetadata(round + 60n, 5n, null, null),
-      stateUnlock: new AlwaysTruePredicate(),
+      stateUnlock: null,
     }).sign(proofFactory);
     const setFeeCreditHash = await tokenClient.sendTransaction(setFeeCreditTransactionOrder);
     const setFeeCreditProof = await tokenClient.waitTransactionProof(setFeeCreditHash, SetFeeCredit);
