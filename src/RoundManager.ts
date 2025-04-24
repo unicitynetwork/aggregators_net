@@ -43,6 +43,7 @@ export class RoundManager {
 
   public async createBlock(): Promise<Block> {
     const blockNumber = await this.blockStorage.getNextBlockNumber();
+    logger.info(`Creating block ${blockNumber}...`);
     const commitments = await this.commitmentStorage.getCommitmentsForBlock();
 
     const commitmentCount = commitments?.length || 0;
@@ -106,8 +107,9 @@ export class RoundManager {
     let submitHashResponse;
     const rootHash = this.smt.rootHash;
     try {
-      loggerWithMetadata.info(`Submitting hash to Alphabill: ${rootHash.toString()}`);
+      loggerWithMetadata.info(`Submitting hash to Alphabill: ${rootHash.toString()}...`);
       submitHashResponse = await this.alphabillClient.submitHash(rootHash);
+      loggerWithMetadata.info(`Hash submitted to Alphabill: ${rootHash.toString()}`);
     } catch (error) {
       loggerWithMetadata.error('Failed to submit hash to Alphabill:', error);
       throw error;

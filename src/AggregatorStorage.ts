@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose, { ConnectOptions } from 'mongoose';
 
 import { CommitmentStorage } from './commitment/CommitmentStorage.js';
 import { ICommitmentStorage } from './commitment/ICommitmentStorage.js';
@@ -29,16 +29,28 @@ export class AggregatorStorage {
 
   public static async init(uri: string): Promise<AggregatorStorage> {
     try {
-      logger.info('Connecting to MongoDB URI %s.', uri);
-      const mongooseOptions = {
+      logger.info('Connecting to MongoDB...');
+      const mongooseOptions: ConnectOptions = {
         connectTimeoutMS: 15000,
         heartbeatFrequencyMS: 1000,
         serverSelectionTimeoutMS: 30000,
+        writeConcern: {
+          w: 'majority', // Wait for the majority of the replicas to acknowledge the write
+          j: true, // Wait for the journal to flush the write to disk
+        },
       };
-      await mongoose
-        .connect(uri, mongooseOptions)
-        .then(() => logger.info('Connected to MongoDB successfully.'))
-        .catch((err) => logger.error('Failed to connect to MongoDB: ', err));
+      try {
+        await mongoose.connect(uri, mongooseOptions)
+        logger.info('Connected to MongoDB successfully.');
+        logger.debug('Connection details:', {
+          host: mongoose.connection.host,
+          port: mongoose.connection.port,
+          name: mongoose.connection.name,
+        });
+      } catch (error) {
+        logger.error('Failed to connect to MongoDB: ', error);
+        throw error;
+      }
 
       mongoose.connection.on('error', (error) => {
         logger.error('MongoDB connection error: ', error);
