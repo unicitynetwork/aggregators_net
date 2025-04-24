@@ -21,7 +21,7 @@ import { IAlphabillClient } from './IAlphabillClient.js';
 import { SubmitHashResponse } from './SubmitHashResponse.js';
 import logger from '../../logger.js';
 import { NonFungibleTokenType } from '@alphabill/alphabill-js-sdk/lib/tokens/NonFungibleTokenType.js';
-import { IPredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/IPredicate.js';
+import { AlwaysFalsePredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/AlwaysFalsePredicate.js';
 
 export class AlphabillClient implements IAlphabillClient {
   private constructor(
@@ -171,26 +171,5 @@ export class AlphabillClient implements IAlphabillClient {
     const updateNftTxStatus = updateNonFungibleTokenProof.transactionRecord.serverMetadata.successIndicator;
     logger.info(`Update NFT transaction status - ${TransactionStatus[updateNftTxStatus]}.`);
     return new SubmitHashResponse(token.data, updateNonFungibleTokenProof);
-  }
-}
-
-
-/**
- * Always false predicate.
- * TODO: move to SDK
- */
-class AlwaysFalsePredicate implements IPredicate {
-  /**
-   * @see {IPredicate.bytes}
-   */
-  get bytes() {
-    return new Uint8Array([0x83, 0x00, 0x41, 0x00, 0xf6]);
-  }
-  /**
-   * Convert to string.
-   * @returns {string} String representation.
-   */
-  toString() {
-    return 'AlwaysFalsePredicate';
   }
 }
