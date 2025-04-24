@@ -83,7 +83,7 @@ export class MockAlphabillClient implements IAlphabillClient {
       metadata: new ClientMetadata(1n, 1n, new UnitId(new Uint8Array([1, 2, 3]), new Uint8Array([0, 0, 0, 1])), null),
       networkIdentifier: this.networkId,
       stateLock: null,
-      stateUnlock: new AlwaysTruePredicate(),
+      stateUnlock: null,
       token: mockToken,
       version: 1n,
       encode: () => new Uint8Array([1, 2, 3]),

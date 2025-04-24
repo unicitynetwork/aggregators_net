@@ -20,6 +20,8 @@ import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { IAlphabillClient } from './IAlphabillClient.js';
 import { SubmitHashResponse } from './SubmitHashResponse.js';
 import logger from '../../logger.js';
+import { NonFungibleTokenType } from '@alphabill/alphabill-js-sdk/lib/tokens/NonFungibleTokenType.js';
+import { AlwaysFalsePredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/AlwaysFalsePredicate.js';
 
 export class AlphabillClient implements IAlphabillClient {
   private constructor(
@@ -59,53 +61,56 @@ export class AlphabillClient implements IAlphabillClient {
     }
     const feeCreditRecordId = feeCredits.at(0)!;
     const round = (await tokenClient.getRoundInfo()).roundNumber;
-    const identifier = new Uint8Array([1, 2, 3]);
+    const identifier = new Uint8Array([1, 2, 3, 4]);
     const tokenTypeUnitId = new UnitIdWithType(identifier, TokenPartitionUnitType.NON_FUNGIBLE_TOKEN_TYPE);
-    logger.info(`Creating NFT type with unit ID ${tokenTypeUnitId}.`);
+    const nftType = await tokenClient.getUnit(tokenTypeUnitId, false, NonFungibleTokenType)
+    if (nftType === null) {
+      logger.info(`Creating NFT type with unit ID ${tokenTypeUnitId}.`);
 
-    const createNonFungibleTokenTypeTransactionOrder = await CreateNonFungibleTokenType.create({
-      dataUpdatePredicate: new AlwaysTruePredicate(),
-      icon: { data: new Uint8Array(), type: 'image/png' },
-      metadata: new ClientMetadata(round + 60n, 5n, feeCreditRecordId, null),
-      name: 'Unicity Trust Anchor',
-      networkIdentifier: networkId,
-      parentTypeId: null,
-      partitionIdentifier: tokenPartitionId,
-      stateLock: null,
-      stateUnlock: new AlwaysTruePredicate(),
-      subTypeCreationPredicate: new AlwaysTruePredicate(),
-      symbol: 'Unicity',
-      tokenMintingPredicate: new AlwaysTruePredicate(),
-      tokenTypeOwnerPredicate: new AlwaysTruePredicate(),
-      typeId: tokenTypeUnitId,
-      version: 1n,
-    }).sign(proofFactory, []);
-    const createNonFungibleTokenTypeHash = await tokenClient.sendTransaction(
-      createNonFungibleTokenTypeTransactionOrder,
-    );
-    const createNonFungibleTokenTypeProof = await tokenClient.waitTransactionProof(
-      createNonFungibleTokenTypeHash,
-      CreateNonFungibleTokenType,
-    );
-    const txStatus = createNonFungibleTokenTypeProof.transactionRecord.serverMetadata.successIndicator;
-    logger.info(`Create NFT type transaction status - ${TransactionStatus[txStatus]}.`);
+      const createNonFungibleTokenTypeTransactionOrder = await CreateNonFungibleTokenType.create({
+        icon: { data: new Uint8Array(), type: 'image/png' },
+        metadata: new ClientMetadata(round + 60n, 5n, feeCreditRecordId, null),
+        name: 'Unicity Trust Anchor',
+        networkIdentifier: networkId,
+        parentTypeId: null,
+        partitionIdentifier: tokenPartitionId,
+        stateLock: null,
+        stateUnlock: null,
+        symbol: 'Unicity',
+        typeId: tokenTypeUnitId,
+        version: 1n,
+        subTypeCreationPredicate: new AlwaysFalsePredicate(),
+        tokenMintingPredicate: PayToPublicKeyHashPredicate.create(signingService.publicKey),
+        tokenTypeOwnerPredicate: new AlwaysTruePredicate(),
+        dataUpdatePredicate: new AlwaysTruePredicate(),
+      }).sign(proofFactory, []);
+      const createNonFungibleTokenTypeHash = await tokenClient.sendTransaction(
+        createNonFungibleTokenTypeTransactionOrder,
+      );
+      const createNonFungibleTokenTypeProof = await tokenClient.waitTransactionProof(
+        createNonFungibleTokenTypeHash,
+        CreateNonFungibleTokenType,
+      );
+      const txStatus = createNonFungibleTokenTypeProof.transactionRecord.serverMetadata.successIndicator;
+      logger.info(`Create NFT type transaction status - ${TransactionStatus[txStatus]}.`);
+    }
 
     logger.info(`Creating NFT.`);
     const createNonFungibleTokenTransactionOrder = await CreateNonFungibleToken.create({
       data: NonFungibleTokenData.create(new Uint8Array()),
-      dataUpdatePredicate: new AlwaysTruePredicate(),
       metadata: new ClientMetadata(round + 60n, 5n, feeCreditRecordId, null),
       name: 'Unicity Trust Anchor',
       networkIdentifier: networkId,
       nonce: 0n,
-      ownerPredicate: PayToPublicKeyHashPredicate.create(signingService.publicKey),
       partitionIdentifier: tokenPartitionId,
       stateLock: null,
-      stateUnlock: new AlwaysTruePredicate(),
+      stateUnlock: null,
       typeId: tokenTypeUnitId,
       uri: 'https://github.com/unicitynetwork',
       version: 1n,
-    }).sign(alwaysTrueProofFactory, proofFactory);
+      dataUpdatePredicate: PayToPublicKeyHashPredicate.create(signingService.publicKey),
+      ownerPredicate: PayToPublicKeyHashPredicate.create(signingService.publicKey),
+    }).sign(proofFactory, proofFactory);
     const createNonFungibleTokenHash = await tokenClient.sendTransaction(createNonFungibleTokenTransactionOrder);
     const createNonFungibleTokenProof = await tokenClient.waitTransactionProof(
       createNonFungibleTokenHash,
@@ -154,10 +159,10 @@ export class AlphabillClient implements IAlphabillClient {
       networkIdentifier: this.networkId,
       partitionIdentifier: this.partitionId,
       stateLock: null,
-      stateUnlock: new AlwaysTruePredicate(),
+      stateUnlock: null,
       token: token,
       version: 1n,
-    }).sign(this.alwaysTrueProofFactory, this.proofFactory, [this.alwaysTrueProofFactory]);
+    }).sign(this.proofFactory, this.proofFactory, [this.alwaysTrueProofFactory]);
     const updateNonFungibleTokenHash = await this.tokenClient.sendTransaction(updateNonFungibleTokenTransactionOrder);
     const updateNonFungibleTokenProof = await this.tokenClient.waitTransactionProof(
       updateNonFungibleTokenHash,
