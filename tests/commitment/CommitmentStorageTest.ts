@@ -60,7 +60,7 @@ describe('CommitmentStorage Tests', () => {
     const originalTransactionHashImprint = new Uint8Array(commitment.transactionHash.imprint);
     const originalStateHashImprint = new Uint8Array(commitment.authenticator.stateHash.imprint);
     const originalRequestId = commitment.requestId.toDto();
-    const originalSignature = new Uint8Array(commitment.authenticator.signature.encode());
+    const originalSignatureWithoutRecovery = new Uint8Array(commitment.authenticator.signature.bytes);
     const originalPublicKey = new Uint8Array(commitment.authenticator.publicKey);
     const originalAlgorithm = commitment.authenticator.algorithm;
     
@@ -75,7 +75,10 @@ describe('CommitmentStorage Tests', () => {
     expect(retrievedCommitment.requestId.toDto()).toEqual(originalRequestId);
     expect(new Uint8Array(retrievedCommitment.transactionHash.imprint)).toEqual(originalTransactionHashImprint);
     expect(new Uint8Array(retrievedCommitment.authenticator.stateHash.imprint)).toEqual(originalStateHashImprint);
-    expect(new Uint8Array(retrievedCommitment.authenticator.signature.encode())).toEqual(originalSignature);
+    
+    const retrievedSignatureWithoutRecovery = new Uint8Array(retrievedCommitment.authenticator.signature.bytes);
+    expect(retrievedSignatureWithoutRecovery).toEqual(originalSignatureWithoutRecovery);
+    
     expect(new Uint8Array(retrievedCommitment.authenticator.publicKey)).toEqual(originalPublicKey);
     expect(retrievedCommitment.authenticator.algorithm).toEqual(originalAlgorithm);
     expect(retrievedCommitment.transactionHash.algorithm).toEqual(commitment.transactionHash.algorithm);
@@ -96,6 +99,7 @@ describe('CommitmentStorage Tests', () => {
       requestId: c.requestId.toDto(),
       transactionHashImprint: new Uint8Array(c.transactionHash.imprint),
       stateHashImprint: new Uint8Array(c.authenticator.stateHash.imprint),
+      signatureBytes: new Uint8Array(c.authenticator.signature.bytes),
       transactionHashString: c.transactionHash.toString(),
       stateHashString: c.authenticator.stateHash.toString()
     }));
@@ -119,6 +123,7 @@ describe('CommitmentStorage Tests', () => {
       expect(retrieved.requestId.toDto()).toEqual(original.requestId);
       expect(new Uint8Array(retrieved.transactionHash.imprint)).toEqual(original.transactionHashImprint);
       expect(new Uint8Array(retrieved.authenticator.stateHash.imprint)).toEqual(original.stateHashImprint);
+      expect(new Uint8Array(retrieved.authenticator.signature.bytes)).toEqual(original.signatureBytes);
       expect(retrieved.transactionHash.toString()).toEqual(original.transactionHashString);
       expect(retrieved.authenticator.stateHash.toString()).toEqual(original.stateHashString);
     }

@@ -136,7 +136,7 @@ export class AlphabillClient implements IAlphabillClient {
     const feeCreditRecordId = feeCredits.at(0)!;
     const round = (await this.tokenClient.getRoundInfo()).roundNumber;
 
-    const updatedNftData = NonFungibleTokenData.create(transactionHash.data);
+    const updatedNftData = NonFungibleTokenData.create(transactionHash.imprint);
 
     const nonFungibleTokens = units.nonFungibleTokens;
     if (!nonFungibleTokens) {
