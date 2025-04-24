@@ -40,7 +40,7 @@ export class AggregatorStorage {
         },
       };
       try {
-        await mongoose.connect(uri, mongooseOptions)
+        await mongoose.connect(uri, mongooseOptions);
         logger.info('Connected to MongoDB successfully.');
         logger.debug('Connection details:', {
           host: mongoose.connection.host,

@@ -2,7 +2,10 @@ import { performance } from 'perf_hooks';
 
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
+import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import axios, { AxiosError } from 'axios';
 import mongoose from 'mongoose';
 import { GenericContainer, StartedTestContainer, Wait } from 'testcontainers';
@@ -12,9 +15,6 @@ import { AggregatorGateway, IGatewayConfig } from '../../src/AggregatorGateway.j
 import { Commitment } from '../../src/commitment/Commitment.js';
 import logger from '../../src/logger.js';
 import { SubmitCommitmentStatus } from '../../src/SubmitCommitmentResponse.js';
-import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
-import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 
 // Test configuration constants
 const TEST_REQUEST_COUNT = 1000;
@@ -76,27 +76,23 @@ interface SubmissionContext {
 let originalLogLevel: string;
 
 // Create a signing service for use in all tests
-const unicitySigningService = new SigningService(
-  HexConverter.decode(SIGNING_KEY)
-);
+const unicitySigningService = new SigningService(HexConverter.decode(SIGNING_KEY));
 
 // Helper function to submit a commitment
-async function submitCommitment(
-  commitment: Commitment,
-  index: number,
-  context: SubmissionContext
-): Promise<boolean> {
+async function submitCommitment(commitment: Commitment, index: number, context: SubmissionContext): Promise<boolean> {
   const requestId = commitment.requestId.toDto();
-  
+
   context.attemptedCount++; // Increment attempted count
-  
+
   // Log progress at regular intervals
   if (context.attemptedCount % SUMMARY_INTERVAL === 0) {
     logger.level = 'info';
-    logger.info(`Progress: Attempted ${context.attemptedCount}/${TEST_REQUEST_COUNT} commitments (${context.successCount} successful, ${context.failCount} failed, ${context.rateLimitedCommitments.length} rate-limited)`);
+    logger.info(
+      `Progress: Attempted ${context.attemptedCount}/${TEST_REQUEST_COUNT} commitments (${context.successCount} successful, ${context.failCount} failed, ${context.rateLimitedCommitments.length} rate-limited)`,
+    );
     logger.level = 'error';
   }
-  
+
   try {
     const response = await axios.post(context.baseUrl, {
       jsonrpc: '2.0',
@@ -108,7 +104,7 @@ async function submitCommitment(
       },
       id: index + 1,
     });
-    
+
     if (response.data && response.data.status === SubmitCommitmentStatus.SUCCESS) {
       context.successCount++;
       context.submittedRequestIds.add(requestId);
@@ -118,7 +114,7 @@ async function submitCommitment(
         timestamp: new Date().toISOString(),
         objectId: '',
       });
-      
+
       return true;
     } else {
       logger.error(`Failed response for commitment ${index}:`, response.data);
@@ -127,11 +123,11 @@ async function submitCommitment(
     }
   } catch (error) {
     const axiosError = error as AxiosError;
-    
+
     // Determine if this error is retryable
-    const isRetryable = 
+    const isRetryable =
       // Rate limited (429)
-      (axiosError.response?.status === 429) ||
+      axiosError.response?.status === 429 ||
       // Server errors (5xx)
       (axiosError.response?.status && axiosError.response.status >= 500) ||
       // Network errors (ECONNRESET, ETIMEDOUT, etc.)
@@ -141,12 +137,14 @@ async function submitCommitment(
       // Any other network-related error
       axiosError.code === 'ECONNABORTED' ||
       axiosError.code === 'ETIMEDOUT';
-    
+
     if (isRetryable) {
-      const errorType = axiosError.response?.status 
-        ? `HTTP ${axiosError.response.status}` 
-        : (error instanceof AggregateError ? 'AggregateError' : axiosError.code || 'Unknown error');
-      
+      const errorType = axiosError.response?.status
+        ? `HTTP ${axiosError.response.status}`
+        : error instanceof AggregateError
+          ? 'AggregateError'
+          : axiosError.code || 'Unknown error';
+
       logger.warn(`Retryable error (${errorType}) when submitting commitment ${index} - will retry later`);
       context.rateLimitedCommitments.push({ commitment, index });
       return false;
@@ -161,23 +159,23 @@ async function submitCommitment(
 // Generate test commitments
 async function generateTestCommitments(count: number): Promise<Commitment[]> {
   const commitments: Commitment[] = [];
-  
+
   logger.info(`Generating ${count} test commitments...`);
   const startTime = performance.now();
-  
+
   for (let i = 0; i < count; i++) {
     const randomId = uuidv4();
     const randomBytes = new TextEncoder().encode(`random-state-${randomId}-${Date.now()}-${i}`);
     const stateHash = await new DataHasher(HashAlgorithm.SHA256).update(randomBytes).digest();
-    
+
     const txRandomBytes = new TextEncoder().encode(`tx-${randomId}-${Date.now()}-${i}`);
     const transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(txRandomBytes).digest();
-    
+
     const requestId = await RequestId.create(unicitySigningService.publicKey, stateHash);
     const authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
-    
+
     commitments.push(new Commitment(requestId, transactionHash, authenticator));
-    
+
     // Log progress for large commitment generation
     if ((i + 1) % 1000 === 0) {
       const elapsed = performance.now() - startTime;
@@ -187,8 +185,10 @@ async function generateTestCommitments(count: number): Promise<Commitment[]> {
   }
 
   const generateTime = performance.now() - startTime;
-  logger.info(`Generated ${commitments.length} commitments in ${generateTime.toFixed(2)}ms (${(generateTime / count).toFixed(2)}ms per commitment)`);
-  
+  logger.info(
+    `Generated ${commitments.length} commitments in ${generateTime.toFixed(2)}ms (${(generateTime / count).toFixed(2)}ms per commitment)`,
+  );
+
   return commitments;
 }
 
@@ -290,55 +290,57 @@ async function setupReplicaSet(): Promise<IReplicaSet> {
 async function verifyBlockRecords(gateway: AggregatorGateway, expectedCount: number): Promise<boolean> {
   logger.info('Verifying block records...');
   const blockRecordsStorage = gateway.getRoundManager().getBlockRecordsStorage();
-  
+
   // Get all block numbers
   const latestBlock = await blockRecordsStorage.getLatest();
   if (!latestBlock) {
     logger.error('No blocks found!');
     return false;
   }
-  
+
   const startBlockNumber = 1n;
   const endBlockNumber = latestBlock.blockNumber;
-  
+
   logger.info(`Found blocks from ${startBlockNumber} to ${endBlockNumber}`);
-  
+
   // Track unique request IDs
   const uniqueRequestIds = new Set<string>();
   let totalRequestIds = 0;
-  
+
   // Process each block
   for (let blockNumber = startBlockNumber; blockNumber <= endBlockNumber; blockNumber++) {
     const blockRecords = await blockRecordsStorage.get(blockNumber);
-    
+
     if (blockRecords) {
       const requestIdCount = blockRecords.requestIds.length;
       totalRequestIds += requestIdCount;
-      
+
       // Add each request ID to the set
       for (const requestId of blockRecords.requestIds) {
         uniqueRequestIds.add(requestId.toDto());
       }
-      
+
       logger.info(`Block ${blockNumber}: ${requestIdCount} request IDs, cumulative unique: ${uniqueRequestIds.size}`);
     } else {
       logger.warn(`Block ${blockNumber} not found!`);
     }
   }
-  
+
   logger.info(`Block record verification complete:`);
   logger.info(`- Total blocks: ${endBlockNumber}`);
   logger.info(`- Total request IDs found: ${totalRequestIds}`);
   logger.info(`- Unique request IDs: ${uniqueRequestIds.size}`);
   logger.info(`- Expected unique request IDs: ${expectedCount}`);
-  
+
   const success = uniqueRequestIds.size === expectedCount;
   if (!success) {
-    logger.error(`Verification FAILED: Expected ${expectedCount} unique request IDs, but found ${uniqueRequestIds.size}`);
+    logger.error(
+      `Verification FAILED: Expected ${expectedCount} unique request IDs, but found ${uniqueRequestIds.size}`,
+    );
   } else {
     logger.info('Verification SUCCESSFUL: All expected request IDs were found in blocks');
   }
-  
+
   return success;
 }
 
@@ -351,7 +353,7 @@ describe('Aggregator Request Performance Benchmark', () => {
 
   beforeAll(async () => {
     logger.info('=========== STARTING PERFORMANCE BENCHMARK ===========');
-    
+
     // Save original log level and set to ERROR to reduce noise
     originalLogLevel = logger.level;
     logger.level = 'info'; // Keep info for benchmark metrics
@@ -391,7 +393,7 @@ describe('Aggregator Request Performance Benchmark', () => {
     } catch (error) {
       logger.warn('Failed to check gateway health:', (error as Error).message);
     }
-    
+
     // Now set logger to ERROR for the actual test (will be reset in afterAll)
     logger.info('Setting log level to ERROR for the test duration');
     logger.level = 'error';
@@ -431,13 +433,13 @@ describe('Aggregator Request Performance Benchmark', () => {
   it('should process a large batch of commitments efficiently', async () => {
     // Temporarily restore info level for the test output
     logger.level = 'info';
-    
+
     // Generate commitments
     const startGenerateTime = performance.now();
     const commitments = await generateTestCommitments(TEST_REQUEST_COUNT);
     const generateTime = performance.now() - startGenerateTime;
     logger.info(`Generated ${commitments.length} commitments in ${generateTime.toFixed(2)}ms`);
-    
+
     // Set back to error level for the submission phase
     logger.level = 'error';
 
@@ -450,33 +452,33 @@ describe('Aggregator Request Performance Benchmark', () => {
       submittedRequestIds: new Set<string>(),
       rateLimitedCommitments: [],
       processingResults: new Map<string, ProcessingResult>(),
-      attemptedCount: 0
+      attemptedCount: 0,
     };
 
     // Start submission
-    logger.level = 'info';  // Temporarily restore info logging for test metrics
+    logger.level = 'info'; // Temporarily restore info logging for test metrics
     logger.info(`Starting submission of ${TEST_REQUEST_COUNT} commitments...`);
-    logger.level = 'error';  // Back to error level for the actual submission
-    
+    logger.level = 'error'; // Back to error level for the actual submission
+
     const startTime = performance.now();
 
     // Initial submission of all commitments
     for (let i = 0; i < commitments.length; i += TEST_BATCH_SIZE) {
       const batchNumber = Math.floor(i / TEST_BATCH_SIZE) + 1;
       const batchStartTime = performance.now();
-      
+
       const batch = commitments.slice(i, i + TEST_BATCH_SIZE);
-      const batchPromises = batch.map((commitment, idx) => 
-        submitCommitment(commitment, i + idx, context)
-      );
+      const batchPromises = batch.map((commitment, idx) => submitCommitment(commitment, i + idx, context));
       await Promise.all(batchPromises);
-      
+
       const batchEndTime = performance.now();
       const batchDuration = batchEndTime - batchStartTime;
-      
+
       // Log batch timing
       logger.level = 'info';
-      logger.info(`Batch ${batchNumber}/${Math.ceil(commitments.length / TEST_BATCH_SIZE)}: processed ${batch.length} commitments in ${batchDuration.toFixed(2)}ms (${(batchDuration / batch.length).toFixed(2)}ms per commitment)`);
+      logger.info(
+        `Batch ${batchNumber}/${Math.ceil(commitments.length / TEST_BATCH_SIZE)}: processed ${batch.length} commitments in ${batchDuration.toFixed(2)}ms (${(batchDuration / batch.length).toFixed(2)}ms per commitment)`,
+      );
       logger.level = 'error';
     }
 
@@ -485,49 +487,51 @@ describe('Aggregator Request Performance Benchmark', () => {
       logger.level = 'info';
       logger.info(`Retrying ${context.rateLimitedCommitments.length} rate-limited requests...`);
       logger.level = 'error';
-      
+
       for (let retry = 0; retry < MAX_RETRY_ATTEMPTS; retry++) {
         if (context.rateLimitedCommitments.length === 0) break;
-        
+
         // Exponential backoff - wait longer between each retry attempt
         const backoffMs = INITIAL_BACKOFF_MS * Math.pow(2, retry);
-        
+
         logger.level = 'info';
-        logger.info(`Retry attempt ${retry + 1}/${MAX_RETRY_ATTEMPTS} - waiting ${backoffMs}ms before retrying ${context.rateLimitedCommitments.length} requests`);
+        logger.info(
+          `Retry attempt ${retry + 1}/${MAX_RETRY_ATTEMPTS} - waiting ${backoffMs}ms before retrying ${context.rateLimitedCommitments.length} requests`,
+        );
         logger.level = 'error';
-        
-        await new Promise(resolve => setTimeout(resolve, backoffMs));
-        
+
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+
         // Process in smaller batches for retries to avoid hitting rate limits again
         const retryBatchSize = Math.max(10, Math.floor(TEST_BATCH_SIZE / (retry + 2)));
         const currentBatch = [...context.rateLimitedCommitments];
         context.rateLimitedCommitments.length = 0; // Clear the array, will be refilled with failures
-        
+
         // Process in smaller batches with delay between each batch
         for (let i = 0; i < currentBatch.length; i += retryBatchSize) {
           const retryBatchNumber = Math.floor(i / retryBatchSize) + 1;
           const retryBatchStartTime = performance.now();
-          
+
           const batch = currentBatch.slice(i, i + retryBatchSize);
-          const batchPromises = batch.map(({ commitment, index }) => 
-            submitCommitment(commitment, index, context)
-          );
+          const batchPromises = batch.map(({ commitment, index }) => submitCommitment(commitment, index, context));
           await Promise.all(batchPromises);
-          
+
           const retryBatchEndTime = performance.now();
           const retryBatchDuration = retryBatchEndTime - retryBatchStartTime;
-          
+
           // Log retry batch timing
           logger.level = 'info';
-          logger.info(`Retry ${retry + 1} - Batch ${retryBatchNumber}/${Math.ceil(currentBatch.length / retryBatchSize)}: processed ${batch.length} commitments in ${retryBatchDuration.toFixed(2)}ms (${(retryBatchDuration / batch.length).toFixed(2)}ms per commitment)`);
+          logger.info(
+            `Retry ${retry + 1} - Batch ${retryBatchNumber}/${Math.ceil(currentBatch.length / retryBatchSize)}: processed ${batch.length} commitments in ${retryBatchDuration.toFixed(2)}ms (${(retryBatchDuration / batch.length).toFixed(2)}ms per commitment)`,
+          );
           logger.level = 'error';
-          
+
           // Small delay between batches during retry
           if (i + retryBatchSize < currentBatch.length) {
-            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+            await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
           }
         }
-        
+
         if (context.rateLimitedCommitments.length === 0) {
           logger.level = 'info';
           logger.info(`All retries successful on attempt ${retry + 1}`);
@@ -535,32 +539,36 @@ describe('Aggregator Request Performance Benchmark', () => {
           break;
         }
       }
-      
+
       // After all retries, if we still have rate-limited requests, count them as failures
       if (context.rateLimitedCommitments.length > 0) {
         logger.level = 'info';
-        logger.warn(`${context.rateLimitedCommitments.length} requests still failed after ${MAX_RETRY_ATTEMPTS} retry attempts`);
+        logger.warn(
+          `${context.rateLimitedCommitments.length} requests still failed after ${MAX_RETRY_ATTEMPTS} retry attempts`,
+        );
         logger.level = 'error';
         context.failCount += context.rateLimitedCommitments.length;
       }
     }
 
     const submissionTime = performance.now() - startTime;
-    
+
     // Restore info level for results
     logger.level = 'info';
     logger.info('----- SUBMISSION RESULTS -----');
     logger.info(
       `${TEST_REQUEST_COUNT} commitments attempted in ${submissionTime.toFixed(2)}ms (${(submissionTime / TEST_REQUEST_COUNT).toFixed(2)}ms per commitment)`,
     );
-    logger.info(`Success: ${context.successCount}, Failed: ${context.failCount}, Rate Limited: ${context.rateLimitedCommitments.length}`);
-    
+    logger.info(
+      `Success: ${context.successCount}, Failed: ${context.failCount}, Rate Limited: ${context.rateLimitedCommitments.length}`,
+    );
+
     // Calculate throughput
     const tps = (context.successCount / (submissionTime / 1000)).toFixed(2);
     logger.info(`Submission throughput: ${tps} requests per second`);
 
     // Wait for block processing
-    logger.info(`Waiting ${WAIT_FOR_BLOCK_PROCESSING_MS/1000} seconds for all blocks to be processed...`);
+    logger.info(`Waiting ${WAIT_FOR_BLOCK_PROCESSING_MS / 1000} seconds for all blocks to be processed...`);
     await new Promise((resolve) => setTimeout(resolve, WAIT_FOR_BLOCK_PROCESSING_MS));
 
     // Verify blocks were processed
@@ -576,13 +584,15 @@ describe('Aggregator Request Performance Benchmark', () => {
     logger.info(`Commitment processing success rate: ${successRate.toFixed(2)}%`);
 
     if (processedCount < context.successCount) {
-      logger.warn(`Some commitments were not processed: Submitted ${context.successCount}, Processed ${processedCount}`);
+      logger.warn(
+        `Some commitments were not processed: Submitted ${context.successCount}, Processed ${processedCount}`,
+      );
     }
-    
+
     // Verify all commitments were stored in blocks
     const verificationResult = await verifyBlockRecords(gateway, context.successCount);
     expect(verificationResult).toBe(true);
-    
+
     logger.info('----- BENCHMARK COMPLETE -----');
   });
 });

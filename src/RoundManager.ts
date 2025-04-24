@@ -143,7 +143,9 @@ export class RoundManager {
         this.commitmentCounter += commitmentCount;
       }
 
-      loggerWithMetadata.info(`Block ${blockNumber} created successfully with ${commitmentCount} commitments (${this.commitmentCounter}/${this.submitCounter} total commitments processed)`);
+      loggerWithMetadata.info(
+        `Block ${blockNumber} created successfully with ${commitmentCount} commitments (${this.commitmentCounter}/${this.submitCounter} total commitments processed)`,
+      );
 
       return block;
     } catch (error) {

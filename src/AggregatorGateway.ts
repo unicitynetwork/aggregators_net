@@ -120,7 +120,7 @@ export class AggregatorGateway {
         uri: config.storage?.uri ?? 'mongodb://localhost:27017/',
       },
     };
-    const serverId = `${os.hostname()}-${process.pid}`
+    const serverId = `${os.hostname()}-${process.pid}`;
     const mongoUri = config.storage?.uri ?? 'mongodb://localhost:27017/';
     const storage = await AggregatorStorage.init(mongoUri);
 
@@ -166,11 +166,11 @@ export class AggregatorGateway {
     app.use(bodyParser.json());
 
     const gateway = new AggregatorGateway(
-      serverId, 
+      serverId,
       null as unknown as Server, // Will be set later
-      leaderElection, 
+      leaderElection,
       roundManager,
-      config.aggregatorConfig!.concurrencyLimit!
+      config.aggregatorConfig!.concurrencyLimit!,
     );
 
     if (config.aggregatorConfig?.concurrencyLimit) {
@@ -188,15 +188,16 @@ export class AggregatorGateway {
             : 'standalone',
         serverId: serverId,
         activeRequests: gateway.activeRequests,
-        maxConcurrentRequests: gateway.maxConcurrentRequests
+        maxConcurrentRequests: gateway.maxConcurrentRequests,
       });
     });
 
     app.post('/', async (req: Request, res: Response): Promise<any> => {
       // Check if we're at capacity before processing the request
-      if (config.aggregatorConfig?.concurrencyLimit && 
-          gateway.activeRequests >= gateway.maxConcurrentRequests) {
-        logger.warn(`Concurrency limit reached (${gateway.activeRequests}/${gateway.maxConcurrentRequests}). Request rejected.`);
+      if (config.aggregatorConfig?.concurrencyLimit && gateway.activeRequests >= gateway.maxConcurrentRequests) {
+        logger.warn(
+          `Concurrency limit reached (${gateway.activeRequests}/${gateway.maxConcurrentRequests}). Request rejected.`,
+        );
         return res.status(429).json({
           jsonrpc: '2.0',
           error: {
@@ -247,7 +248,7 @@ export class AggregatorGateway {
               const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
               commitment = new Commitment(requestId, transactionHash, authenticator);
             } catch (error) {
-              return res.sendStatus(400)
+              return res.sendStatus(400);
             }
             const response = await aggregatorService.submitCommitment(commitment);
             if (response.status !== SubmitCommitmentStatus.SUCCESS) {
@@ -381,7 +382,7 @@ export class AggregatorGateway {
         try {
           if (AggregatorGateway.blockCreationActive) {
             await roundManager.createBlock();
-            
+
             // Only start next block if we're still active
             if (AggregatorGateway.blockCreationActive) {
               AggregatorGateway.startNextBlock(roundManager);
@@ -389,7 +390,7 @@ export class AggregatorGateway {
           }
         } catch (error) {
           logger.error('Failed to create block:', error);
-          
+
           if (AggregatorGateway.blockCreationActive) {
             AggregatorGateway.blockCreationTimer = setTimeout(() => {
               if (AggregatorGateway.blockCreationActive) {
@@ -408,7 +409,7 @@ export class AggregatorGateway {
    */
   public async stop(): Promise<void> {
     logger.info('Stopping aggregator gateway...');
-    
+
     const isBlockCreationInProgress = AggregatorGateway.blockCreationActive && AggregatorGateway.blockCreationTimer;
     AggregatorGateway.blockCreationActive = false;
 
@@ -416,12 +417,12 @@ export class AggregatorGateway {
     if (isBlockCreationInProgress) {
       logger.info('Waiting for any block creation to complete before shutdown...');
       const blockCreationWaitTime = 10000;
-      await new Promise<void>(resolve => setTimeout(resolve, blockCreationWaitTime));
+      await new Promise<void>((resolve) => setTimeout(resolve, blockCreationWaitTime));
     }
 
     await this.leaderElection?.shutdown();
     this.server?.close();
-    
+
     if (AggregatorGateway.blockCreationTimer) {
       clearTimeout(AggregatorGateway.blockCreationTimer);
       AggregatorGateway.blockCreationTimer = null;
