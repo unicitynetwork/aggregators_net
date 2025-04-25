@@ -44,6 +44,7 @@ export interface IAggregatorConfig {
   sslKeyPath?: string;
   port?: number;
   concurrencyLimit?: number;
+  serverId?: string;
 }
 
 export interface IAlphabillConfig {
@@ -102,6 +103,7 @@ export class AggregatorGateway {
         sslCertPath: config.aggregatorConfig?.sslCertPath ?? '',
         sslKeyPath: config.aggregatorConfig?.sslKeyPath ?? '',
         concurrencyLimit: config.aggregatorConfig?.concurrencyLimit ?? 100,
+        serverId: config.aggregatorConfig?.serverId,
       },
       highAvailability: {
         enabled: config.highAvailability?.enabled !== false,
@@ -120,7 +122,8 @@ export class AggregatorGateway {
         uri: config.storage?.uri ?? 'mongodb://localhost:27017/',
       },
     };
-    const serverId = `${os.hostname()}-${process.pid}`;
+    
+    const serverId = config.aggregatorConfig!.serverId || `${os.hostname()}-${process.pid}`;
     const mongoUri = config.storage?.uri ?? 'mongodb://localhost:27017/';
     const storage = await AggregatorStorage.init(mongoUri);
 
