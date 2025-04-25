@@ -23,21 +23,23 @@ import { UnitId } from '@alphabill/alphabill-js-sdk/lib/UnitId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import { StartedTestContainer } from 'testcontainers';
+import mongoose from 'mongoose';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 
 import { Block } from '../../src/hashchain/Block.js';
 import { BlockStorage } from '../../src/hashchain/BlockStorage.js';
 import logger from '../../src/logger.js';
-import { startMongoDb, stopMongoDb } from '../TestContainers.js';
-import mongoose from 'mongoose';
 
 describe('Block Storage Tests', () => {
   jest.setTimeout(60000);
 
-  let container: StartedTestContainer;
+  let mongoServer: MongoMemoryServer;
 
   beforeAll(async () => {
-    container = await startMongoDb();
+    mongoServer = await MongoMemoryServer.create();
+    const mongoUri = mongoServer.getUri();
+    logger.info(`Connecting to in-memory MongoDB at ${mongoUri}`);
+    await mongoose.connect(mongoUri);
   });
 
   afterAll(async () => {
@@ -45,7 +47,9 @@ describe('Block Storage Tests', () => {
       logger.info('Closing mongoose connection...');
       await mongoose.connection.close();
     }
-    stopMongoDb(container);
+    if (mongoServer) {
+      await mongoServer.stop();
+    }
   });
 
   it('Store and retrieve block', async () => {

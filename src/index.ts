@@ -17,6 +17,7 @@ async function main(): Promise<void> {
       port: process.env.PORT ? parseInt(process.env.PORT) : 80,
       sslCertPath: process.env.SSL_CERT_PATH ?? '',
       sslKeyPath: process.env.SSL_KEY_PATH ?? '',
+      concurrencyLimit: process.env.CONCURRENCY_LIMIT ? parseInt(process.env.CONCURRENCY_LIMIT) : 100,
     },
     highAvailability: {
       enabled: process.env.DISABLE_HIGH_AVAILABILITY !== 'true',
@@ -55,4 +56,8 @@ async function main(): Promise<void> {
 main().catch((error) => {
   logger.error('Fatal error:', error);
   process.exit(1);
+});
+
+process.on('unhandledRejection', (err) => {
+  logger.error('UNHANDLED PROMISE REJECTION:', err);
 });

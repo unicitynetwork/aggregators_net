@@ -1,3 +1,4 @@
+import { Transaction } from '@unicitylabs/commons/lib/api/Transaction.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
@@ -13,7 +14,6 @@ import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js'
 import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { SmtNode } from './smt/SmtNode.js';
-import { Transaction } from '@unicitylabs/commons/lib/api/Transaction.js';
 
 export class RoundManager {
   private commitmentCounter: number = 0;
@@ -107,8 +107,9 @@ export class RoundManager {
     let submitHashResponse;
     const rootHash = this.smt.rootHash;
     try {
-      loggerWithMetadata.info(`Submitting hash to Alphabill: ${rootHash.toString()}`);
+      loggerWithMetadata.info(`Submitting hash to Alphabill: ${rootHash.toString()}...`);
       submitHashResponse = await this.alphabillClient.submitHash(rootHash);
+      loggerWithMetadata.info(`Hash submitted to Alphabill: ${rootHash.toString()}`);
     } catch (error) {
       loggerWithMetadata.error('Failed to submit hash to Alphabill:', error);
       throw error;
@@ -142,7 +143,9 @@ export class RoundManager {
         this.commitmentCounter += commitmentCount;
       }
 
-      loggerWithMetadata.info(`Block ${blockNumber} created successfully with ${commitmentCount} commitments (${this.commitmentCounter}/${this.submitCounter} total commitments processed)`);
+      loggerWithMetadata.info(
+        `Block ${blockNumber} created successfully with ${commitmentCount} commitments (${this.commitmentCounter}/${this.submitCounter} total commitments processed)`,
+      );
 
       return block;
     } catch (error) {

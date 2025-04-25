@@ -15,8 +15,9 @@ import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 'testcontainers';
 import mongoose from 'mongoose';
+import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 'testcontainers';
+
 import { AggregatorGateway } from '../../../src/AggregatorGateway.js';
 import logger from '../../../src/logger.js';
 import { SubmitCommitmentStatus } from '../../../src/SubmitCommitmentResponse.js';
