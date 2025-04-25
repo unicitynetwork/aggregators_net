@@ -5,12 +5,12 @@ import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
+import mongoose from 'mongoose';
 
 import { startMongoDb, stopMongoDb } from './TestContainers.js';
 import { AggregatorGateway } from '../src/AggregatorGateway.js';
 import { Commitment } from '../src/commitment/Commitment.js';
 import logger from '../src/logger.js';
-import mongoose from 'mongoose';
 
 describe('Round Manager Tests', () => {
   jest.setTimeout(60000);

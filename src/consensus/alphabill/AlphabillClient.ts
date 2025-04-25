@@ -3,12 +3,14 @@ import { type ISigningService } from '@alphabill/alphabill-js-sdk/lib/signing/IS
 import { createTokenClient, http } from '@alphabill/alphabill-js-sdk/lib/StateApiClientFactory.js';
 import { NonFungibleToken } from '@alphabill/alphabill-js-sdk/lib/tokens/NonFungibleToken.js';
 import { NonFungibleTokenData } from '@alphabill/alphabill-js-sdk/lib/tokens/NonFungibleTokenData.js';
+import { NonFungibleTokenType } from '@alphabill/alphabill-js-sdk/lib/tokens/NonFungibleTokenType.js';
 import { TokenPartitionUnitType } from '@alphabill/alphabill-js-sdk/lib/tokens/TokenPartitionUnitType.js';
 import { CreateNonFungibleToken } from '@alphabill/alphabill-js-sdk/lib/tokens/transactions/CreateNonFungibleToken.js';
 import { CreateNonFungibleTokenType } from '@alphabill/alphabill-js-sdk/lib/tokens/transactions/CreateNonFungibleTokenType.js';
 import { UpdateNonFungibleToken } from '@alphabill/alphabill-js-sdk/lib/tokens/transactions/UpdateNonFungibleToken.js';
 import { UnitIdWithType } from '@alphabill/alphabill-js-sdk/lib/tokens/UnitIdWithType.js';
 import { ClientMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/ClientMetadata.js';
+import { AlwaysFalsePredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/AlwaysFalsePredicate.js';
 import { AlwaysTruePredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/AlwaysTruePredicate.js';
 import { PayToPublicKeyHashPredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/PayToPublicKeyHashPredicate.js';
 import { AlwaysTrueProofFactory } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/AlwaysTrueProofFactory.js';
@@ -20,8 +22,6 @@ import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { IAlphabillClient } from './IAlphabillClient.js';
 import { SubmitHashResponse } from './SubmitHashResponse.js';
 import logger from '../../logger.js';
-import { NonFungibleTokenType } from '@alphabill/alphabill-js-sdk/lib/tokens/NonFungibleTokenType.js';
-import { AlwaysFalsePredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/AlwaysFalsePredicate.js';
 
 export class AlphabillClient implements IAlphabillClient {
   private constructor(
@@ -63,7 +63,7 @@ export class AlphabillClient implements IAlphabillClient {
     const round = (await tokenClient.getRoundInfo()).roundNumber;
     const identifier = new Uint8Array([1, 2, 3, 4]);
     const tokenTypeUnitId = new UnitIdWithType(identifier, TokenPartitionUnitType.NON_FUNGIBLE_TOKEN_TYPE);
-    const nftType = await tokenClient.getUnit(tokenTypeUnitId, false, NonFungibleTokenType)
+    const nftType = await tokenClient.getUnit(tokenTypeUnitId, false, NonFungibleTokenType);
     if (nftType === null) {
       logger.info(`Creating NFT type with unit ID ${tokenTypeUnitId}.`);
 

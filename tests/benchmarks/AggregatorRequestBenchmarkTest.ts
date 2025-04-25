@@ -1,4 +1,5 @@
 import { performance } from 'perf_hooks';
+
 import axios, { AxiosError } from 'axios';
 import mongoose from 'mongoose';
 
@@ -46,11 +47,7 @@ interface SubmissionContext {
 let originalLogLevel: string;
 
 // Helper function to submit a commitment
-async function submitCommitment(
-  commitment: Commitment,
-  index: number,
-  context: SubmissionContext
-): Promise<boolean> {
+async function submitCommitment(commitment: Commitment, index: number, context: SubmissionContext): Promise<boolean> {
   const requestId = commitment.requestId.toDto();
 
   context.attemptedCount++; // Increment attempted count

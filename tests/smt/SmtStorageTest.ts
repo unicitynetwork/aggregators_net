@@ -1,13 +1,13 @@
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
+import mongoose from 'mongoose';
 import { StartedTestContainer } from 'testcontainers';
 
 import logger from '../../src/logger.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
 import { SmtStorage, LeafModel } from '../../src/smt/SmtStorage.js';
 import { startMongoDb, stopMongoDb } from '../TestContainers.js';
-import mongoose from 'mongoose';
 
 describe('SMT Storage Tests', () => {
   jest.setTimeout(60000);

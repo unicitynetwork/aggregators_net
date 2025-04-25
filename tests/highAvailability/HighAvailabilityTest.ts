@@ -64,26 +64,26 @@ describe('High Availability Tests', () => {
       },
     };
     logger.info('Starting gateways...');
-    const gateway1 = await AggregatorGateway.create({ 
-      aggregatorConfig: { 
+    const gateway1 = await AggregatorGateway.create({
+      aggregatorConfig: {
         port: 3001,
-        serverId: 'test-server-1'
-      }, 
-      ...gatewayConfiguration 
+        serverId: 'test-server-1',
+      },
+      ...gatewayConfiguration,
     });
-    const gateway2 = await AggregatorGateway.create({ 
-      aggregatorConfig: { 
+    const gateway2 = await AggregatorGateway.create({
+      aggregatorConfig: {
         port: 3002,
-        serverId: 'test-server-2'
-      }, 
-      ...gatewayConfiguration 
+        serverId: 'test-server-2',
+      },
+      ...gatewayConfiguration,
     });
-    const gateway3 = await AggregatorGateway.create({ 
-      aggregatorConfig: { 
+    const gateway3 = await AggregatorGateway.create({
+      aggregatorConfig: {
         port: 3003,
-        serverId: 'test-server-3'
-      }, 
-      ...gatewayConfiguration 
+        serverId: 'test-server-3',
+      },
+      ...gatewayConfiguration,
     });
 
     gateways.push(gateway1, gateway2, gateway3);

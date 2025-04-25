@@ -38,17 +38,15 @@ export const getTestSigningService = (): SigningService => {
 
 /**
  * Sets up a MongoDB replica set for testing.
- * 
+ *
  * @param containerNamePrefix Optional prefix for container names (default: 'mongo')
  * @returns The replica set information
  */
-export async function setupReplicaSet(
-  containerNamePrefix: string = 'mongo'
-): Promise<IReplicaSet> {
+export async function setupReplicaSet(containerNamePrefix: string = 'mongo'): Promise<IReplicaSet> {
   const ports = [27017, 27018, 27019];
-  
+
   logger.info(`Starting MongoDB containers on ports: ${ports.join(', ')}`);
-  
+
   const containers = await Promise.all(
     ports.map((port) =>
       new GenericContainer('mongo:7')
@@ -134,7 +132,7 @@ export async function setupReplicaSet(
     throw new Error('Replica set failed to initialize');
   }
 
-  const portStrings = ports.map(p => `localhost:${p}`);
+  const portStrings = ports.map((p) => `localhost:${p}`);
   return {
     containers,
     uri: `mongodb://${portStrings.join(',')}/test?replicaSet=rs0`,
@@ -143,20 +141,17 @@ export async function setupReplicaSet(
 
 /**
  * Generates test commitments with random data for testing.
- * 
+ *
  * @param count Number of commitments to generate
  * @param signingService Optional signing service (uses default if not provided)
  * @returns Array of generated commitments
  */
-export async function generateTestCommitments(
-  count: number, 
-  signingService?: SigningService
-): Promise<Commitment[]> {
+export async function generateTestCommitments(count: number, signingService?: SigningService): Promise<Commitment[]> {
   const commitments: Commitment[] = [];
   const signer = signingService || getTestSigningService();
 
   logger.info(`Generating ${count} test commitments...`);
-  
+
   for (let i = 0; i < count; i++) {
     const randomId = uuidv4();
     const randomBytes = new TextEncoder().encode(`random-state-${randomId}-${Date.now()}-${i}`);
@@ -176,8 +171,8 @@ export async function generateTestCommitments(
 
 /**
  * Simple delay function for tests.
- * 
+ *
  * @param ms Milliseconds to delay
  * @returns Promise that resolves after the delay
  */
-export const delay = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms)); 
+export const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));

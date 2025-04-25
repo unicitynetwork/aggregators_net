@@ -11,8 +11,6 @@ import logger from '../../src/logger.js';
 import { BlockRecords } from '../../src/records/BlockRecords.js';
 import { BlockRecordsStorage } from '../../src/records/BlockRecordsStorage.js';
 import { startMongoDb, stopMongoDb } from '../TestContainers.js';
-import mongoose from 'mongoose';
-import logger from '../../src/logger.js';
 
 describe('Block Records Storage Tests', () => {
   jest.setTimeout(60000);

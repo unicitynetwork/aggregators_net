@@ -122,7 +122,7 @@ export class AggregatorGateway {
         uri: config.storage?.uri ?? 'mongodb://localhost:27017/',
       },
     };
-    
+
     const serverId = config.aggregatorConfig!.serverId || `${os.hostname()}-${process.pid}`;
     const mongoUri = config.storage?.uri ?? 'mongodb://localhost:27017/';
     const storage = await AggregatorStorage.init(mongoUri);
@@ -214,7 +214,7 @@ export class AggregatorGateway {
       if (config.aggregatorConfig?.concurrencyLimit) {
         gateway.activeRequests++;
         let countDecremented = false;
-        
+
         // decrement counter only once
         const decrementCounter = () => {
           if (!countDecremented) {
@@ -222,10 +222,10 @@ export class AggregatorGateway {
             gateway.activeRequests--;
           }
         };
-        
+
         // Listen for normal completion
         res.on('finish', decrementCounter);
-        
+
         // Also listen for abrupt connection close
         res.on('close', decrementCounter);
       }
@@ -268,9 +268,9 @@ export class AggregatorGateway {
                 error: {
                   code: -32602,
                   message: 'Invalid parameters: Could not create commitment',
-                  data: { details: error instanceof Error ? error.message : 'Unknown error' }
+                  data: { details: error instanceof Error ? error.message : 'Unknown error' },
                 },
-                id: req.body.id
+                id: req.body.id,
               });
             }
             const response = await aggregatorService.submitCommitment(commitment);

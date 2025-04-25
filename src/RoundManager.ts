@@ -1,3 +1,4 @@
+import { Transaction } from '@unicitylabs/commons/lib/api/Transaction.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
@@ -13,7 +14,6 @@ import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js'
 import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { SmtNode } from './smt/SmtNode.js';
-import { Transaction } from '@unicitylabs/commons/lib/api/Transaction.js';
 
 export class RoundManager {
   private commitmentCounter: number = 0;
