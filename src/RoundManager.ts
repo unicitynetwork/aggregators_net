@@ -13,6 +13,7 @@ import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js'
 import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { SmtNode } from './smt/SmtNode.js';
+import { Transaction } from '@unicitylabs/commons/lib/api/Transaction.js';
 
 export class RoundManager {
   private commitmentCounter: number = 0;
@@ -60,8 +61,8 @@ export class RoundManager {
         );
 
         const nodePath = commitment.requestId.toBigInt();
-        const nodeValue = commitment.transactionHash.data;
-        smtLeaves.push(new SmtNode(nodePath, nodeValue));
+        const transaction = await Transaction.create(commitment.authenticator, commitment.transactionHash);
+        smtLeaves.push(new SmtNode(nodePath, transaction.leafValue.imprint));
       }
     }
 
