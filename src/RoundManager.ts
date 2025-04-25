@@ -44,7 +44,6 @@ export class RoundManager {
 
   public async createBlock(): Promise<Block> {
     const blockNumber = await this.blockStorage.getNextBlockNumber();
-    logger.info(`Creating block ${blockNumber}...`);
     const commitments = await this.commitmentStorage.getCommitmentsForBlock();
 
     const commitmentCount = commitments?.length || 0;
