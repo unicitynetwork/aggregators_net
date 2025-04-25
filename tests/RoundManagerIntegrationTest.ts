@@ -1,4 +1,3 @@
-import { StartedMongoDBContainer } from '@testcontainers/mongodb';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
@@ -6,8 +5,8 @@ import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import mongoose from 'mongoose';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 
-import { startMongoDb, stopMongoDb } from './TestContainers.js';
 import { AggregatorGateway } from '../src/AggregatorGateway.js';
 import { Commitment } from '../src/commitment/Commitment.js';
 import logger from '../src/logger.js';
@@ -15,11 +14,14 @@ import logger from '../src/logger.js';
 describe('Round Manager Tests', () => {
   jest.setTimeout(60000);
 
-  let container: StartedMongoDBContainer;
+  let mongoServer: MongoMemoryServer;
   let aggregator: AggregatorGateway;
 
   beforeAll(async () => {
-    container = (await startMongoDb(false)) as StartedMongoDBContainer;
+    mongoServer = await MongoMemoryServer.create();
+    const mongoUri = mongoServer.getUri();
+    logger.info(`Connecting to in-memory MongoDB at ${mongoUri}`);
+    
     logger.info('Starting aggregator...');
     aggregator = await AggregatorGateway.create({
       aggregatorConfig: {
@@ -27,7 +29,7 @@ describe('Round Manager Tests', () => {
       },
       alphabill: { useMock: true },
       storage: {
-        uri: container.getConnectionString() + '?directConnection=true',
+        uri: mongoUri,
       },
     });
     logger.info('Aggregator running.');
@@ -41,7 +43,9 @@ describe('Round Manager Tests', () => {
       await mongoose.connection.close();
     }
 
-    await stopMongoDb(container);
+    if (mongoServer) {
+      await mongoServer.stop();
+    }
   });
 
   it('Submit commitment and create block', async () => {

@@ -2,20 +2,22 @@ import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import mongoose from 'mongoose';
-import { StartedTestContainer } from 'testcontainers';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 
 import logger from '../../src/logger.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
 import { SmtStorage, LeafModel } from '../../src/smt/SmtStorage.js';
-import { startMongoDb, stopMongoDb } from '../TestContainers.js';
 
 describe('SMT Storage Tests', () => {
   jest.setTimeout(60000);
 
-  let container: StartedTestContainer;
+  let mongoServer: MongoMemoryServer;
 
   beforeAll(async () => {
-    container = await startMongoDb();
+    mongoServer = await MongoMemoryServer.create();
+    const mongoUri = mongoServer.getUri();
+    logger.info(`Connecting to in-memory MongoDB at ${mongoUri}`);
+    await mongoose.connect(mongoUri);
   });
 
   afterAll(async () => {
@@ -23,7 +25,9 @@ describe('SMT Storage Tests', () => {
       logger.info('Closing mongoose connection...');
       await mongoose.connection.close();
     }
-    stopMongoDb(container);
+    if (mongoServer) {
+      await mongoServer.stop();
+    }
   });
 
   it('Store and retrieve nodes', async () => {

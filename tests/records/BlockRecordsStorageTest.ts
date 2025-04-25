@@ -5,20 +5,22 @@ import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import mongoose from 'mongoose';
-import { StartedTestContainer } from 'testcontainers';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 
 import logger from '../../src/logger.js';
 import { BlockRecords } from '../../src/records/BlockRecords.js';
 import { BlockRecordsStorage } from '../../src/records/BlockRecordsStorage.js';
-import { startMongoDb, stopMongoDb } from '../TestContainers.js';
 
 describe('Block Records Storage Tests', () => {
   jest.setTimeout(60000);
 
-  let container: StartedTestContainer;
+  let mongoServer: MongoMemoryServer;
 
   beforeAll(async () => {
-    container = await startMongoDb();
+    mongoServer = await MongoMemoryServer.create();
+    const mongoUri = mongoServer.getUri();
+    logger.info(`Connecting to in-memory MongoDB at ${mongoUri}`);
+    await mongoose.connect(mongoUri);
   });
 
   afterAll(async () => {
@@ -26,7 +28,9 @@ describe('Block Records Storage Tests', () => {
       logger.info('Closing mongoose connection...');
       await mongoose.connection.close();
     }
-    stopMongoDb(container);
+    if (mongoServer) {
+      await mongoServer.stop();
+    }
   });
 
   it('Store and retrieve block records', async () => {
@@ -55,9 +59,7 @@ describe('Block Records Storage Tests', () => {
         requestIds: [requestId],
       });
     } catch (error) {
-      expect((error as Error).message).toEqual(
-        'E11000 duplicate key error collection: test.blockrecords index: blockNumber_1 dup key: { blockNumber: BinData(0, 01) }',
-      );
+      expect((error as Error).message).toContain('duplicate key error');
     }
   });
 
