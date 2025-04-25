@@ -1,20 +1,13 @@
 import { performance } from 'perf_hooks';
-
-import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
-import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
-import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
-import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
-import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
-import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import axios, { AxiosError } from 'axios';
 import mongoose from 'mongoose';
-import { GenericContainer, StartedTestContainer, Wait } from 'testcontainers';
-import { v4 as uuidv4 } from 'uuid';
 
 import { AggregatorGateway, IGatewayConfig } from '../../src/AggregatorGateway.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
 import logger from '../../src/logger.js';
 import { SubmitCommitmentStatus } from '../../src/SubmitCommitmentResponse.js';
+import { delay, generateTestCommitments, setupReplicaSet } from '../TestUtils.js';
+import type { IReplicaSet } from '../TestUtils.js';
 
 // Test configuration constants
 const TEST_REQUEST_COUNT = 1000;
@@ -24,31 +17,8 @@ const CONCURRENCY_LIMIT = 150;
 const INITIAL_BACKOFF_MS = 1000;
 const BATCH_DELAY_MS = 500;
 const SERVER_PORT = 9876;
-const SIGNING_KEY = '1DE87F189C3C9E42F93C90C95E2AC761BE9D0EB2FD1CA0FF3A9CE165C3DE96A9';
 const WAIT_FOR_BLOCK_PROCESSING_MS = 5000;
 const SUMMARY_INTERVAL = 100; // Log summary every N requests during submission
-
-// MongoDB test configuration
-const MONGO_PORTS = [27017, 27018, 27019];
-
-// Types
-interface IReplicaSetMember {
-  _id: number;
-  name: string;
-  health: number;
-  state: number;
-  stateStr: string;
-}
-
-interface IReplicaSetStatus {
-  ok: number;
-  members?: IReplicaSetMember[];
-}
-
-interface IReplicaSet {
-  containers: StartedTestContainer[];
-  uri: string;
-}
 
 interface ProcessingResult {
   submitted: boolean;
@@ -75,11 +45,12 @@ interface SubmissionContext {
 // Original log level backup
 let originalLogLevel: string;
 
-// Create a signing service for use in all tests
-const unicitySigningService = new SigningService(HexConverter.decode(SIGNING_KEY));
-
 // Helper function to submit a commitment
-async function submitCommitment(commitment: Commitment, index: number, context: SubmissionContext): Promise<boolean> {
+async function submitCommitment(
+  commitment: Commitment,
+  index: number,
+  context: SubmissionContext
+): Promise<boolean> {
   const requestId = commitment.requestId.toDto();
 
   context.attemptedCount++; // Increment attempted count
@@ -126,8 +97,8 @@ async function submitCommitment(commitment: Commitment, index: number, context: 
 
     // Determine if this error is retryable
     const isRetryable =
-      // Rate limited (429)
-      axiosError.response?.status === 429 ||
+      // Service Unavailable (503)
+      axiosError.response?.status === 503 ||
       // Server errors (5xx)
       (axiosError.response?.status && axiosError.response.status >= 500) ||
       // Network errors (ECONNRESET, ETIMEDOUT, etc.)
@@ -154,136 +125,6 @@ async function submitCommitment(commitment: Commitment, index: number, context: 
       return false;
     }
   }
-}
-
-// Generate test commitments
-async function generateTestCommitments(count: number): Promise<Commitment[]> {
-  const commitments: Commitment[] = [];
-
-  logger.info(`Generating ${count} test commitments...`);
-  const startTime = performance.now();
-
-  for (let i = 0; i < count; i++) {
-    const randomId = uuidv4();
-    const randomBytes = new TextEncoder().encode(`random-state-${randomId}-${Date.now()}-${i}`);
-    const stateHash = await new DataHasher(HashAlgorithm.SHA256).update(randomBytes).digest();
-
-    const txRandomBytes = new TextEncoder().encode(`tx-${randomId}-${Date.now()}-${i}`);
-    const transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(txRandomBytes).digest();
-
-    const requestId = await RequestId.create(unicitySigningService.publicKey, stateHash);
-    const authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
-
-    commitments.push(new Commitment(requestId, transactionHash, authenticator));
-
-    // Log progress for large commitment generation
-    if ((i + 1) % 1000 === 0) {
-      const elapsed = performance.now() - startTime;
-      const rate = (i + 1) / (elapsed / 1000);
-      logger.info(`Generated ${i + 1} commitments (${rate.toFixed(2)}/sec)`);
-    }
-  }
-
-  const generateTime = performance.now() - startTime;
-  logger.info(
-    `Generated ${commitments.length} commitments in ${generateTime.toFixed(2)}ms (${(generateTime / count).toFixed(2)}ms per commitment)`,
-  );
-
-  return commitments;
-}
-
-// Setup MongoDB replica set
-async function setupReplicaSet(): Promise<IReplicaSet> {
-  const containers = await Promise.all(
-    MONGO_PORTS.map((port) =>
-      new GenericContainer('mongo:7')
-        .withName(`mongo${port}-benchmark`)
-        .withNetworkMode('host')
-        .withCommand(['mongod', '--replSet', 'rs0', '--port', `${port}`, '--bind_ip', 'localhost'])
-        .withStartupTimeout(120000)
-        .withWaitStrategy(Wait.forLogMessage('Waiting for connections'))
-        .start(),
-    ),
-  );
-
-  logger.info(`Started MongoDB containers on ports: ${MONGO_PORTS.join(', ')}`);
-  logger.info('Initializing replica set...');
-  const initResult = await containers[0].exec([
-    'mongosh',
-    '--quiet',
-    '--eval',
-    `
-        config = {
-            _id: "rs0",
-            members: [
-                { _id: 0, host: "localhost:27017" },
-                { _id: 1, host: "localhost:27018" },
-                { _id: 2, host: "localhost:27019" }
-            ]
-        };
-        rs.initiate(config);
-        `,
-  ]);
-  logger.info('Initiate result:', initResult.output);
-
-  // Wait and verify replica set is ready
-  logger.info('Waiting for replica set initialization...');
-  let isReady = false;
-  let lastStatus = '';
-  const maxAttempts = 30;
-  let attempts = 0;
-  const startTime = Date.now();
-
-  while (!isReady && attempts < maxAttempts) {
-    try {
-      const status = await containers[0].exec([
-        'mongosh',
-        '--port',
-        '27017',
-        '--quiet',
-        '--eval',
-        'if (rs.status().ok) { print(JSON.stringify(rs.status())); } else { print("{}"); }',
-      ]);
-
-      let rsStatus: IReplicaSetStatus;
-      try {
-        rsStatus = JSON.parse(status.output);
-      } catch (e) {
-        logger.info('Invalid JSON response:', status.output);
-        logger.debug(e);
-        rsStatus = { ok: 0 };
-      }
-
-      if (rsStatus.members?.some((m: IReplicaSetMember) => m.stateStr === 'PRIMARY')) {
-        const primaryNode = rsStatus.members.find((m) => m.stateStr === 'PRIMARY')!;
-        const electionTime = (Date.now() - startTime) / 1000;
-        logger.info(`Replica set primary elected after ${electionTime.toFixed(1)}s`);
-        logger.info('Initial primary node:', primaryNode.name);
-        isReady = true;
-      } else {
-        const currentStatus = rsStatus.members?.map((m) => m.stateStr).join(',') || '';
-        if (currentStatus !== lastStatus) {
-          logger.info('Current replica set status:', currentStatus);
-          lastStatus = currentStatus;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        attempts++;
-      }
-    } catch (error) {
-      logger.info('Error checking replica status:', error);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      attempts++;
-    }
-  }
-
-  if (!isReady) {
-    throw new Error('Replica set failed to initialize');
-  }
-
-  return {
-    containers,
-    uri: `mongodb://localhost:${MONGO_PORTS[0]},localhost:${MONGO_PORTS[1]},localhost:${MONGO_PORTS[2]}/test?replicaSet=rs0`,
-  };
 }
 
 // Verify block records by counting unique request IDs
@@ -358,7 +199,7 @@ describe('Aggregator Request Performance Benchmark', () => {
     originalLogLevel = logger.level;
     logger.level = 'info'; // Keep info for benchmark metrics
 
-    replicaSet = await setupReplicaSet();
+    replicaSet = await setupReplicaSet('mongo-benchmark');
     mongoUri = replicaSet.uri;
     logger.info(`Connecting to MongoDB replica set, using connection URI: ${mongoUri}`);
 
@@ -384,7 +225,7 @@ describe('Aggregator Request Performance Benchmark', () => {
     logger.info('Starting AggregatorGateway...');
     gateway = await AggregatorGateway.create(testConfig);
 
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await delay(3000);
     logger.info('AggregatorGateway started successfully');
 
     try {
@@ -414,7 +255,7 @@ describe('Aggregator Request Performance Benchmark', () => {
       await mongoose.connection.close();
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await delay(1000);
 
     if (replicaSet) {
       logger.info('Stopping MongoDB replica set containers...');
@@ -500,7 +341,7 @@ describe('Aggregator Request Performance Benchmark', () => {
         );
         logger.level = 'error';
 
-        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        await delay(backoffMs);
 
         // Process in smaller batches for retries to avoid hitting rate limits again
         const retryBatchSize = Math.max(10, Math.floor(TEST_BATCH_SIZE / (retry + 2)));
@@ -528,7 +369,7 @@ describe('Aggregator Request Performance Benchmark', () => {
 
           // Small delay between batches during retry
           if (i + retryBatchSize < currentBatch.length) {
-            await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+            await delay(BATCH_DELAY_MS);
           }
         }
 
@@ -569,7 +410,7 @@ describe('Aggregator Request Performance Benchmark', () => {
 
     // Wait for block processing
     logger.info(`Waiting ${WAIT_FOR_BLOCK_PROCESSING_MS / 1000} seconds for all blocks to be processed...`);
-    await new Promise((resolve) => setTimeout(resolve, WAIT_FOR_BLOCK_PROCESSING_MS));
+    await delay(WAIT_FOR_BLOCK_PROCESSING_MS);
 
     // Verify blocks were processed
     const roundManager = gateway.getRoundManager();

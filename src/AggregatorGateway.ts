@@ -198,7 +198,7 @@ export class AggregatorGateway {
         logger.warn(
           `Concurrency limit reached (${gateway.activeRequests}/${gateway.maxConcurrentRequests}). Request rejected.`,
         );
-        return res.status(429).json({
+        return res.status(503).json({
           jsonrpc: '2.0',
           error: {
             code: -32000,
@@ -210,9 +210,21 @@ export class AggregatorGateway {
 
       if (config.aggregatorConfig?.concurrencyLimit) {
         gateway.activeRequests++;
-        res.on('finish', () => {
-          gateway.activeRequests--;
-        });
+        let countDecremented = false;
+        
+        // decrement counter only once
+        const decrementCounter = () => {
+          if (!countDecremented) {
+            countDecremented = true;
+            gateway.activeRequests--;
+          }
+        };
+        
+        // Listen for normal completion
+        res.on('finish', decrementCounter);
+        
+        // Also listen for abrupt connection close
+        res.on('close', decrementCounter);
       }
 
       if (!aggregatorService) {
@@ -248,7 +260,15 @@ export class AggregatorGateway {
               const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
               commitment = new Commitment(requestId, transactionHash, authenticator);
             } catch (error) {
-              return res.sendStatus(400);
+              return res.status(400).json({
+                jsonrpc: '2.0',
+                error: {
+                  code: -32602,
+                  message: 'Invalid parameters: Could not create commitment',
+                  data: { details: error instanceof Error ? error.message : 'Unknown error' }
+                },
+                id: req.body.id
+              });
             }
             const response = await aggregatorService.submitCommitment(commitment);
             if (response.status !== SubmitCommitmentStatus.SUCCESS) {

@@ -169,7 +169,7 @@ describe('Concurrency Limiter Tests', () => {
 
     // Count successes and rejections
     const successes = results.filter((r) => r.status === 200);
-    const rejections = results.filter((r) => r.status === 429);
+    const rejections = results.filter((r) => r.status === 503);
 
     testLog(`Results: ${successes.length} successes, ${rejections.length} rejections`);
 
@@ -216,7 +216,7 @@ describe('Concurrency Limiter Tests', () => {
     const firstBatchResults = await Promise.all(firstBatchPromises);
 
     // Verify we hit capacity with at least one rejection
-    const rejections = firstBatchResults.filter((r) => r.status === 429);
+    const rejections = firstBatchResults.filter((r) => r.status === 503);
     expect(rejections.length).toBeGreaterThan(0);
 
     // Step 2: Wait for all requests to complete
