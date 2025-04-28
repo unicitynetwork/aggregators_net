@@ -30,8 +30,14 @@ export class RoundManager {
   ) {}
 
   public async submitCommitment(commitment: Commitment): Promise<void> {
-    await this.commitmentStorage.put(commitment);
-    this.submitCounter++;
+    const loggerWithMetadata = logger.child({ requestId: commitment.requestId.toString() });
+    try {
+      await this.commitmentStorage.put(commitment);
+      this.submitCounter++;
+    } catch (error) {
+      loggerWithMetadata.error('Failed to submit commitment:', error);
+      throw error;
+    }
   }
 
   public async createBlock(): Promise<Block> {
