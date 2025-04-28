@@ -5,4 +5,4 @@ COPY package-lock.json package-lock.json
 RUN npm install
 COPY . .
 RUN npm run build
-CMD [ "node", "dist/index.cjs" ]
+CMD [ "node", "-r", "dotenv/config", "dist/index.cjs" ]

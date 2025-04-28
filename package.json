@@ -5,7 +5,7 @@
   "main": "./src/index.ts",
   "scripts": {
     "build": "webpack",
-    "start": "npm run build && node dist/index.cjs",
+    "start": "npm run build && node -r dotenv/config dist/index.cjs",
     "docker:mongo": "docker compose -f tests/docker/mongodb-docker-compose.yml up -d",
     "docker:mongo:down": "docker compose -f tests/docker/mongodb-docker-compose.yml down -v",
     "docker:alphabill": "docker compose -f tests/consensus/alphabill/docker/alphabill-docker-compose.yml up -d",
