@@ -4,8 +4,8 @@ import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
-import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import mongoose from 'mongoose';
 
 import logger from '../../src/logger.js';
 import { BlockRecords } from '../../src/records/BlockRecords.js';

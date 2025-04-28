@@ -9,12 +9,12 @@ import mongoose from 'mongoose';
 
 import { AggregatorService } from '../src/AggregatorService.js';
 import { Commitment } from '../src/commitment/Commitment.js';
-import { MockAlphabillClient } from './consensus/alphabill/MockAlphabillClient.js';
 import logger from '../src/logger.js';
+import { MockAlphabillClient } from './consensus/alphabill/MockAlphabillClient.js';
+import { CommitmentStorage } from '../src/commitment/CommitmentStorage.js';
 import { AggregatorRecordStorage } from '../src/records/AggregatorRecordStorage.js';
 import { RoundManager } from '../src/RoundManager.js';
 import { SubmitCommitmentStatus } from '../src/SubmitCommitmentResponse.js';
-import { CommitmentStorage } from '../src/commitment/CommitmentStorage.js';
 
 describe('AggregatorService Tests', () => {
   jest.setTimeout(30000);
@@ -31,7 +31,7 @@ describe('AggregatorService Tests', () => {
   const createTestCommitment = async (id: number): Promise<Commitment> => {
     const stateHashBytes = new TextEncoder().encode(`state-${id}-test`);
     const stateHash = new DataHash(HashAlgorithm.SHA256, stateHashBytes);
-    
+
     const publicKey = new Uint8Array(32);
     const requestId = await RequestId.create(publicKey, stateHash);
 
@@ -52,7 +52,7 @@ describe('AggregatorService Tests', () => {
   const createDifferentTxHashCommitment = async (originalCommitment: Commitment): Promise<Commitment> => {
     const requestId = originalCommitment.requestId;
     const authenticator = originalCommitment.authenticator;
-    
+
     const txHashBytes = new TextEncoder().encode(`different-tx-hash`);
     const transactionHash = new DataHash(HashAlgorithm.SHA256, txHashBytes);
 
@@ -98,7 +98,7 @@ describe('AggregatorService Tests', () => {
       recordStorage,
       {} as any,
       commitmentStorage,
-      {} as any
+      {} as any,
     );
 
     aggregatorService = new AggregatorService(roundManager, smt, recordStorage);
@@ -106,23 +106,23 @@ describe('AggregatorService Tests', () => {
 
   it('should handle submitting a new commitment correctly', async () => {
     const submitCommitmentSpy = jest.spyOn(roundManager, 'submitCommitment');
-    
+
     const commitment = await createTestCommitment(1);
-    
+
     const result = await aggregatorService.submitCommitment(commitment);
-    
+
     expect(result.status).toBe(SubmitCommitmentStatus.SUCCESS);
     expect(result.exists).toBe(false);
-    
+
     expect(submitCommitmentSpy).toHaveBeenCalledTimes(1);
     expect(submitCommitmentSpy).toHaveBeenCalledWith(commitment);
   });
 
   it('should not submit a duplicate commitment to roundManager when record already exists with same hash', async () => {
     const submitCommitmentSpy = jest.spyOn(roundManager, 'submitCommitment');
-    
+
     const commitment = await createTestCommitment(2);
-    
+
     const result1 = await aggregatorService.submitCommitment(commitment);
     expect(result1.status).toBe(SubmitCommitmentStatus.SUCCESS);
     expect(result1.exists).toBe(false);
@@ -132,11 +132,11 @@ describe('AggregatorService Tests', () => {
     await recordStorage.put(commitment);
 
     submitCommitmentSpy.mockClear();
-    
+
     const result2 = await aggregatorService.submitCommitment(commitment);
     expect(result2.status).toBe(SubmitCommitmentStatus.SUCCESS);
     expect(result2.exists).toBe(true);
-    
+
     expect(submitCommitmentSpy).not.toHaveBeenCalled();
   });
 
@@ -147,11 +147,11 @@ describe('AggregatorService Tests', () => {
 
     // since round manager is not running, we add the record manually
     await recordStorage.put(commitment1);
-    
+
     const commitment2 = await createDifferentTxHashCommitment(commitment1);
-    
+
     const result2 = await aggregatorService.submitCommitment(commitment2);
     expect(result2.status).toBe(SubmitCommitmentStatus.REQUEST_ID_EXISTS);
     expect(result2.exists).toBe(false);
   });
-}); 
+});

@@ -194,7 +194,9 @@ export class CommitmentStorage implements ICommitmentStorage {
           },
         };
         commitments = await CommitmentModel.find(query).sort({ sequenceId: 1 });
-        logger.info(`RETRYING: Processing ${commitments.length} commitments again, sequence range ${cursor.lastProcessedSequenceId + 1}-${cursor.currentBatchEndSequenceId}`);
+        logger.info(
+          `RETRYING: Processing ${commitments.length} commitments again, sequence range ${cursor.lastProcessedSequenceId + 1}-${cursor.currentBatchEndSequenceId}`,
+        );
       } else {
         logger.info(`ERROR: Cursor is IN_PROGRESS but missing sequence ID boundaries`);
       }
