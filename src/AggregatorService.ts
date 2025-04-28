@@ -15,11 +15,11 @@ export class AggregatorService {
   ) {}
 
   public async submitCommitment(commitment: Commitment): Promise<SubmitCommitmentResponse> {
-    const status = await this.validateCommitment(commitment);
-    if (status.status === SubmitCommitmentStatus.SUCCESS) {
+    const validationResult = await this.validateCommitment(commitment);
+    if (validationResult.status === SubmitCommitmentStatus.SUCCESS && !validationResult.exists) {
       await this.roundManager.submitCommitment(commitment);
     }
-    return status;
+    return validationResult;
   }
 
   public async getInclusionProof(requestId: RequestId): Promise<InclusionProof | null> {
@@ -45,8 +45,14 @@ export class AggregatorService {
       return new SubmitCommitmentResponse(SubmitCommitmentStatus.AUTHENTICATOR_VERIFICATION_FAILED);
     }
     const existingRecord = await this.recordStorage.get(requestId);
-    if (existingRecord && !existingRecord.transactionHash.equals(transactionHash)) {
-      return new SubmitCommitmentResponse(SubmitCommitmentStatus.REQUEST_ID_EXISTS);
+    if (existingRecord) {
+      if (!existingRecord.transactionHash.equals(transactionHash)) {
+        return new SubmitCommitmentResponse(SubmitCommitmentStatus.REQUEST_ID_EXISTS);
+      } else {
+        const response = new SubmitCommitmentResponse(SubmitCommitmentStatus.SUCCESS);
+        response.exists = true;
+        return response;
+      }
     }
     return new SubmitCommitmentResponse(SubmitCommitmentStatus.SUCCESS);
   }

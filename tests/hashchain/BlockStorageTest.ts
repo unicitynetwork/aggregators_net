@@ -23,8 +23,8 @@ import { UnitId } from '@alphabill/alphabill-js-sdk/lib/UnitId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import mongoose from 'mongoose';
 
 import { Block } from '../../src/hashchain/Block.js';
 import { BlockStorage } from '../../src/hashchain/BlockStorage.js';
