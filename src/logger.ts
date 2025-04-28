@@ -1,9 +1,6 @@
-import dotenv from 'dotenv';
 import path from 'path';
 
 import { createLogger, format, transports, Logger } from 'winston';
-
-dotenv.config();
 
 const combinedLogFilePath = path.join(__dirname, process.env.LOG_FILE ?? 'aggregator.log');
 const errorLogFilePath = path.join(__dirname, process.env.ERROR_LOG_FILE ?? 'aggregator-error.log');

@@ -1,9 +1,5 @@
-import dotenv from 'dotenv';
-
 import { AggregatorGateway } from './AggregatorGateway.js';
 import logger from './logger.js';
-
-dotenv.config();
 
 async function main(): Promise<void> {
   logger.info('Starting Aggregator Gateway...');
