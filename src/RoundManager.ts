@@ -18,7 +18,6 @@ import { SmtNode } from './smt/SmtNode.js';
 export class RoundManager {
   private commitmentCounter: number = 0;
   private submitCounter: number = 0;
-
   public constructor(
     public readonly config: IAggregatorConfig,
     public readonly alphabillClient: IAlphabillClient,
@@ -30,16 +29,9 @@ export class RoundManager {
     public readonly smtStorage: ISmtStorage,
   ) {}
 
-  public async submitCommitment(commitment: Commitment): Promise<boolean> {
-    const loggerWithMetadata = logger.child({ requestId: commitment.requestId.toString() });
-    try {
-      await this.commitmentStorage.put(commitment);
-      this.submitCounter++;
-      return true;
-    } catch (error) {
-      loggerWithMetadata.error('Failed to submit commitment:', error);
-      return false;
-    }
+  public async submitCommitment(commitment: Commitment): Promise<void> {
+    await this.commitmentStorage.put(commitment);
+    this.submitCounter++;
   }
 
   public async createBlock(): Promise<Block> {

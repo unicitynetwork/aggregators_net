@@ -9,9 +9,12 @@ export enum SubmitCommitmentStatus {
 
 export interface ISubmitCommitmentResponseDto {
   readonly status: SubmitCommitmentStatus;
+  readonly exists?: boolean;
 }
 
 export class SubmitCommitmentResponse {
+  public exists: boolean = false;
+
   public constructor(public readonly status: SubmitCommitmentStatus) {}
 
   public toDto(): ISubmitCommitmentResponseDto {
