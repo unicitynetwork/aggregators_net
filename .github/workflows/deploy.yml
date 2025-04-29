@@ -2,20 +2,21 @@ name: Deploy
 
 on:
   workflow_dispatch:
-#   inputs:
-#     environment:
-#       description: 'Environment'
-#       required: true
-#       type: choice
-#       options:
-#         - test
-#         - main
-#       default: 'staging'
-#     image_tag:
-#       description: 'Docker image hash or tag'
-#       required: true
-#       type: string
-#       default: 'latest'
+    inputs:
+      environment:
+        description: 'Environment'
+        required: true
+        type: choice
+        options:
+          - test
+          - main
+        default: 'test'
+      image_tag:
+        description: 'Docker image hash or tag'
+        required: true
+        type: string
+#       default: 'main'
+  pull_request:
 
 jobs:
   deploy:
