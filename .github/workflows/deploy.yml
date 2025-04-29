@@ -1,0 +1,34 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment'
+        required: true
+        type: choice
+        options:
+          - test
+          - main
+        default: 'test'
+      image_tag:
+        description: 'Docker image hash or tag'
+        required: true
+        type: string
+#       default: 'main'
+  pull_request:
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    environment:
+      name: "${{ github.event.inputs.environment }}"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Echo
+        run: |
+          echo "Target Server: ${{ vars.TARGET_SERVER }}"
+
+          echo "Using API Key ending in: ${{ secrets.SECRET1 }}" # Accessing the Staging API_KEY secret
+
