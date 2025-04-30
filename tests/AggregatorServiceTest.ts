@@ -15,6 +15,8 @@ import { CommitmentStorage } from '../src/commitment/CommitmentStorage.js';
 import { AggregatorRecordStorage } from '../src/records/AggregatorRecordStorage.js';
 import { RoundManager } from '../src/RoundManager.js';
 import { SubmitCommitmentStatus } from '../src/SubmitCommitmentResponse.js';
+import { BlockStorage } from '../src/hashchain/BlockStorage.js';
+import { BlockRecordsStorage } from '../src/records/BlockRecordsStorage.js';
 
 describe('AggregatorService Tests', () => {
   jest.setTimeout(30000);
@@ -25,6 +27,8 @@ describe('AggregatorService Tests', () => {
   let roundManager: RoundManager;
   let recordStorage: AggregatorRecordStorage;
   let commitmentStorage: CommitmentStorage;
+  let blockStorage: BlockStorage;
+  let blockRecordsStorage: BlockRecordsStorage;
   let smt: SparseMerkleTree;
   let alphabillClient: MockAlphabillClient;
 
@@ -82,6 +86,9 @@ describe('AggregatorService Tests', () => {
     alphabillClient = new MockAlphabillClient();
     recordStorage = new AggregatorRecordStorage();
     commitmentStorage = new CommitmentStorage();
+    blockStorage = new BlockStorage();
+    blockRecordsStorage = new BlockRecordsStorage();
+
     smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
 
     roundManager = new RoundManager(
@@ -101,7 +108,7 @@ describe('AggregatorService Tests', () => {
       {} as any,
     );
 
-    aggregatorService = new AggregatorService(roundManager, smt, recordStorage);
+    aggregatorService = new AggregatorService(roundManager, smt, recordStorage, blockStorage, blockRecordsStorage);
   });
 
   it('should handle submitting a new commitment correctly', async () => {
@@ -153,5 +160,63 @@ describe('AggregatorService Tests', () => {
     const result2 = await aggregatorService.submitCommitment(commitment2);
     expect(result2.status).toBe(SubmitCommitmentStatus.REQUEST_ID_EXISTS);
     expect(result2.exists).toBe(false);
+  });
+
+  it('should retrieve commitments for a block number', async () => {
+    const mockBlockRecordsStorage = {
+      get: jest.fn(),
+    };
+
+    Object.defineProperty(roundManager, 'getBlockRecordsStorage', {
+      value: jest.fn().mockReturnValue(mockBlockRecordsStorage),
+    });
+
+    const commitments: Commitment[] = [];
+    const requestIds: RequestId[] = [];
+
+    for (let i = 0; i < 3; i++) {
+      const commitment = await createTestCommitment(i);
+      commitments.push(commitment);
+      requestIds.push(commitment.requestId);
+
+      await recordStorage.put(commitment);
+    }
+
+    mockBlockRecordsStorage.get.mockResolvedValue({
+      blockNumber: 123n,
+      requestIds: requestIds,
+    });
+
+    const getByRequestIdsSpy = jest.spyOn(recordStorage, 'getByRequestIds');
+
+    const result = await aggregatorService.getCommitmentsByBlockNumber(123n);
+
+    expect(mockBlockRecordsStorage.get).toHaveBeenCalledWith(123n);
+    expect(getByRequestIdsSpy).toHaveBeenCalledWith(requestIds);
+    expect(result).toHaveLength(3);
+
+    for (const commitment of commitments) {
+      const found = result!.find(
+        (record) =>
+          record.requestId.toBigInt() === commitment.requestId.toBigInt() &&
+          record.transactionHash.equals(commitment.transactionHash),
+      );
+      expect(found).toBeDefined();
+    }
+  });
+
+  it('should return null when block records are not found', async () => {
+    const mockBlockRecordsStorage = {
+      get: jest.fn().mockResolvedValue(null),
+    };
+
+    Object.defineProperty(roundManager, 'getBlockRecordsStorage', {
+      value: jest.fn().mockReturnValue(mockBlockRecordsStorage),
+    });
+
+    const result = await aggregatorService.getCommitmentsByBlockNumber(999n);
+
+    expect(mockBlockRecordsStorage.get).toHaveBeenCalledWith(999n);
+    expect(result).toBeNull();
   });
 });

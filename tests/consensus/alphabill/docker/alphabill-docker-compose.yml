@@ -3,7 +3,7 @@ services:
     platform: linux/amd64
     user: root
     # https://github.com/alphabill-org/alphabill/pkgs/container/alphabill
-    image: ghcr.io/alphabill-org/alphabill:4a074861e732c57b266503c00b0c6638f8d76c48
+    image: ghcr.io/alphabill-org/alphabill:6cff6b0908f8dadbf6d77544bcfd8dc1fef2b077
 
   alphabill-root:
     extends:

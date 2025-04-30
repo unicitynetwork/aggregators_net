@@ -139,7 +139,7 @@ export class AggregatorGateway {
       storage.commitmentStorage,
       storage.smtStorage,
     );
-    const aggregatorService = new AggregatorService(roundManager, smt, storage.recordStorage);
+    const aggregatorService = new AggregatorService(roundManager, smt, storage.recordStorage, storage.blockStorage, storage.blockRecordsStorage);
 
     let leaderElection: LeaderElection | null = null;
     if (config.highAvailability?.enabled) {
@@ -275,25 +275,174 @@ export class AggregatorGateway {
             }
             const response = await aggregatorService.submitCommitment(commitment);
             if (response.status !== SubmitCommitmentStatus.SUCCESS) {
-              return res.status(400).send(response.toDto());
+              return res.status(400).json({
+                jsonrpc: '2.0',
+                error: {
+                  code: -32000,
+                  message: 'Failed to submit commitment',
+                  data: response.toDto(),
+                },
+                id: req.body.id,
+              });
             }
-            return res.send(JSON.stringify(response.toDto()));
+            return res.json({
+              jsonrpc: '2.0',
+              result: response.toDto(),
+              id: req.body.id,
+            });
           }
           case 'get_inclusion_proof': {
             logger.info(`Received get_inclusion_proof request: ${req.body.params.requestId}`);
             const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
             const inclusionProof = await aggregatorService.getInclusionProof(requestId);
             if (inclusionProof == null) {
-              return res.sendStatus(404);
+              return res.status(404).json({
+                jsonrpc: '2.0',
+                error: {
+                  code: -32404,
+                  message: 'Inclusion proof not found',
+                },
+                id: req.body.id,
+              });
             }
-            return res.send(JSON.stringify(inclusionProof.toDto()));
+            return res.json({
+              jsonrpc: '2.0',
+              result: inclusionProof.toDto(),
+              id: req.body.id,
+            });
           }
           case 'get_no_deletion_proof': {
             const noDeletionProof = await aggregatorService.getNodeletionProof();
             if (noDeletionProof == null) {
-              return res.sendStatus(404);
+              return res.status(404).json({
+                jsonrpc: '2.0',
+                error: {
+                  code: -32404,
+                  message: 'No deletion proof not found',
+                },
+                id: req.body.id,
+              });
             }
-            return res.send(JSON.stringify(noDeletionProof));
+            return res.json({
+              jsonrpc: '2.0',
+              result: noDeletionProof,
+              id: req.body.id,
+            });
+          }
+          case 'get_block_height': {
+            logger.info('Received get_block_height request');
+            const blockHeight = await aggregatorService.getCurrentBlockHeight();
+            logger.info(`Block height: ${blockHeight}`);
+            return res.json({
+              jsonrpc: '2.0',
+              result: { blockHeight: blockHeight.toString() },
+              id: req.body.id,
+            });
+          }
+          case 'get_block': {
+            logger.info(`Received get_block request: ${req.body.params.blockNumber}`);
+            if (!req.body.params.blockNumber) {
+              return res.status(400).json({
+                jsonrpc: '2.0',
+                error: {
+                  code: -32602,
+                  message: 'Invalid parameters: blockNumber is required',
+                },
+                id: req.body.id,
+              });
+            }
+
+            let blockNumber;
+            try {
+              blockNumber = BigInt(req.body.params.blockNumber);
+            } catch {
+              return res.status(400).json({
+                jsonrpc: '2.0',
+                error: {
+                  code: -32602,
+                  message: 'Invalid parameters: blockNumber must be a valid number',
+                },
+                id: req.body.id,
+              });
+            }
+
+            const block = await aggregatorService.getBlockByNumber(blockNumber);
+
+            if (!block) {
+              return res.status(404).json({
+                jsonrpc: '2.0',
+                error: {
+                  code: -32001,
+                  message: `Block ${blockNumber.toString()} not found`,
+                },
+                id: req.body.id,
+              });
+            }
+
+            return res.json({
+              jsonrpc: '2.0',
+              result: {
+                index: block.index.toString(),
+                chainId: block.chainId,
+                version: block.version,
+                forkId: block.forkId,
+                timestamp: block.timestamp.toString(),
+                rootHash: block.rootHash.toDto(),
+                previousBlockHash: HexConverter.encode(block.previousBlockHash),
+                noDeletionProofHash: block.noDeletionProofHash ? HexConverter.encode(block.noDeletionProofHash) : null,
+              },
+              id: req.body.id,
+            });
+          }
+          case 'get_block_commitments': {
+            logger.info(`Received get_block_commitments request: ${req.body.params.blockNumber}`);
+            if (!req.body.params.blockNumber) {
+              return res.status(400).json({
+                jsonrpc: '2.0',
+                error: {
+                  code: -32602,
+                  message: 'Invalid parameters: blockNumber is required',
+                },
+                id: req.body.id,
+              });
+            }
+
+            let blockNumber;
+            try {
+              blockNumber = BigInt(req.body.params.blockNumber);
+            } catch {
+              return res.status(400).json({
+                jsonrpc: '2.0',
+                error: {
+                  code: -32602,
+                  message: 'Invalid parameters: blockNumber must be a valid number',
+                },
+                id: req.body.id,
+              });
+            }
+
+            const commitments = await aggregatorService.getCommitmentsByBlockNumber(blockNumber);
+
+            if (commitments === null) {
+              return res.status(404).json({
+                jsonrpc: '2.0',
+                error: {
+                  code: -32001,
+                  message: `Block ${blockNumber.toString()} not found`,
+                },
+                id: req.body.id,
+              });
+            }
+
+            return res.json({
+              jsonrpc: '2.0',
+              result: commitments.map((commitment) => ({
+                requestId: commitment.requestId.toDto(),
+                transactionHash: commitment.transactionHash.toDto(),
+                authenticator: commitment.authenticator.toDto(),
+              })),
+              id: req.body.id,
+            });
           }
           default: {
             return res.sendStatus(400);

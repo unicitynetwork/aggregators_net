@@ -132,12 +132,18 @@ describe('Alphabill Client Integration Tests', () => {
           transactionHash: transactionHash.toDto(),
           authenticator: authenticator.toDto(),
         },
+        id: 1
       }),
     });
+    
     expect(submitCommitmentResponse.status).toEqual(200);
-    const submitCommitmentData = await submitCommitmentResponse.json();
-    expect(submitCommitmentData).not.toBeNull();
-    logger.info('Submit commitment response: ' + JSON.stringify(submitCommitmentData, null, 2));
+    const responseData = await submitCommitmentResponse.json();
+    expect(responseData).not.toBeNull();
+    expect(responseData).toHaveProperty('jsonrpc', '2.0');
+    expect(responseData).toHaveProperty('result');
+    expect(responseData).toHaveProperty('id', 1);
+    expect(responseData.result).toHaveProperty('status', SubmitCommitmentStatus.SUCCESS);
+    logger.info('Submit commitment response: ' + JSON.stringify(responseData, null, 2));
 
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
@@ -150,11 +156,17 @@ describe('Alphabill Client Integration Tests', () => {
         params: {
           requestId: requestId.toDto(),
         },
+        id: 2
       }),
     });
+    
     expect(getInclusionProofResponse.status).toEqual(200);
-    const inclusionProofData = await getInclusionProofResponse.text();
-    const inclusionProof = InclusionProof.fromDto(JSON.parse(inclusionProofData));
+    const inclusionProofData = await getInclusionProofResponse.json();
+    expect(inclusionProofData).toHaveProperty('jsonrpc', '2.0');
+    expect(inclusionProofData).toHaveProperty('result');
+    expect(inclusionProofData).toHaveProperty('id', 2);
+    
+    const inclusionProof = InclusionProof.fromDto(inclusionProofData.result);
     const verificationResult = await inclusionProof.verify(requestId.toBigInt());
     expect(verificationResult).toBeTruthy();
   }, 60000);
@@ -177,13 +189,21 @@ describe('Alphabill Client Integration Tests', () => {
           transactionHash: transactionHash.toDto(),
           authenticator: authenticator.toDto(),
         },
+        id: 3
       }),
     });
+    
     expect(submitCommitmentResponse.status).toEqual(400);
-    const submitCommitmentData = await submitCommitmentResponse.json();
-    expect(submitCommitmentData).not.toBeNull();
-    expect(submitCommitmentData.status).toEqual(SubmitCommitmentStatus.REQUEST_ID_MISMATCH);
-    logger.info('Submit commitment response: ' + JSON.stringify(submitCommitmentData, null, 2));
+    const errorResponse = await submitCommitmentResponse.json();
+    expect(errorResponse).not.toBeNull();
+    expect(errorResponse).toHaveProperty('jsonrpc', '2.0');
+    expect(errorResponse).toHaveProperty('error');
+    expect(errorResponse).toHaveProperty('id', 3);
+    expect(errorResponse.error).toHaveProperty('code', -32000);
+    expect(errorResponse.error).toHaveProperty('message', 'Failed to submit commitment');
+    expect(errorResponse.error).toHaveProperty('data');
+    expect(errorResponse.error.data).toHaveProperty('status', SubmitCommitmentStatus.REQUEST_ID_MISMATCH);
+    logger.info('Submit commitment error response: ' + JSON.stringify(errorResponse, null, 2));
   }, 60000);
 
   it('Validate first block hash is set to initial block hash', async () => {
