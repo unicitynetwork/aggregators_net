@@ -64,6 +64,7 @@ jobs:
 
       - name: Run Ansible Playbook
         run: |
+          ansible -i "${{ vars.TARGET_SERVER }}," all -m ping -vvv
           ansible-playbook ansible/aggregator.yml \
           -i "${{ vars.TARGET_SERVER }}," \
           -e "aggregator_mongodb_uri={{ secrets.aggregator_mongodb_uri }}" \
