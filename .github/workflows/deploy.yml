@@ -52,14 +52,16 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan "${{ vars.JUMP_HOST }}" >> ~/.ssh/known_hosts
-          echo "Host mainjump"
-          echo "  HostName ${{ vars.JUMP_HOST }}"
-          echo "  ForwardAgent yes" >> ~/.ssh/config
-          echo "  User alpha"
-          echo "Host *.mainnet.alphabill.org" > ~/.ssh/config
-          echo "  ProxyJump mainjump " >> ~/.ssh/config
-          echo "  StrictHostKeyChecking accept-new" >> ~/.ssh/config
-          echo "  User alpha" >> ~/.ssh/config
+          cat > ~/.ssh/config <<- EOF
+            Host mainjump 
+              HostName ${{ vars.JUMP_HOST }} 
+              ForwardAgent yes 
+              User alpha 
+            Host *.mainnet.alphabill.org
+              ProxyJump mainjump
+              StrictHostKeyChecking accept-new
+              User alpha
+          EOF
           cat ~/.ssh/config
 
       - name: Run Ansible Playbook
