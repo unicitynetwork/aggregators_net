@@ -61,7 +61,7 @@ export class AlphabillClient implements IAlphabillClient {
     }
     const feeCreditRecordId = feeCredits.at(0)!;
     const round = (await tokenClient.getRoundInfo()).roundNumber;
-    const identifier = new Uint8Array([1, 2, 3, 4]);
+    const identifier = new Uint8Array([1, 2, 3, 5]);
     const tokenTypeUnitId = new UnitIdWithType(identifier, TokenPartitionUnitType.NON_FUNGIBLE_TOKEN_TYPE);
     const nftType = await tokenClient.getUnit(tokenTypeUnitId, false, NonFungibleTokenType);
     if (nftType === null) {
@@ -80,7 +80,7 @@ export class AlphabillClient implements IAlphabillClient {
         typeId: tokenTypeUnitId,
         version: 1n,
         subTypeCreationPredicate: new AlwaysFalsePredicate(),
-        tokenMintingPredicate: PayToPublicKeyHashPredicate.create(signingService.publicKey),
+        tokenMintingPredicate: new AlwaysTruePredicate(),
         tokenTypeOwnerPredicate: new AlwaysTruePredicate(),
         dataUpdatePredicate: new AlwaysTruePredicate(),
       }).sign(proofFactory, []);
@@ -110,7 +110,7 @@ export class AlphabillClient implements IAlphabillClient {
       version: 1n,
       dataUpdatePredicate: PayToPublicKeyHashPredicate.create(signingService.publicKey),
       ownerPredicate: PayToPublicKeyHashPredicate.create(signingService.publicKey),
-    }).sign(proofFactory, proofFactory);
+    }).sign(alwaysTrueProofFactory, proofFactory);
     const createNonFungibleTokenHash = await tokenClient.sendTransaction(createNonFungibleTokenTransactionOrder);
     const createNonFungibleTokenProof = await tokenClient.waitTransactionProof(
       createNonFungibleTokenHash,
