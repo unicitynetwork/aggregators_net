@@ -11,7 +11,7 @@ on:
           - test
           - main
         default: 'test'
-      image_tag:
+      aggregator_tag:
         description: 'Docker image hash or tag'
         required: true
         type: string
@@ -29,7 +29,7 @@ jobs:
       - name: Echo parameters
         run: |
           echo "Target Server: ${{ vars.TARGET_SERVER }}"
-          echo "Tag: ${{ github.event.inputs.image_tag }}"
+          echo "Tag: ${{ github.event.inputs.aggregator_tag }}"
           ls -la
           env|sort
 
@@ -53,10 +53,10 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan "${{ vars.JUMP_HOST }}" >> ~/.ssh/known_hosts
           cat > ~/.ssh/config <<- EOF
-            Host mainjump 
-              HostName ${{ vars.JUMP_HOST }} 
-              ForwardAgent yes 
-              User alpha 
+            Host mainjump
+              HostName ${{ vars.JUMP_HOST }}
+              ForwardAgent yes
+              User alpha
             Host *.mainnet.alphabill.org
               ProxyJump mainjump
               StrictHostKeyChecking accept-new
@@ -66,13 +66,10 @@ jobs:
 
       - name: Run Ansible Playbook
         run: |
-          ansible -i "${{ vars.TARGET_SERVER }}," all -m ping -vvv
           ansible-playbook ansible/aggregator.yml \
           -i "${{ vars.TARGET_SERVER }}," \
           -e "aggregator_mongodb_uri={{ secrets.aggregator_mongodb_uri }}" \
           -e "aggregator_private_key={{ secrets.aggregator_private_key }}" \
           -e "aggregator_initial_block_hash={{ vars.aggregator_initial_block_hash }}" \
-          -e "aggregator_tag={{ github.event.inputs.image_tag }}"
-
-
+          -e "aggregator_tag={{ github.event.inputs.aggregator_tag }}"
 
