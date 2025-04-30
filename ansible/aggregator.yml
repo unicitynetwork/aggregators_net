@@ -24,15 +24,9 @@
       with_items:
         - docker-compose.yml
 
-    - name: Pull an image
+    - name: Pull the image
       community.docker.docker_image_pull:
         name: "ghcr.io/unicitynetwork/aggregators_net:{{aggregator_tag}}"
-
-    - name: Tag with "latest"
-      community.docker.docker_image_tag:
-        name: "ghcr.io/unicitynetwork/aggregators_net:{{aggregator_tag}}"
-        repository:
-          - "aggregator:latest"
 
     - name: Stop aggregator
       community.docker.docker_compose_v2:
@@ -47,3 +41,4 @@
         files:
           - docker-compose.yml
         state: present
+

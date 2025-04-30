@@ -47,12 +47,21 @@ jobs:
       - name: Add known hosts
         run: |
           mkdir -p ~/.ssh
-          touch ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-          ssh-keyscan "${{ vars.TARGET_SERVER }}" >> ~/.ssh/known_hosts
+          ssh-keyscan "${{ vars.JUMP_HOST }}" >> ~/.ssh/known_hosts
+          echo "Host *" > ~/.ssh/config
+          echo "  User alpha" >> ~/.ssh/config
+          echo "  ProxyJump ${{ vars.JUMP_HOST }}" >> ~/.ssh/config
+          echo "  ForwardAgent yes" >> ~/.ssh/config
+          echo "  StrictHostKeyChecking accept-new" >> ~/.ssh/config
+
       - name: Run Ansible Playbook
         run: |
-          ansible-playbook ansible/aggregator.yml -i "${{ vars.TARGET_SERVER }}," --private-key ~/.ssh/id_rsa
+          ansible-playbook ansible/aggregator.yml \
+          -i "${{ vars.TARGET_SERVER }}," \
+          -e "aggregator_mongodb_uri={{ secrets.aggregator_mongodb_uri }}" \
+          -e "aggregator_private_key={{ secrets.aggregator_private_key }}" \
+          -e "aggregator_initial_block_hash={{ aggregator_initial_block_hash }}" \
+          -e "aggregator_tag={{ github.event.inputs.image_tag }}"
 
 
 

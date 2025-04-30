@@ -1,7 +1,7 @@
 ---
 services:
   aggregator:
-    image: aggregator:latest
+    image: ghcr.io/unicitynetwork/aggregators_net:{{ aggregator_tag }}
     restart: always
     ports:
       - 3000:3000
