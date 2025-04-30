@@ -32,27 +32,35 @@ jobs:
           echo "Tag: ${{ github.event.inputs.image_tag }}"
           ls -la
           env|sort
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x' # Use a specific version like '3.9' or '3.11' if needed
+
       - name: Install Ansible
         run: |
           python -m pip install --upgrade pip
           pip install ansible # Or specify a version like ansible==7.4.0
+
       - name: Configure SSH Key
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_PRIVATE_KEY }} # Reference the secret
-      - name: Add known hosts
+
+      - name: Configure ssh
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan "${{ vars.JUMP_HOST }}" >> ~/.ssh/known_hosts
-          echo "Host *" > ~/.ssh/config
-          echo "  User alpha" >> ~/.ssh/config
-          echo "  ProxyJump ${{ vars.JUMP_HOST }}" >> ~/.ssh/config
+          echo "Host mainjump"
+          echo "  HostName ${{ vars.JUMP_HOST }}"
+          echo "  User alpha"
+          echo "Host *.mainnet.alphabill.org" > ~/.ssh/config
           echo "  ForwardAgent yes" >> ~/.ssh/config
+          echo "  ProxyJump mainjump " >> ~/.ssh/config
           echo "  StrictHostKeyChecking accept-new" >> ~/.ssh/config
+          echo "  User alpha" >> ~/.ssh/config
+          cat ~/.ssh/config
 
       - name: Run Ansible Playbook
         run: |
@@ -60,7 +68,7 @@ jobs:
           -i "${{ vars.TARGET_SERVER }}," \
           -e "aggregator_mongodb_uri={{ secrets.aggregator_mongodb_uri }}" \
           -e "aggregator_private_key={{ secrets.aggregator_private_key }}" \
-          -e "aggregator_initial_block_hash={{ aggregator_initial_block_hash }}" \
+          -e "aggregator_initial_block_hash={{ vars.aggregator_initial_block_hash }}" \
           -e "aggregator_tag={{ github.event.inputs.image_tag }}"
 
 
