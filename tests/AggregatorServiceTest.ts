@@ -12,11 +12,11 @@ import { Commitment } from '../src/commitment/Commitment.js';
 import logger from '../src/logger.js';
 import { MockAlphabillClient } from './consensus/alphabill/MockAlphabillClient.js';
 import { CommitmentStorage } from '../src/commitment/CommitmentStorage.js';
+import { BlockStorage } from '../src/hashchain/BlockStorage.js';
 import { AggregatorRecordStorage } from '../src/records/AggregatorRecordStorage.js';
+import { BlockRecordsStorage } from '../src/records/BlockRecordsStorage.js';
 import { RoundManager } from '../src/RoundManager.js';
 import { SubmitCommitmentStatus } from '../src/SubmitCommitmentResponse.js';
-import { BlockStorage } from '../src/hashchain/BlockStorage.js';
-import { BlockRecordsStorage } from '../src/records/BlockRecordsStorage.js';
 
 describe('AggregatorService Tests', () => {
   jest.setTimeout(30000);
@@ -163,16 +163,8 @@ describe('AggregatorService Tests', () => {
   });
 
   it('should retrieve commitments for a block number', async () => {
-    const mockBlockRecordsStorage = {
-      get: jest.fn(),
-    };
-
-    Object.defineProperty(roundManager, 'getBlockRecordsStorage', {
-      value: jest.fn().mockReturnValue(mockBlockRecordsStorage),
-    });
-
-    const commitments: Commitment[] = [];
     const requestIds: RequestId[] = [];
+    const commitments: Commitment[] = [];
 
     for (let i = 0; i < 3; i++) {
       const commitment = await createTestCommitment(i);
@@ -182,7 +174,7 @@ describe('AggregatorService Tests', () => {
       await recordStorage.put(commitment);
     }
 
-    mockBlockRecordsStorage.get.mockResolvedValue({
+    jest.spyOn(blockRecordsStorage, 'get').mockResolvedValue({
       blockNumber: 123n,
       requestIds: requestIds,
     });
@@ -191,7 +183,7 @@ describe('AggregatorService Tests', () => {
 
     const result = await aggregatorService.getCommitmentsByBlockNumber(123n);
 
-    expect(mockBlockRecordsStorage.get).toHaveBeenCalledWith(123n);
+    expect(blockRecordsStorage.get).toHaveBeenCalledWith(123n);
     expect(getByRequestIdsSpy).toHaveBeenCalledWith(requestIds);
     expect(result).toHaveLength(3);
 
@@ -206,17 +198,11 @@ describe('AggregatorService Tests', () => {
   });
 
   it('should return null when block records are not found', async () => {
-    const mockBlockRecordsStorage = {
-      get: jest.fn().mockResolvedValue(null),
-    };
-
-    Object.defineProperty(roundManager, 'getBlockRecordsStorage', {
-      value: jest.fn().mockReturnValue(mockBlockRecordsStorage),
-    });
+    jest.spyOn(blockRecordsStorage, 'get').mockResolvedValue(null);
 
     const result = await aggregatorService.getCommitmentsByBlockNumber(999n);
 
-    expect(mockBlockRecordsStorage.get).toHaveBeenCalledWith(999n);
+    expect(blockRecordsStorage.get).toHaveBeenCalledWith(999n);
     expect(result).toBeNull();
   });
 });

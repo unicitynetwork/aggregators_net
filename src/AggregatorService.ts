@@ -4,12 +4,12 @@ import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.
 
 import { Commitment } from './commitment/Commitment.js';
 import { Block } from './hashchain/Block.js';
+import { IBlockStorage } from './hashchain/IBlockStorage.js';
 import { AggregatorRecord } from './records/AggregatorRecord.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
+import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { RoundManager } from './RoundManager.js';
 import { SubmitCommitmentResponse, SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
-import { IBlockStorage } from './hashchain/IBlockStorage.js';
-import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 
 export class AggregatorService {
   public constructor(

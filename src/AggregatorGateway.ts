@@ -139,7 +139,13 @@ export class AggregatorGateway {
       storage.commitmentStorage,
       storage.smtStorage,
     );
-    const aggregatorService = new AggregatorService(roundManager, smt, storage.recordStorage, storage.blockStorage, storage.blockRecordsStorage);
+    const aggregatorService = new AggregatorService(
+      roundManager,
+      smt,
+      storage.recordStorage,
+      storage.blockStorage,
+      storage.blockRecordsStorage,
+    );
 
     let leaderElection: LeaderElection | null = null;
     if (config.highAvailability?.enabled) {

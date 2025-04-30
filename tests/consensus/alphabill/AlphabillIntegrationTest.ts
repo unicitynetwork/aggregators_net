@@ -132,10 +132,10 @@ describe('Alphabill Client Integration Tests', () => {
           transactionHash: transactionHash.toDto(),
           authenticator: authenticator.toDto(),
         },
-        id: 1
+        id: 1,
       }),
     });
-    
+
     expect(submitCommitmentResponse.status).toEqual(200);
     const responseData = await submitCommitmentResponse.json();
     expect(responseData).not.toBeNull();
@@ -156,16 +156,16 @@ describe('Alphabill Client Integration Tests', () => {
         params: {
           requestId: requestId.toDto(),
         },
-        id: 2
+        id: 2,
       }),
     });
-    
+
     expect(getInclusionProofResponse.status).toEqual(200);
     const inclusionProofData = await getInclusionProofResponse.json();
     expect(inclusionProofData).toHaveProperty('jsonrpc', '2.0');
     expect(inclusionProofData).toHaveProperty('result');
     expect(inclusionProofData).toHaveProperty('id', 2);
-    
+
     const inclusionProof = InclusionProof.fromDto(inclusionProofData.result);
     const verificationResult = await inclusionProof.verify(requestId.toBigInt());
     expect(verificationResult).toBeTruthy();
@@ -189,10 +189,10 @@ describe('Alphabill Client Integration Tests', () => {
           transactionHash: transactionHash.toDto(),
           authenticator: authenticator.toDto(),
         },
-        id: 3
+        id: 3,
       }),
     });
-    
+
     expect(submitCommitmentResponse.status).toEqual(400);
     const errorResponse = await submitCommitmentResponse.json();
     expect(errorResponse).not.toBeNull();
