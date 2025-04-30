@@ -7,37 +7,51 @@ const errorLogFilePath = path.join(__dirname, process.env.ERROR_LOG_FILE ?? 'agg
 const logFormat = process.env.LOG_FORMAT?.toLowerCase() === 'json' ? 'json' : 'simple';
 const enableFileLogging = process.env.LOG_TO_FILE?.toLowerCase() === 'true';
 
+// Custom format to rename message to msg
+const renameMessage = format((info) => {
+  info.msg = info.message;
+  delete info.message;
+  return info;
+});
+
 const logger: Logger = createLogger({
   level: process.env.LOG_LEVEL ?? 'info',
   transports: [
     new transports.Console({
       format: format.combine(
-        format.timestamp(),
-        logFormat === 'json'
-          ? format.json()
+        format.timestamp({ alias: 'time' }),
+        renameMessage(),
+        logFormat === 'json' 
+          ? format.json() 
           : format.combine(
               format.simple(),
               format.errors({ stack: true }),
-              format.printf(({ timestamp, level, message, stack }) => {
-                const text = `${timestamp} ${level.toUpperCase()} ${message}`;
+              format.printf(({ time, level, msg, stack }) => {
+                const text = `${time} ${level.toUpperCase()} ${msg}`;
                 return stack ? text + '\n' + stack : text;
               }),
             ),
       ),
     }),
-    ...(enableFileLogging
-      ? [
-          new transports.File({
-            format: format.combine(format.timestamp(), format.json()),
-            filename: combinedLogFilePath,
-          }),
-          new transports.File({
-            level: 'error',
-            format: format.combine(format.timestamp(), format.json()),
-            filename: errorLogFilePath,
-          }),
-        ]
-      : []),
+    ...(enableFileLogging ? [
+      new transports.File({
+        format: format.combine(
+          format.timestamp({ alias: 'time' }),
+          renameMessage(),
+          format.json()
+        ),
+        filename: combinedLogFilePath,
+      }),
+      new transports.File({
+        level: 'error',
+        format: format.combine(
+          format.timestamp({ alias: 'time' }),
+          renameMessage(),
+          format.json()
+        ),
+        filename: errorLogFilePath,
+      }),
+    ] : []),
   ],
 });
 
