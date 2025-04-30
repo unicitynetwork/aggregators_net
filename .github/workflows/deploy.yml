@@ -53,14 +53,14 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan "${{ vars.JUMP_HOST }}" >> ~/.ssh/known_hosts
           cat > ~/.ssh/config <<- EOF
-            Host mainjump
-              HostName ${{ vars.JUMP_HOST }}
-              ForwardAgent yes
-              User alpha
-            Host *.mainnet.alphabill.org
-              ProxyJump mainjump
-              StrictHostKeyChecking accept-new
-              User alpha
+          Host mainjump
+            HostName ${{ vars.JUMP_HOST }}
+            ForwardAgent yes
+            User alpha
+          Host *.mainnet.alphabill.org
+            ProxyJump mainjump
+            StrictHostKeyChecking accept-new
+            User alpha
           EOF
           cat ~/.ssh/config
 
@@ -68,8 +68,8 @@ jobs:
         run: |
           ansible-playbook ansible/aggregator.yml \
           -i "${{ vars.TARGET_SERVER }}," \
-          -e "aggregator_mongodb_uri={{ secrets.aggregator_mongodb_uri }}" \
-          -e "aggregator_private_key={{ secrets.aggregator_private_key }}" \
-          -e "aggregator_initial_block_hash={{ vars.aggregator_initial_block_hash }}" \
-          -e "aggregator_tag={{ github.event.inputs.aggregator_tag }}"
+          -e "aggregator_mongodb_uri=${{ secrets.aggregator_mongodb_uri }}" \
+          -e "aggregator_private_key=${{ secrets.aggregator_private_key }}" \
+          -e "aggregator_initial_block_hash=${{ vars.aggregator_initial_block_hash }}" \
+          -e "aggregator_tag=${{ github.event.inputs.aggregator_tag }}"
 
