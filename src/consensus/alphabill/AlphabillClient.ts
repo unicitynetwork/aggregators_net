@@ -1,3 +1,4 @@
+import { IUnitId } from '@alphabill/alphabill-js-sdk/lib/IUnitId.js';
 import { TokenPartitionJsonRpcClient } from '@alphabill/alphabill-js-sdk/lib/json-rpc/TokenPartitionJsonRpcClient.js';
 import { type ISigningService } from '@alphabill/alphabill-js-sdk/lib/signing/ISigningService.js';
 import { createTokenClient, http } from '@alphabill/alphabill-js-sdk/lib/StateApiClientFactory.js';
@@ -31,6 +32,8 @@ export class AlphabillClient implements IAlphabillClient {
     private readonly partitionId: number,
     private readonly proofFactory: IProofFactory,
     private readonly alwaysTrueProofFactory: IProofFactory,
+    private readonly feeCreditRecordId: IUnitId,
+    private readonly nftId: IUnitId,
   ) {}
 
   public static async create(
@@ -39,33 +42,32 @@ export class AlphabillClient implements IAlphabillClient {
     tokenPartitionId: number,
     networkId: number,
   ): Promise<AlphabillClient> {
+    logger.info('Initializing Alphabill client...');
     const tokenClient = createTokenClient({ transport: http(tokenPartitionUrl) });
     const proofFactory = new PayToPublicKeyHashProofFactory(signingService);
     const alwaysTrueProofFactory = new AlwaysTrueProofFactory();
+
     const units = await tokenClient.getUnitsByOwnerId(signingService.publicKey);
-    if (units.nonFungibleTokens.length > 0) {
-      logger.info('NFT already exists, skipping initial Alphabill setup.');
-      return new AlphabillClient(
-        signingService,
-        tokenClient,
-        networkId,
-        tokenPartitionId,
-        proofFactory,
-        alwaysTrueProofFactory,
-      );
-    }
-    logger.info('Setting up Alphabill client...');
+
+    logger.info('Checking Fee Credit Record');
     const feeCredits = units.feeCreditRecords;
     if (feeCredits.length == 0) {
       throw new Error('No fee credits found.');
     }
     const feeCreditRecordId = feeCredits.at(0)!;
-    const round = (await tokenClient.getRoundInfo()).roundNumber;
-    const identifier = new Uint8Array([1, 2, 3, 5]);
-    const tokenTypeUnitId = new UnitIdWithType(identifier, TokenPartitionUnitType.NON_FUNGIBLE_TOKEN_TYPE);
+    logger.info(`Fee Credit Record: ${feeCreditRecordId}`);
+
+    logger.info('Checking NFT Type');
+    const tokenTypeUnitId = new UnitIdWithType(
+      new Uint8Array([1, 2, 3, 5]),
+      TokenPartitionUnitType.NON_FUNGIBLE_TOKEN_TYPE,
+    );
     const nftType = await tokenClient.getUnit(tokenTypeUnitId, false, NonFungibleTokenType);
-    if (nftType === null) {
+    if (nftType !== null) {
+      logger.info(`NFT type already exists with unit ID ${tokenTypeUnitId}.`);
+    } else {
       logger.info(`Creating NFT type with unit ID ${tokenTypeUnitId}.`);
+      const round = (await tokenClient.getRoundInfo()).roundNumber;
 
       const createNonFungibleTokenTypeTransactionOrder = await CreateNonFungibleTokenType.create({
         icon: { data: new Uint8Array(), type: 'image/png' },
@@ -95,7 +97,31 @@ export class AlphabillClient implements IAlphabillClient {
       logger.info(`Create NFT type transaction status - ${TransactionStatus[txStatus]}.`);
     }
 
-    logger.info(`Creating NFT.`);
+    logger.info('Checking if NFT exists');
+    let nftID: IUnitId | undefined;
+    for (const unitId of units.nonFungibleTokens) {
+      const nft = await tokenClient.getUnit(unitId, false, NonFungibleToken);
+      if (nft && tokenTypeUnitId.equals(nft.typeId)) {
+        nftID = unitId;
+        break;
+      }
+    }
+    if (nftID) {
+      logger.info(`NFT already exists (ID=${nftID}), skipping initial Alphabill setup.`);
+      return new AlphabillClient(
+        signingService,
+        tokenClient,
+        networkId,
+        tokenPartitionId,
+        proofFactory,
+        alwaysTrueProofFactory,
+        feeCreditRecordId,
+        nftID,
+      );
+    }
+
+    logger.info(`Minting new NFT.`);
+    const round = (await tokenClient.getRoundInfo()).roundNumber;
     const createNonFungibleTokenTransactionOrder = await CreateNonFungibleToken.create({
       data: NonFungibleTokenData.create(new Uint8Array()),
       metadata: new ClientMetadata(round + 60n, 5n, feeCreditRecordId, null),
@@ -121,7 +147,8 @@ export class AlphabillClient implements IAlphabillClient {
     if (createNftTxStatus !== TransactionStatus.Successful) {
       throw new Error('Alphabill client setup failed.');
     }
-    logger.info('Alphabill client setup successful.');
+    nftID = createNonFungibleTokenProof.transactionRecord.transactionOrder.payload.unitId;
+    logger.info(`Alphabill client setup successful, NFT ID: ${nftID}.`);
     return new AlphabillClient(
       signingService,
       tokenClient,
@@ -129,33 +156,20 @@ export class AlphabillClient implements IAlphabillClient {
       tokenPartitionId,
       proofFactory,
       alwaysTrueProofFactory,
+      feeCreditRecordId,
+      nftID,
     );
   }
 
   public async submitHash(transactionHash: DataHash): Promise<SubmitHashResponse> {
-    const units = await this.tokenClient.getUnitsByOwnerId(this.signingService.publicKey);
-    const feeCredits = units.feeCreditRecords;
-    if (feeCredits.length == 0) {
-      throw new Error('No fee credits found.');
-    }
-    const feeCreditRecordId = feeCredits.at(0)!;
-    const round = (await this.tokenClient.getRoundInfo()).roundNumber;
-
-    const updatedNftData = NonFungibleTokenData.create(transactionHash.imprint);
-
-    const nonFungibleTokens = units.nonFungibleTokens;
-    if (!nonFungibleTokens) {
-      throw new Error('No NFTs found.');
-    }
-    const tokenId = nonFungibleTokens.at(0);
-    const token = await this.tokenClient.getUnit(tokenId!, false, NonFungibleToken);
+    const token = await this.tokenClient.getUnit(this.nftId, false, NonFungibleToken);
     if (!token) {
       throw new Error('NFT not found.');
     }
-
+    const round = (await this.tokenClient.getRoundInfo()).roundNumber;
     const updateNonFungibleTokenTransactionOrder = await UpdateNonFungibleToken.create({
-      data: updatedNftData,
-      metadata: new ClientMetadata(round + 60n, 5n, feeCreditRecordId, null),
+      data: NonFungibleTokenData.create(transactionHash.imprint),
+      metadata: new ClientMetadata(round + 60n, 5n, this.feeCreditRecordId, null),
       networkIdentifier: this.networkId,
       partitionIdentifier: this.partitionId,
       stateLock: null,
