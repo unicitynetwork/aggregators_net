@@ -1,8 +1,16 @@
 import { SetFeeCredit } from '@alphabill/alphabill-js-sdk/lib/fees/transactions/SetFeeCredit.js';
 import { DefaultSigningService } from '@alphabill/alphabill-js-sdk/lib/signing/DefaultSigningService.js';
 import { createTokenClient, http } from '@alphabill/alphabill-js-sdk/lib/StateApiClientFactory.js';
+import { NonFungibleTokenData } from '@alphabill/alphabill-js-sdk/lib/tokens/NonFungibleTokenData.js';
+import { TokenPartitionUnitType } from '@alphabill/alphabill-js-sdk/lib/tokens/TokenPartitionUnitType.js';
+import { CreateNonFungibleToken } from '@alphabill/alphabill-js-sdk/lib/tokens/transactions/CreateNonFungibleToken.js';
+import { CreateNonFungibleTokenType } from '@alphabill/alphabill-js-sdk/lib/tokens/transactions/CreateNonFungibleTokenType.js';
+import { UnitIdWithType } from '@alphabill/alphabill-js-sdk/lib/tokens/UnitIdWithType.js';
 import { ClientMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/ClientMetadata.js';
+import { AlwaysFalsePredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/AlwaysFalsePredicate.js';
+import { AlwaysTruePredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/AlwaysTruePredicate.js';
 import { PayToPublicKeyHashPredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/PayToPublicKeyHashPredicate.js';
+import { AlwaysTrueProofFactory } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/AlwaysTrueProofFactory.js';
 import { PayToPublicKeyHashProofFactory } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/PayToPublicKeyHashProofFactory.js';
 import { TransactionStatus } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionStatus.js';
 import { Base16Converter } from '@alphabill/alphabill-js-sdk/lib/util/Base16Converter.js';
@@ -63,7 +71,7 @@ describe('Alphabill Client Integration Tests', () => {
     logger.info('Setting fee credit...');
     const tokenClient = createTokenClient({ transport: http(tokenPartitionUrl) });
     const ownerPredicate = PayToPublicKeyHashPredicate.create(alphabillSigningService.publicKey);
-    const round = (await tokenClient.getRoundInfo()).roundNumber;
+    let round = (await tokenClient.getRoundInfo()).roundNumber;
     const setFeeCreditTransactionOrder = await SetFeeCredit.create({
       targetPartitionIdentifier: tokenPartitionId,
       ownerPredicate: ownerPredicate,
@@ -79,7 +87,66 @@ describe('Alphabill Client Integration Tests', () => {
     const setFeeCreditHash = await tokenClient.sendTransaction(setFeeCreditTransactionOrder);
     const setFeeCreditProof = await tokenClient.waitTransactionProof(setFeeCreditHash, SetFeeCredit);
     expect(setFeeCreditProof.transactionRecord.serverMetadata.successIndicator).toEqual(TransactionStatus.Successful);
+    const feeCreditRecordId = setFeeCreditProof.transactionRecord.serverMetadata.targetUnitIds.at(0)!;
     logger.info('Setting fee credit successful.');
+
+    // Add some NFTs to the partition to make sure aggregator is not confused and uses the correct NFT
+    const tokenTypeUnitId = new UnitIdWithType(new Uint8Array([42]), TokenPartitionUnitType.NON_FUNGIBLE_TOKEN_TYPE);
+    // const nftType = await tokenClient.getUnit(tokenTypeUnitId, false, NonFungibleTokenType);
+    round = (await tokenClient.getRoundInfo()).roundNumber;
+
+    const createNonFungibleTokenTypeTransactionOrder = await CreateNonFungibleTokenType.create({
+      icon: { data: new Uint8Array(0), type: 'image/png' },
+      metadata: new ClientMetadata(round + 60n, 5n, feeCreditRecordId, null),
+      name: 'Unicity Trust Anchor',
+      networkIdentifier: networkId,
+      parentTypeId: null,
+      partitionIdentifier: tokenPartitionId,
+      stateLock: null,
+      stateUnlock: null,
+      symbol: 'Unicity',
+      typeId: tokenTypeUnitId,
+      version: 1n,
+      subTypeCreationPredicate: new AlwaysFalsePredicate(),
+      tokenMintingPredicate: new AlwaysTruePredicate(),
+      tokenTypeOwnerPredicate: new AlwaysTruePredicate(),
+      dataUpdatePredicate: new AlwaysTruePredicate(),
+    }).sign(proofFactory, []);
+    const createNonFungibleTokenTypeHash = await tokenClient.sendTransaction(
+      createNonFungibleTokenTypeTransactionOrder,
+    );
+    const createNonFungibleTokenTypeProof = await tokenClient.waitTransactionProof(
+      createNonFungibleTokenTypeHash,
+      CreateNonFungibleTokenType,
+    );
+    const txStatus = createNonFungibleTokenTypeProof.transactionRecord.serverMetadata.successIndicator;
+    logger.info(`Create NFT type transaction status - ${TransactionStatus[txStatus]}.`);
+
+    logger.info(`Minting new NFT.`);
+    const alwaysTrueProofFactory = new AlwaysTrueProofFactory();
+    round = (await tokenClient.getRoundInfo()).roundNumber;
+    const createNonFungibleTokenTransactionOrder = await CreateNonFungibleToken.create({
+      data: NonFungibleTokenData.create(new Uint8Array(0)),
+      metadata: new ClientMetadata(round + 60n, 5n, feeCreditRecordId, null),
+      name: 'Test',
+      networkIdentifier: networkId,
+      nonce: 0n,
+      partitionIdentifier: tokenPartitionId,
+      stateLock: null,
+      stateUnlock: null,
+      typeId: tokenTypeUnitId,
+      uri: 'https://github.com/unicitynetwork',
+      version: 1n,
+      dataUpdatePredicate: PayToPublicKeyHashPredicate.create(alphabillSigningService.publicKey),
+      ownerPredicate: PayToPublicKeyHashPredicate.create(alphabillSigningService.publicKey),
+    }).sign(alwaysTrueProofFactory, proofFactory);
+    const createNonFungibleTokenHash = await tokenClient.sendTransaction(createNonFungibleTokenTransactionOrder);
+    const createNonFungibleTokenProof = await tokenClient.waitTransactionProof(
+      createNonFungibleTokenHash,
+      CreateNonFungibleToken,
+    );
+    const createNftTxStatus = createNonFungibleTokenProof.transactionRecord.serverMetadata.successIndicator;
+    logger.info(`Create NFT transaction status - ${TransactionStatus[createNftTxStatus]}.`);
 
     logger.info('Starting aggregator...');
     aggregator = await AggregatorGateway.create({

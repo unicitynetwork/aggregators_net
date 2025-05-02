@@ -26,7 +26,6 @@ import logger from '../../logger.js';
 
 export class AlphabillClient implements IAlphabillClient {
   private constructor(
-    private readonly signingService: ISigningService,
     private readonly tokenClient: TokenPartitionJsonRpcClient,
     private readonly networkId: number,
     private readonly partitionId: number,
@@ -101,15 +100,18 @@ export class AlphabillClient implements IAlphabillClient {
     let nftID: IUnitId | undefined;
     for (const unitId of units.nonFungibleTokens) {
       const nft = await tokenClient.getUnit(unitId, false, NonFungibleToken);
-      if (nft && tokenTypeUnitId.equals(nft.typeId)) {
-        nftID = unitId;
-        break;
+      if (nft) {
+        logger.debug(`Wallet has NFT: ${nft.unitId} of type ${nft.typeId}`);
+        if (tokenTypeUnitId.equals(nft.typeId)) {
+          nftID = unitId;
+          break;
+        }
       }
     }
+
     if (nftID) {
       logger.info(`NFT already exists (ID=${nftID}), skipping initial Alphabill setup.`);
       return new AlphabillClient(
-        signingService,
         tokenClient,
         networkId,
         tokenPartitionId,
@@ -150,7 +152,6 @@ export class AlphabillClient implements IAlphabillClient {
     nftID = createNonFungibleTokenProof.transactionRecord.transactionOrder.payload.unitId;
     logger.info(`Alphabill client setup successful, NFT ID: ${nftID}.`);
     return new AlphabillClient(
-      signingService,
       tokenClient,
       networkId,
       tokenPartitionId,
