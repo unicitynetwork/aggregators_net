@@ -28,6 +28,10 @@ export default {
           }
         },
         exclude: /node_modules\/(?!@unicitylabs)/
+      },
+      {
+        test: /\.node$/,
+        loader: "node-loader"
       }
     ]
   },
