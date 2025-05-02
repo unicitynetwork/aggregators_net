@@ -104,7 +104,7 @@ describe('Block API Endpoints', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty('jsonrpc', '2.0');
-    expect(response.body.result).toHaveProperty('blockHeight', '0');
+    expect(response.body.result).toHaveProperty('blockNumber', '0');
   });
 
   it('should return 404 when requesting non-existent block', async () => {
@@ -159,7 +159,7 @@ describe('Block API Endpoints', () => {
     // Get block height - should be 1 now
     const heightResponse = await callJsonRpc('get_block_height');
     expect(heightResponse.status).toBe(200);
-    expect(heightResponse.body.result.blockHeight).toBe('1');
+    expect(heightResponse.body.result.blockNumber).toBe('1');
 
     // Retrieve block by number
     const blockResponse = await callJsonRpc('get_block', { blockNumber: block.index.toString() });
@@ -181,5 +181,41 @@ describe('Block API Endpoints', () => {
       expect(commitment).toHaveProperty('transactionHash');
       expect(commitment).toHaveProperty('authenticator');
     }
+  });
+
+  it('should retrieve the latest block using "latest" as block identifier', async () => {
+    const roundManager = gateway.getRoundManager();
+    const signingService = await SigningService.createFromSecret(SigningService.generatePrivateKey());
+
+    for (let blockIndex = 0; blockIndex < 3; blockIndex++) {
+      for (let i = 0; i < 2; i++) {
+        const stateHash = new DataHash(
+          HashAlgorithm.SHA256,
+          new TextEncoder().encode(`block-${blockIndex}-state-${i}`),
+        );
+        const txHash = new DataHash(HashAlgorithm.SHA256, new TextEncoder().encode(`block-${blockIndex}-tx-${i}`));
+        const requestId = await RequestId.create(signingService.publicKey, stateHash);
+        const authenticator = await Authenticator.create(signingService, txHash, stateHash);
+        const commitment = new Commitment(requestId, txHash, authenticator);
+        await roundManager.submitCommitment(commitment);
+      }
+
+      await roundManager.createBlock();
+    }
+
+    const heightResponse = await callJsonRpc('get_block_height');
+    expect(heightResponse.status).toBe(200);
+    expect(heightResponse.body.result.blockNumber).toBe('3');
+
+    const latestBlockResponse = await callJsonRpc('get_block', { blockNumber: 'latest' });
+
+    expect(latestBlockResponse.status).toBe(200);
+    expect(latestBlockResponse.body).toHaveProperty('jsonrpc', '2.0');
+
+    expect(latestBlockResponse.body.result).toHaveProperty('index', '3');
+    expect(latestBlockResponse.body.result).toHaveProperty('chainId');
+    expect(latestBlockResponse.body.result).toHaveProperty('version');
+    expect(latestBlockResponse.body.result).toHaveProperty('rootHash');
+    expect(latestBlockResponse.body.result).toHaveProperty('previousBlockHash');
   });
 });

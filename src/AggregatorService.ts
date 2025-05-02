@@ -42,10 +42,10 @@ export class AggregatorService {
   }
 
   /**
-   * Get the current block height (latest block number)
-   * @returns The current block height as a bigint
+   * Get the current block number
+   * @returns The current block number as a bigint
    */
-  public async getCurrentBlockHeight(): Promise<bigint> {
+  public async getCurrentBlockNumber(): Promise<bigint> {
     return (await this.blockStorage.getNextBlockNumber()) - 1n;
   }
 
