@@ -37,6 +37,42 @@ Unicity's infrastructure comprises a decentralized Agent layer interacting with 
 - **Output:**
   - `nonDeletionProof` (object): Zero-knowledge proof confirming no deletion has occurred since the genesis.
 
+## Block-Related API Operations
+
+### 1. Get Block Height
+- **Operation:** `get_block_height`
+- **Description:** Retrieves the current height of the blockchain (the number of the latest block).
+- **Input:** None
+- **Output:**
+  - `blockNumber` (string): The current block height as a string representing an integer.
+
+### 2. Get Block
+- **Operation:** `get_block`
+- **Description:** Retrieves detailed information about a specific block.
+- **Input:**
+  - `blockNumber` (integer or "latest"): The block number to retrieve, or "latest" to get the most recent block.
+- **Output:**
+  - Block details including:
+    - `index` (string): The block number.
+    - `chainId` (string): The chain identifier.
+    - `version` (string): Block version.
+    - `forkId` (string): Fork identifier.
+    - `timestamp` (string): Block creation timestamp.
+    - `rootHash` (object): Root hash of the block.
+    - `previousBlockHash` (string): Hash of the previous block.
+    - `noDeletionProofHash` (string or null): Hash of the no-deletion proof if available.
+
+### 3. Get Block Commitments
+- **Operation:** `get_block_commitments`
+- **Description:** Retrieves all commitments (state transition requests) included in a specific block.
+- **Input:**
+  - `blockNumber` (integer): The block number for which to retrieve commitments.
+- **Output:**
+  - Array of commitment objects, each containing:
+    - `requestId` (string): The unique identifier of the state transition request.
+    - `transactionHash` (string): Hash of the state transition.
+    - `authenticator` (object): Authentication data for the commitment.
+
 ## High Availability
 
 The Unicity Aggregator implements a high availability system ensuring service continuity when individual server instances fail.
