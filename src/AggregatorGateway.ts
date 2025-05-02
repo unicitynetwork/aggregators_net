@@ -398,6 +398,22 @@ export class AggregatorGateway {
     aggregatorService: AggregatorService,
   ): Promise<any> {
     logger.info(`Received submit_commitment request: ${req.body.params.requestId}`);
+    
+    const missingFields = [];
+    if (!req.body.params.requestId) missingFields.push('requestId');
+    if (!req.body.params.transactionHash) missingFields.push('transactionHash');
+    if (!req.body.params.authenticator) missingFields.push('authenticator');
+    
+    if (missingFields.length > 0) {
+      return AggregatorGateway.sendJsonRpcError(
+        res,
+        400,
+        -32602,
+        `Invalid parameters: Missing required fields: ${missingFields.join(', ')}`,
+        req.body.id
+      );
+    }
+    
     let commitment: Commitment;
     try {
       const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
@@ -438,7 +454,31 @@ export class AggregatorGateway {
     aggregatorService: AggregatorService,
   ): Promise<any> {
     logger.info(`Received get_inclusion_proof request: ${req.body.params.requestId}`);
-    const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
+    
+    if (!req.body.params.requestId) {
+      return AggregatorGateway.sendJsonRpcError(
+        res,
+        400,
+        -32602,
+        'Invalid parameters: Missing required field: requestId',
+        req.body.id
+      );
+    }
+    
+    let requestId: RequestId;
+    try {
+      requestId = RequestId.fromDto(req.body.params.requestId);
+    } catch (error) {
+      return AggregatorGateway.sendJsonRpcError(
+        res,
+        400,
+        -32602,
+        'Invalid parameters: Invalid requestId format',
+        req.body.id,
+        { details: error instanceof Error ? error.message : 'Unknown error' }
+      );
+    }
+    
     const inclusionProof = await aggregatorService.getInclusionProof(requestId);
     if (inclusionProof == null) {
       return AggregatorGateway.sendJsonRpcError(res, 404, -32001, 'Inclusion proof not found', req.body.id);
@@ -482,6 +522,7 @@ export class AggregatorGateway {
 
   private static async handleGetBlock(req: Request, res: Response, aggregatorService: AggregatorService): Promise<any> {
     logger.info(`Received get_block request: ${req.body.params.blockNumber}`);
+    
     if (!req.body.params.blockNumber) {
       return AggregatorGateway.sendJsonRpcError(
         res,
@@ -544,6 +585,7 @@ export class AggregatorGateway {
     aggregatorService: AggregatorService,
   ): Promise<any> {
     logger.info(`Received get_block_commitments request: ${req.body.params.blockNumber}`);
+    
     if (!req.body.params.blockNumber) {
       return AggregatorGateway.sendJsonRpcError(
         res,
