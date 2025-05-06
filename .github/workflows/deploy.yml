@@ -23,14 +23,23 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: "${{ github.event.inputs.environment }}"
+
     steps:
+
       - name: Check out repository code
         uses: actions/checkout@v4 # Always use the latest major version
+
+      - name: Trim image tag
+        id: trim_tag
+        run: |
+          raw_input="${{ github.event.inputs.aggregator_tag }}"
+          trimmed_input=$(echo "$raw_input" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          echo "aggregator_tag=${trimmed_input}" >> $GITHUB_OUTPUT
 
       - name: Echo parameters
         run: |
           echo "Target Server: ${{ vars.TARGET_SERVER }}"
-          echo "Tag: ${{ github.event.inputs.aggregator_tag }}"
+          echo "Tag: ${{ steps.trim_tag.outputs.aggregator_tag }}"
           ls -la
           env|sort
 
@@ -71,4 +80,4 @@ jobs:
           -e "aggregator_mongodb_uri=${{ secrets.aggregator_mongodb_uri }}" \
           -e "aggregator_private_key=${{ secrets.aggregator_private_key }}" \
           -e "aggregator_initial_block_hash=${{ vars.aggregator_initial_block_hash }}" \
-          -e "aggregator_tag=${{ github.event.inputs.aggregator_tag }}"
+          -e "aggregator_tag=${{ steps.trim_tag.outputs.aggregator_tag }}"
