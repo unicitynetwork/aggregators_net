@@ -5,6 +5,7 @@ import { UpdateNonFungibleTokenAttributes } from '@alphabill/alphabill-js-sdk/li
 import { NonFungibleTokenData } from '@alphabill/alphabill-js-sdk/lib/tokens/NonFungibleTokenData.js';
 import type { UpdateNonFungibleTokenTransactionOrder } from '@alphabill/alphabill-js-sdk/lib/tokens/transactions/UpdateNonFungibleToken.js';
 import { ClientMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/ClientMetadata.js';
+import { AlwaysTruePredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/AlwaysTruePredicate.js';
 import { AlwaysTrueProofFactory } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/AlwaysTrueProofFactory.js';
 import { type IProofFactory } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/IProofFactory.js';
 import { TypeDataUpdateProofsAuthProof } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/TypeDataUpdateProofsAuthProof.js';
@@ -29,7 +30,6 @@ import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { IAlphabillClient } from '../../../src/consensus/alphabill/IAlphabillClient.js';
 import { SubmitHashResponse } from '../../../src/consensus/alphabill/SubmitHashResponse.js';
 import logger from '../../../src/logger.js';
-import { AlwaysTruePredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/AlwaysTruePredicate.js';
 
 class MockSigningService implements ISigningService {
   public publicKey = new Uint8Array([1, 2, 3, 4]);

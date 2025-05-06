@@ -73,21 +73,17 @@ export class AggregatorGateway {
   private server: Server;
   private leaderElection: LeaderElection | null;
   private roundManager: RoundManager;
-  private activeRequests: number = 0;
-  private maxConcurrentRequests: number;
 
   private constructor(
     serverId: string,
     server: Server,
     leaderElection: LeaderElection | null,
     roundManager: RoundManager,
-    maxConcurrentRequests: number = 100,
   ) {
     this.serverId = serverId;
     this.server = server;
     this.leaderElection = leaderElection;
     this.roundManager = roundManager;
-    this.maxConcurrentRequests = maxConcurrentRequests;
   }
 
   public static async create(config: IGatewayConfig = {}): Promise<AggregatorGateway> {
@@ -176,14 +172,8 @@ export class AggregatorGateway {
       config,
       aggregatorService,
       serverId,
-      new AggregatorGateway(
-        serverId,
-        null as unknown as Server, // Will be set later
-        leaderElection,
-        roundManager,
-        config.aggregatorConfig!.concurrencyLimit!,
-      ),
       leaderElection,
+      config.aggregatorConfig!.concurrencyLimit!,
     );
 
     if (config.aggregatorConfig?.concurrencyLimit) {
@@ -207,13 +197,7 @@ export class AggregatorGateway {
       logger.info(`Leader election process started for server ${serverId}.`);
     }
 
-    return new AggregatorGateway(
-      serverId,
-      server,
-      leaderElection,
-      roundManager,
-      config.aggregatorConfig!.concurrencyLimit!,
-    );
+    return new AggregatorGateway(serverId, server, leaderElection, roundManager);
   }
 
   private static onBecomeLeader(aggregatorServerId: string, roundManager: RoundManager): void {
@@ -262,9 +246,10 @@ export class AggregatorGateway {
     config: IGatewayConfig,
     aggregatorService: AggregatorService,
     serverId: string,
-    gateway: AggregatorGateway,
     leaderElection: LeaderElection | null,
+    maxConcurrentRequests: number,
   ): void {
+    let activeRequests = 0;
     app.use(cors());
     app.use(bodyParser.json());
 
@@ -278,17 +263,15 @@ export class AggregatorGateway {
               : 'follower'
             : 'standalone',
         serverId: serverId,
-        activeRequests: gateway.activeRequests,
-        maxConcurrentRequests: gateway.maxConcurrentRequests,
+        activeRequests: activeRequests,
+        maxConcurrentRequests: maxConcurrentRequests,
       });
     });
 
     app.post('/', async (req: Request, res: Response): Promise<any> => {
       // Check if we're at capacity before processing the request
-      if (config.aggregatorConfig?.concurrencyLimit && gateway.activeRequests >= gateway.maxConcurrentRequests) {
-        logger.warn(
-          `Concurrency limit reached (${gateway.activeRequests}/${gateway.maxConcurrentRequests}). Request rejected.`,
-        );
+      if (config.aggregatorConfig?.concurrencyLimit && activeRequests >= maxConcurrentRequests) {
+        logger.warn(`Concurrency limit reached (${activeRequests}/${maxConcurrentRequests}). Request rejected.`);
         return AggregatorGateway.sendJsonRpcError(
           res,
           503,
@@ -299,14 +282,14 @@ export class AggregatorGateway {
       }
 
       if (config.aggregatorConfig?.concurrencyLimit) {
-        gateway.activeRequests++;
+        activeRequests++;
         let countDecremented = false;
 
         // decrement counter only once
         const decrementCounter = () => {
           if (!countDecremented) {
             countDecremented = true;
-            gateway.activeRequests--;
+            activeRequests--;
           }
         };
 
@@ -396,24 +379,24 @@ export class AggregatorGateway {
     req: Request,
     res: Response,
     aggregatorService: AggregatorService,
-  ): Promise<any> {
+  ): Promise<Response> {
     logger.info(`Received submit_commitment request: ${req.body.params.requestId}`);
-    
+
     const missingFields = [];
     if (!req.body.params.requestId) missingFields.push('requestId');
     if (!req.body.params.transactionHash) missingFields.push('transactionHash');
     if (!req.body.params.authenticator) missingFields.push('authenticator');
-    
+
     if (missingFields.length > 0) {
       return AggregatorGateway.sendJsonRpcError(
         res,
         400,
         -32602,
         `Invalid parameters: Missing required fields: ${missingFields.join(', ')}`,
-        req.body.id
+        req.body.id,
       );
     }
-    
+
     let commitment: Commitment;
     try {
       const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
@@ -452,19 +435,19 @@ export class AggregatorGateway {
     req: Request,
     res: Response,
     aggregatorService: AggregatorService,
-  ): Promise<any> {
+  ): Promise<Response> {
     logger.info(`Received get_inclusion_proof request: ${req.body.params.requestId}`);
-    
+
     if (!req.body.params.requestId) {
       return AggregatorGateway.sendJsonRpcError(
         res,
         400,
         -32602,
         'Invalid parameters: Missing required field: requestId',
-        req.body.id
+        req.body.id,
       );
     }
-    
+
     let requestId: RequestId;
     try {
       requestId = RequestId.fromDto(req.body.params.requestId);
@@ -475,10 +458,10 @@ export class AggregatorGateway {
         -32602,
         'Invalid parameters: Invalid requestId format',
         req.body.id,
-        { details: error instanceof Error ? error.message : 'Unknown error' }
+        { details: error instanceof Error ? error.message : 'Unknown error' },
       );
     }
-    
+
     const inclusionProof = await aggregatorService.getInclusionProof(requestId);
     if (inclusionProof == null) {
       return AggregatorGateway.sendJsonRpcError(res, 404, -32001, 'Inclusion proof not found', req.body.id);
@@ -494,7 +477,7 @@ export class AggregatorGateway {
     req: Request,
     res: Response,
     aggregatorService: AggregatorService,
-  ): Promise<any> {
+  ): Promise<Response> {
     const noDeletionProof = await aggregatorService.getNodeletionProof();
     if (noDeletionProof == null) {
       return AggregatorGateway.sendJsonRpcError(res, 404, -32001, 'No deletion proof not found', req.body.id);
@@ -510,7 +493,7 @@ export class AggregatorGateway {
     req: Request,
     res: Response,
     aggregatorService: AggregatorService,
-  ): Promise<any> {
+  ): Promise<Response> {
     logger.info('Received get_block_height request');
     const currentBlockNumber = await aggregatorService.getCurrentBlockNumber();
     return res.json({
@@ -520,9 +503,13 @@ export class AggregatorGateway {
     });
   }
 
-  private static async handleGetBlock(req: Request, res: Response, aggregatorService: AggregatorService): Promise<any> {
+  private static async handleGetBlock(
+    req: Request,
+    res: Response,
+    aggregatorService: AggregatorService,
+  ): Promise<Response> {
     logger.info(`Received get_block request: ${req.body.params.blockNumber}`);
-    
+
     if (!req.body.params.blockNumber) {
       return AggregatorGateway.sendJsonRpcError(
         res,
@@ -583,9 +570,9 @@ export class AggregatorGateway {
     req: Request,
     res: Response,
     aggregatorService: AggregatorService,
-  ): Promise<any> {
+  ): Promise<Response> {
     logger.info(`Received get_block_commitments request: ${req.body.params.blockNumber}`);
-    
+
     if (!req.body.params.blockNumber) {
       return AggregatorGateway.sendJsonRpcError(
         res,
