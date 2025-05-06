@@ -56,7 +56,6 @@ jobs:
           cat > ~/.ssh/config <<- EOF
           Host mainjump
             HostName ${{ vars.JUMP_HOST }}
-            ForwardAgent yes
             User alpha
           Host *.mainnet.alphabill.org
             ProxyJump mainjump
