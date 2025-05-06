@@ -83,7 +83,6 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
       await AggregatorRecordModel.bulkWrite(operations);
       return true;
     } catch (error) {
-      // Log and rethrow the error
       logger.error('Error in AggregatorRecordStorage putBatch:', error);
       throw error;
     }
@@ -101,5 +100,29 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
       DataHash.fromImprint(stored.authenticator.stateHash),
     );
     return new AggregatorRecord(requestId, DataHash.fromImprint(stored.transactionHash), authenticator);
+  }
+
+  public async getByRequestIds(requestIds: RequestId[]): Promise<AggregatorRecord[]> {
+    if (requestIds.length === 0) {
+      return [];
+    }
+
+    const requestIdBigInts = requestIds.map((id) => id.toBigInt());
+    const storedRecords = await AggregatorRecordModel.find({
+      requestId: { $in: requestIdBigInts },
+    });
+
+    return storedRecords.map((stored) => {
+      const originalRequestId = requestIds.find((id) => id.toBigInt() === stored.requestId)!;
+
+      const authenticator = new Authenticator(
+        stored.authenticator.publicKey,
+        stored.authenticator.algorithm,
+        new Signature(stored.authenticator.signature.slice(0, -1), stored.authenticator.signature[65]),
+        DataHash.fromImprint(stored.authenticator.stateHash),
+      );
+
+      return new AggregatorRecord(originalRequestId, DataHash.fromImprint(stored.transactionHash), authenticator);
+    });
   }
 }

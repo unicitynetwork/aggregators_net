@@ -6,4 +6,5 @@ export interface IAggregatorRecordStorage {
   put(record: AggregatorRecord): Promise<boolean>;
   putBatch(records: AggregatorRecord[]): Promise<boolean>;
   get(requestId: RequestId): Promise<AggregatorRecord | null>;
+  getByRequestIds(requestIds: RequestId[]): Promise<AggregatorRecord[]>;
 }
