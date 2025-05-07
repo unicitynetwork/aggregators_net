@@ -52,7 +52,7 @@ jobs:
           trimmed_input=$(echo "$raw_input" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
           if [ "${trimmed_input}" == "default" ]; then
-            echo "aggregator_tag=${steps.get_hash.outputs.commit_id}" >> $GITHUB_OUTPUT
+            echo "aggregator_tag=${{ steps.get_hash.outputs.commit_id }}" >> $GITHUB_OUTPUT
           else
             echo "aggregator_tag=${trimmed_input}" >> $GITHUB_OUTPUT
           fi
