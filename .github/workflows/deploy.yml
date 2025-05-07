@@ -12,10 +12,10 @@ on:
           - main
         default: 'test'
       aggregator_tag:
-        description: 'Docker image hash or tag'
+        description: 'Docker image hash or tag. Specify "default" to use latest commit id from main branch'
         required: true
         type: string
-#       default: 'main'
+        default: 'default'
 
 jobs:
   deploy:
@@ -28,15 +28,37 @@ jobs:
 
       - name: Check out repository code
         uses: actions/checkout@v4 # Always use the latest major version
+        with:
+          # Fetch all history for all tags and branches
+          fetch-depth: 0 # Important to get refs of other branches
 
-      - name: Trim image tag
+      - name: Get default branch name
+        id: get_branch
+        run: echo "branch_name=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)" >> $GITHUB_OUTPUT
+
+      - name: Get latest commit ID of default branch
+        id: get_hash
+        run: |
+          DEFAULT_BRANCH="${{ steps.get_branch.outputs.branch_name }}"
+          echo "Default branch is: $DEFAULT_BRANCH"
+          COMMIT_ID=$(git rev-parse "origin/$DEFAULT_BRANCH")
+          echo "Latest commit on $DEFAULT_BRANCH is $COMMIT_ID"
+          echo "commit_id=$COMMIT_ID" >> $GITHUB_OUTPUT
+
+      - name: Sanitize input parameters
         id: trim_tag
         run: |
           raw_input="${{ github.event.inputs.aggregator_tag }}"
           trimmed_input=$(echo "$raw_input" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-          echo "aggregator_tag=${trimmed_input}" >> $GITHUB_OUTPUT
 
-      - name: Echo parameters
+          if [ "${trimmed_input}" == "default" ]; then
+            echo "aggregator_tag=${steps.get_hash.outputs.commit_id}" >> $GITHUB_OUTPUT
+          else
+            echo "aggregator_tag=${trimmed_input}" >> $GITHUB_OUTPUT
+          fi
+
+
+      - name: Show parameters & environment
         run: |
           echo "Target Server: ${{ vars.TARGET_SERVER }}"
           echo "Tag: ${{ steps.trim_tag.outputs.aggregator_tag }}"
