@@ -1,16 +1,15 @@
 import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
-import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 
 import { Commitment } from './commitment/Commitment.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { RoundManager } from './RoundManager.js';
+import { Smt } from './smt/Smt.js';
 import { SubmitCommitmentResponse, SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
-
 export class AggregatorService {
   public constructor(
     public readonly roundManager: RoundManager,
-    public readonly smt: SparseMerkleTree,
+    public readonly smt: Smt,
     public readonly recordStorage: IAggregatorRecordStorage,
   ) {}
 
@@ -27,7 +26,8 @@ export class AggregatorService {
     if (!record) {
       return null;
     }
-    const merkleTreePath = this.smt.getPath(requestId.toBigInt());
+
+    const merkleTreePath = await this.smt.getPath(requestId.toBigInt());
     return new InclusionProof(merkleTreePath, record.authenticator, record.transactionHash);
   }
 

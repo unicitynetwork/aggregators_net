@@ -25,6 +25,7 @@ import { LeadershipStorage } from './highAvailability/LeadershipStorage.js';
 import logger from './logger.js';
 import { RoundManager } from './RoundManager.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
+import { Smt } from './smt/Smt.js';
 import { SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
 import { MockAlphabillClient } from '../tests/consensus/alphabill/MockAlphabillClient.js';
 
@@ -374,7 +375,7 @@ export class AggregatorGateway {
     return await AlphabillClient.create(signingService, tokenPartitionUrl, tokenPartitionId, networkId);
   }
 
-  private static async setupSmt(smtStorage: ISmtStorage, aggregatorServerId: string): Promise<SparseMerkleTree> {
+  private static async setupSmt(smtStorage: ISmtStorage, aggregatorServerId: string): Promise<Smt> {
     const smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
     const smtLeaves = await smtStorage.getAll();
     if (smtLeaves.length > 0) {
@@ -385,7 +386,7 @@ export class AggregatorGateway {
       }
       logger.info(`Tree with root hash ${smt.rootHash.toString()} constructed successfully.`);
     }
-    return smt;
+    return new Smt(smt);
   }
 
   private static startNextBlock(roundManager: RoundManager): void {

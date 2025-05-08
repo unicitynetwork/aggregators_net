@@ -21,8 +21,8 @@ const logger: Logger = createLogger({
       format: format.combine(
         format.timestamp({ alias: 'time' }),
         renameMessage(),
-        logFormat === 'json' 
-          ? format.json() 
+        logFormat === 'json'
+          ? format.json()
           : format.combine(
               format.simple(),
               format.errors({ stack: true }),
@@ -33,25 +33,19 @@ const logger: Logger = createLogger({
             ),
       ),
     }),
-    ...(enableFileLogging ? [
-      new transports.File({
-        format: format.combine(
-          format.timestamp({ alias: 'time' }),
-          renameMessage(),
-          format.json()
-        ),
-        filename: combinedLogFilePath,
-      }),
-      new transports.File({
-        level: 'error',
-        format: format.combine(
-          format.timestamp({ alias: 'time' }),
-          renameMessage(),
-          format.json()
-        ),
-        filename: errorLogFilePath,
-      }),
-    ] : []),
+    ...(enableFileLogging
+      ? [
+          new transports.File({
+            format: format.combine(format.timestamp({ alias: 'time' }), renameMessage(), format.json()),
+            filename: combinedLogFilePath,
+          }),
+          new transports.File({
+            level: 'error',
+            format: format.combine(format.timestamp({ alias: 'time' }), renameMessage(), format.json()),
+            filename: errorLogFilePath,
+          }),
+        ]
+      : []),
   ],
 });
 

@@ -40,5 +40,21 @@ export default {
     minimize: false,
   },
   */
-  target: 'node'
+  target: 'node',
+  externals: {
+    'kerberos': 'commonjs kerberos',
+    '@mongodb-js/zstd': 'commonjs @mongodb-js/zstd',
+    '@aws-sdk/credential-providers': 'commonjs @aws-sdk/credential-providers',
+    'gcp-metadata': 'commonjs gcp-metadata',
+    'snappy': 'commonjs snappy',
+    'socks': 'commonjs socks',
+    'aws4': 'commonjs aws4',
+    'mongodb-client-encryption': 'commonjs mongodb-client-encryption'
+  },
+  ignoreWarnings: [
+    {
+      module: /express\/lib\/view\.js$/,
+      message: /Critical dependency: the request of a dependency is an expression/
+    }
+  ]
 };
