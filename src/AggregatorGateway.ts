@@ -67,6 +67,16 @@ export interface IStorageConfig {
   uri?: string;
 }
 
+interface IJsonRpcError {
+  jsonrpc: string;
+  error: {
+    code: number;
+    message: string;
+    data?: unknown;
+  };
+  id: string | number | null;
+}
+
 export class AggregatorGateway {
   private static blockCreationActive = false;
   private static blockCreationTimer: NodeJS.Timeout | null = null;
@@ -74,21 +84,17 @@ export class AggregatorGateway {
   private server: Server;
   private leaderElection: LeaderElection | null;
   private roundManager: RoundManager;
-  private activeRequests: number = 0;
-  private maxConcurrentRequests: number;
 
   private constructor(
     serverId: string,
     server: Server,
     leaderElection: LeaderElection | null,
     roundManager: RoundManager,
-    maxConcurrentRequests: number = 100,
   ) {
     this.serverId = serverId;
     this.server = server;
     this.leaderElection = leaderElection;
     this.roundManager = roundManager;
-    this.maxConcurrentRequests = maxConcurrentRequests;
   }
 
   public static async create(config: IGatewayConfig = {}): Promise<AggregatorGateway> {
@@ -140,7 +146,13 @@ export class AggregatorGateway {
       storage.commitmentStorage,
       storage.smtStorage,
     );
-    const aggregatorService = new AggregatorService(roundManager, smt, storage.recordStorage);
+    const aggregatorService = new AggregatorService(
+      roundManager,
+      smt,
+      storage.recordStorage,
+      storage.blockStorage,
+      storage.blockRecordsStorage,
+    );
 
     let leaderElection: LeaderElection | null = null;
     if (config.highAvailability?.enabled) {
@@ -166,152 +178,18 @@ export class AggregatorGateway {
       AggregatorGateway.startNextBlock(roundManager);
     }
     const app = express();
-    app.use(cors());
-    app.use(bodyParser.json());
-
-    const gateway = new AggregatorGateway(
+    AggregatorGateway.setupRouter(
+      app,
+      config,
+      aggregatorService,
       serverId,
-      null as unknown as Server, // Will be set later
       leaderElection,
-      roundManager,
       config.aggregatorConfig!.concurrencyLimit!,
     );
 
     if (config.aggregatorConfig?.concurrencyLimit) {
       logger.info(`Concurrency limiting enabled: Max ${config.aggregatorConfig.concurrencyLimit} concurrent requests`);
     }
-
-    app.get('/health', (req: Request, res: Response): any => {
-      return res.status(200).json({
-        status: 'ok',
-        role:
-          config.highAvailability?.enabled !== false
-            ? leaderElection && leaderElection.isCurrentLeader()
-              ? 'leader'
-              : 'follower'
-            : 'standalone',
-        serverId: serverId,
-        activeRequests: gateway.activeRequests,
-        maxConcurrentRequests: gateway.maxConcurrentRequests,
-      });
-    });
-
-    app.post('/', async (req: Request, res: Response): Promise<any> => {
-      // Check if we're at capacity before processing the request
-      if (config.aggregatorConfig?.concurrencyLimit && gateway.activeRequests >= gateway.maxConcurrentRequests) {
-        logger.warn(
-          `Concurrency limit reached (${gateway.activeRequests}/${gateway.maxConcurrentRequests}). Request rejected.`,
-        );
-        return res.status(503).json({
-          jsonrpc: '2.0',
-          error: {
-            code: -32000,
-            message: 'Server is at capacity. Please try again later.',
-          },
-          id: req.body?.id || null,
-        });
-      }
-
-      if (config.aggregatorConfig?.concurrencyLimit) {
-        gateway.activeRequests++;
-        let countDecremented = false;
-
-        // decrement counter only once
-        const decrementCounter = () => {
-          if (!countDecremented) {
-            countDecremented = true;
-            gateway.activeRequests--;
-          }
-        };
-
-        // Listen for normal completion
-        res.on('finish', decrementCounter);
-
-        // Also listen for abrupt connection close
-        res.on('close', decrementCounter);
-      }
-
-      if (!aggregatorService) {
-        return res.status(500).json({
-          jsonrpc: '2.0',
-          error: {
-            code: -32603,
-            message: 'Internal error: Service not initialized.',
-          },
-          id: req.body.id,
-        });
-      }
-
-      if (req.body.jsonrpc !== '2.0' || !req.body.params) {
-        return res.status(400).json({
-          jsonrpc: '2.0',
-          error: {
-            code: -32600,
-            message: 'Invalid Request: Not a valid JSON-RPC 2.0 request',
-          },
-          id: req.body.id,
-        });
-      }
-
-      try {
-        switch (req.body.method) {
-          case 'submit_commitment': {
-            logger.info(`Received submit_commitment request: ${req.body.params.requestId}`);
-            let commitment: Commitment;
-            try {
-              const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
-              const transactionHash: DataHash = DataHash.fromDto(req.body.params.transactionHash);
-              const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
-              commitment = new Commitment(requestId, transactionHash, authenticator);
-            } catch (error) {
-              return res.status(400).json({
-                jsonrpc: '2.0',
-                error: {
-                  code: -32602,
-                  message: 'Invalid parameters: Could not create commitment',
-                  data: { details: error instanceof Error ? error.message : 'Unknown error' },
-                },
-                id: req.body.id,
-              });
-            }
-            const response = await aggregatorService.submitCommitment(commitment);
-            if (response.status !== SubmitCommitmentStatus.SUCCESS) {
-              return res.status(400).send(response.toDto());
-            }
-            return res.send(JSON.stringify(response.toDto()));
-          }
-          case 'get_inclusion_proof': {
-            logger.info(`Received get_inclusion_proof request: ${req.body.params.requestId}`);
-            const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
-            const inclusionProof = await aggregatorService.getInclusionProof(requestId);
-            if (inclusionProof == null) {
-              return res.sendStatus(404);
-            }
-            return res.send(JSON.stringify(inclusionProof.toDto()));
-          }
-          case 'get_no_deletion_proof': {
-            const noDeletionProof = await aggregatorService.getNodeletionProof();
-            if (noDeletionProof == null) {
-              return res.sendStatus(404);
-            }
-            return res.send(JSON.stringify(noDeletionProof));
-          }
-          default: {
-            return res.sendStatus(400);
-          }
-        }
-      } catch (error) {
-        logger.error(`Error processing ${req.body.method}:`, error);
-        return res.status(500).json({
-          jsonrpc: '2.0',
-          error: {
-            code: -32603,
-            message: `Internal error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          },
-          id: req.body.id,
-        });
-      }
-    });
 
     const { sslCertPath, sslKeyPath, port } = config.aggregatorConfig!;
 
@@ -330,8 +208,7 @@ export class AggregatorGateway {
       logger.info(`Leader election process started for server ${serverId}.`);
     }
 
-    gateway.server = server;
-    return gateway;
+    return new AggregatorGateway(serverId, server, leaderElection, roundManager);
   }
 
   private static onBecomeLeader(aggregatorServerId: string, roundManager: RoundManager): void {
@@ -373,6 +250,376 @@ export class AggregatorGateway {
       throw new Error('Alphabill network ID must be defined.');
     }
     return await AlphabillClient.create(signingService, tokenPartitionUrl, tokenPartitionId, networkId);
+  }
+
+  private static setupRouter(
+    app: express.Application,
+    config: IGatewayConfig,
+    aggregatorService: AggregatorService,
+    serverId: string,
+    leaderElection: LeaderElection | null,
+    maxConcurrentRequests: number,
+  ): void {
+    let activeRequests = 0;
+    app.use(cors());
+    app.use(bodyParser.json());
+
+    app.get('/health', (req: Request, res: Response) => {
+      res.status(200).json({
+        status: 'ok',
+        role:
+          config.highAvailability?.enabled !== false
+            ? leaderElection && leaderElection.isCurrentLeader()
+              ? 'leader'
+              : 'follower'
+            : 'standalone',
+        serverId: serverId,
+        activeRequests: activeRequests,
+        maxConcurrentRequests: maxConcurrentRequests,
+      });
+    });
+
+    app.post('/', async (req: Request, res: Response) => {
+      // Check if we're at capacity before processing the request
+      if (config.aggregatorConfig?.concurrencyLimit && activeRequests >= maxConcurrentRequests) {
+        logger.warn(`Concurrency limit reached (${activeRequests}/${maxConcurrentRequests}). Request rejected.`);
+        AggregatorGateway.sendJsonRpcError(
+          res,
+          503,
+          -32000,
+          'Server is at capacity. Please try again later.',
+          req.body?.id || null,
+        );
+        return;
+      }
+
+      if (config.aggregatorConfig?.concurrencyLimit) {
+        activeRequests++;
+        let countDecremented = false;
+
+        // decrement counter only once
+        const decrementCounter = (): void => {
+          if (!countDecremented) {
+            countDecremented = true;
+            activeRequests--;
+          }
+        };
+
+        // Listen for normal completion
+        res.on('finish', decrementCounter);
+
+        // Also listen for abrupt connection close
+        res.on('close', decrementCounter);
+      }
+
+      if (!aggregatorService) {
+        AggregatorGateway.sendJsonRpcError(res, 500, -32603, 'Internal error: Service not initialized.', req.body.id);
+        return;
+      }
+
+      if (req.body.jsonrpc !== '2.0' || !req.body.params) {
+        AggregatorGateway.sendJsonRpcError(
+          res,
+          400,
+          -32600,
+          'Invalid Request: Not a valid JSON-RPC 2.0 request',
+          req.body.id,
+        );
+        return;
+      }
+
+      try {
+        switch (req.body.method) {
+          case 'submit_commitment':
+            await AggregatorGateway.handleSubmitCommitment(req, res, aggregatorService);
+            break;
+          case 'get_inclusion_proof':
+            await AggregatorGateway.handleGetInclusionProof(req, res, aggregatorService);
+            break;
+          case 'get_no_deletion_proof':
+            await AggregatorGateway.handleGetNoDeletionProof(req, res, aggregatorService);
+            break;
+          case 'get_block_height':
+            await AggregatorGateway.handleGetBlockHeight(req, res, aggregatorService);
+            break;
+          case 'get_block':
+            await AggregatorGateway.handleGetBlock(req, res, aggregatorService);
+            break;
+          case 'get_block_commitments':
+            await AggregatorGateway.handleGetBlockCommitments(req, res, aggregatorService);
+            break;
+          default:
+            res.sendStatus(400);
+            break;
+        }
+      } catch (error) {
+        logger.error(`Error processing ${req.body.method}:`, error);
+        AggregatorGateway.sendJsonRpcError(
+          res,
+          500,
+          -32603,
+          `Internal error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          req.body.id,
+        );
+      }
+    });
+  }
+
+  private static sendJsonRpcError(
+    res: Response,
+    httpStatus: number,
+    errorCode: number,
+    message: string,
+    id: string | number | null,
+    data?: unknown,
+  ): void {
+    const errorResponse: IJsonRpcError = {
+      jsonrpc: '2.0',
+      error: {
+        code: errorCode,
+        message: message,
+      },
+      id: id,
+    };
+
+    if (data !== undefined) {
+      errorResponse.error.data = data;
+    }
+
+    res.status(httpStatus).json(errorResponse);
+  }
+
+  private static async handleSubmitCommitment(
+    req: Request,
+    res: Response,
+    aggregatorService: AggregatorService,
+  ): Promise<void> {
+    logger.info(`Received submit_commitment request: ${req.body.params.requestId}`);
+
+    const missingFields = [];
+    if (!req.body.params.requestId) missingFields.push('requestId');
+    if (!req.body.params.transactionHash) missingFields.push('transactionHash');
+    if (!req.body.params.authenticator) missingFields.push('authenticator');
+
+    if (missingFields.length > 0) {
+      AggregatorGateway.sendJsonRpcError(
+        res,
+        400,
+        -32602,
+        `Invalid parameters: Missing required fields: ${missingFields.join(', ')}`,
+        req.body.id,
+      );
+      return;
+    }
+
+    let commitment: Commitment;
+    try {
+      const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
+      const transactionHash: DataHash = DataHash.fromDto(req.body.params.transactionHash);
+      const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
+      commitment = new Commitment(requestId, transactionHash, authenticator);
+    } catch (error) {
+      AggregatorGateway.sendJsonRpcError(
+        res,
+        400,
+        -32602,
+        'Invalid parameters: Could not create commitment',
+        req.body.id,
+        { details: error instanceof Error ? error.message : 'Unknown error' },
+      );
+      return;
+    }
+    const response = await aggregatorService.submitCommitment(commitment);
+    if (response.status !== SubmitCommitmentStatus.SUCCESS) {
+      AggregatorGateway.sendJsonRpcError(
+        res,
+        400,
+        -32000,
+        'Failed to submit commitment',
+        req.body.id,
+        response.toDto(),
+      );
+      return;
+    }
+    res.json({
+      jsonrpc: '2.0',
+      result: response.toDto(),
+      id: req.body.id,
+    });
+  }
+
+  private static async handleGetInclusionProof(
+    req: Request,
+    res: Response,
+    aggregatorService: AggregatorService,
+  ): Promise<void> {
+    logger.info(`Received get_inclusion_proof request: ${req.body.params.requestId}`);
+
+    if (!req.body.params.requestId) {
+      AggregatorGateway.sendJsonRpcError(
+        res,
+        400,
+        -32602,
+        'Invalid parameters: Missing required field: requestId',
+        req.body.id,
+      );
+      return;
+    }
+
+    let requestId: RequestId;
+    try {
+      requestId = RequestId.fromDto(req.body.params.requestId);
+    } catch (error) {
+      AggregatorGateway.sendJsonRpcError(
+        res,
+        400,
+        -32602,
+        'Invalid parameters: Invalid requestId format',
+        req.body.id,
+        { details: error instanceof Error ? error.message : 'Unknown error' },
+      );
+      return;
+    }
+
+    const inclusionProof = await aggregatorService.getInclusionProof(requestId);
+    if (inclusionProof == null) {
+      AggregatorGateway.sendJsonRpcError(res, 404, -32001, 'Inclusion proof not found', req.body.id);
+      return;
+    }
+    res.json({
+      jsonrpc: '2.0',
+      result: inclusionProof.toDto(),
+      id: req.body.id,
+    });
+  }
+
+  private static async handleGetNoDeletionProof(
+    req: Request,
+    res: Response,
+    aggregatorService: AggregatorService,
+  ): Promise<void> {
+    const noDeletionProof = await aggregatorService.getNodeletionProof();
+    if (noDeletionProof == null) {
+      AggregatorGateway.sendJsonRpcError(res, 404, -32001, 'No deletion proof not found', req.body.id);
+      return;
+    }
+    res.json({
+      jsonrpc: '2.0',
+      result: noDeletionProof,
+      id: req.body.id,
+    });
+  }
+
+  private static async handleGetBlockHeight(
+    req: Request,
+    res: Response,
+    aggregatorService: AggregatorService,
+  ): Promise<void> {
+    logger.info('Received get_block_height request');
+    const currentBlockNumber = await aggregatorService.getCurrentBlockNumber();
+    res.json({
+      jsonrpc: '2.0',
+      result: { blockNumber: currentBlockNumber.toString() },
+      id: req.body.id,
+    });
+  }
+
+  private static async handleGetBlock(
+    req: Request,
+    res: Response,
+    aggregatorService: AggregatorService,
+  ): Promise<void> {
+    logger.info(`Received get_block request: ${req.body.params.blockNumber}`);
+
+    if (!req.body.params.blockNumber) {
+      AggregatorGateway.sendJsonRpcError(res, 400, -32602, 'Invalid parameters: blockNumber is required', req.body.id);
+      return;
+    }
+
+    let blockNumber;
+    try {
+      // Handle "latest" as a special case
+      if (req.body.params.blockNumber === 'latest') {
+        blockNumber = await aggregatorService.getCurrentBlockNumber();
+      } else {
+        blockNumber = BigInt(req.body.params.blockNumber);
+      }
+    } catch {
+      AggregatorGateway.sendJsonRpcError(
+        res,
+        400,
+        -32602,
+        'Invalid parameters: blockNumber must be a valid number or "latest"',
+        req.body.id,
+      );
+      return;
+    }
+
+    const block = await aggregatorService.getBlockByNumber(blockNumber);
+
+    if (!block) {
+      AggregatorGateway.sendJsonRpcError(res, 404, -32001, `Block ${blockNumber.toString()} not found`, req.body.id);
+      return;
+    }
+
+    res.json({
+      jsonrpc: '2.0',
+      result: {
+        index: block.index.toString(),
+        chainId: block.chainId,
+        version: block.version,
+        forkId: block.forkId,
+        timestamp: block.timestamp.toString(),
+        rootHash: block.rootHash.toDto(),
+        previousBlockHash: HexConverter.encode(block.previousBlockHash),
+        noDeletionProofHash: block.noDeletionProofHash ? HexConverter.encode(block.noDeletionProofHash) : null,
+      },
+      id: req.body.id,
+    });
+  }
+
+  private static async handleGetBlockCommitments(
+    req: Request,
+    res: Response,
+    aggregatorService: AggregatorService,
+  ): Promise<void> {
+    logger.info(`Received get_block_commitments request: ${req.body.params.blockNumber}`);
+
+    if (!req.body.params.blockNumber) {
+      AggregatorGateway.sendJsonRpcError(res, 400, -32602, 'Invalid parameters: blockNumber is required', req.body.id);
+      return;
+    }
+
+    let blockNumber;
+    try {
+      blockNumber = BigInt(req.body.params.blockNumber);
+    } catch {
+      AggregatorGateway.sendJsonRpcError(
+        res,
+        400,
+        -32602,
+        'Invalid parameters: blockNumber must be a valid number',
+        req.body.id,
+      );
+      return;
+    }
+
+    const commitments = await aggregatorService.getCommitmentsByBlockNumber(blockNumber);
+
+    if (commitments === null) {
+      AggregatorGateway.sendJsonRpcError(res, 404, -32001, `Block ${blockNumber.toString()} not found`, req.body.id);
+      return;
+    }
+
+    res.json({
+      jsonrpc: '2.0',
+      result: commitments.map((commitment) => ({
+        requestId: commitment.requestId.toDto(),
+        transactionHash: commitment.transactionHash.toDto(),
+        authenticator: commitment.authenticator.toDto(),
+      })),
+      id: req.body.id,
+    });
   }
 
   private static async setupSmt(smtStorage: ISmtStorage, aggregatorServerId: string): Promise<Smt> {

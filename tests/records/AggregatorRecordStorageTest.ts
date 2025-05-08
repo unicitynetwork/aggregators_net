@@ -192,4 +192,69 @@ describe('Aggregator Record Storage Tests', () => {
     const recordCount = await mongoose.connection.collection('aggregatorrecords').countDocuments();
     expect(recordCount).toBe(4);
   });
+
+  it('Get multiple records by request IDs', async () => {
+    await mongoose.connection.collection('aggregatorrecords').deleteMany({});
+
+    const storage = new AggregatorRecordStorage();
+    const signingService = await SigningService.createFromSecret(SigningService.generatePrivateKey());
+    const records: AggregatorRecord[] = [];
+    const requestIds: RequestId[] = [];
+
+    for (let i = 0; i < 5; i++) {
+      const stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2, 3, i])).digest();
+      const transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([4, 5, 6, i])).digest();
+      const requestId = await RequestId.create(signingService.publicKey, stateHash);
+      const authenticator = await Authenticator.create(signingService, transactionHash, stateHash);
+      const record = new AggregatorRecord(requestId, transactionHash, authenticator);
+      records.push(record);
+      requestIds.push(requestId);
+    }
+
+    logger.info('Storing records in batch...');
+    await storage.putBatch(records);
+
+    logger.info('Retrieving all records with getByRequestIds...');
+    const allRetrieved = await storage.getByRequestIds(requestIds);
+    expect(allRetrieved.length).toBe(5);
+
+    // Verify each record matches the original
+    for (let i = 0; i < records.length; i++) {
+      const originalRecord = records[i];
+      const retrievedRecord = allRetrieved.find((r) => r.requestId.toBigInt() === originalRecord.requestId.toBigInt());
+
+      expect(retrievedRecord).toBeDefined();
+      expect(retrievedRecord!.transactionHash.equals(originalRecord.transactionHash)).toBeTruthy();
+      expect(HexConverter.encode(retrievedRecord!.authenticator.signature.bytes)).toEqual(
+        HexConverter.encode(originalRecord.authenticator.signature.bytes),
+      );
+      expect(HexConverter.encode(retrievedRecord!.authenticator.publicKey)).toEqual(
+        HexConverter.encode(originalRecord.authenticator.publicKey),
+      );
+      expect(retrievedRecord!.authenticator.stateHash.equals(originalRecord.authenticator.stateHash)).toBeTruthy();
+      expect(retrievedRecord!.authenticator.algorithm).toEqual(originalRecord.authenticator.algorithm);
+    }
+
+    logger.info('Retrieving subset of records...');
+    const subsetRequestIds = [requestIds[1], requestIds[3]];
+    const subsetRetrieved = await storage.getByRequestIds(subsetRequestIds);
+    expect(subsetRetrieved.length).toBe(2);
+
+    const subsetRequestIdValues = subsetRequestIds.map((id) => id.toBigInt());
+    for (const retrievedRecord of subsetRetrieved) {
+      expect(subsetRequestIdValues).toContain(retrievedRecord.requestId.toBigInt());
+    }
+
+    logger.info('Testing with empty request IDs array...');
+    const emptyResult = await storage.getByRequestIds([]);
+    expect(emptyResult).toEqual([]);
+
+    logger.info('Testing with non-existent request ID...');
+    const nonExistentStateHash = await new DataHasher(HashAlgorithm.SHA256)
+      .update(new Uint8Array([99, 99, 99]))
+      .digest();
+    const nonExistentRequestId = await RequestId.create(signingService.publicKey, nonExistentStateHash);
+    const nonExistentResult = await storage.getByRequestIds([nonExistentRequestId]);
+    expect(nonExistentResult.length).toBe(0);
+  });
 });

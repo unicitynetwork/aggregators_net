@@ -155,6 +155,13 @@ export class RoundManager {
   }
 
   /**
+   * Exposes the Block Records Storage.
+   */
+  public getBlockRecordsStorage(): IBlockRecordsStorage {
+    return this.blockRecordsStorage;
+  }
+
+  /**
    * Exposes the Block Storage.
    */
   public getBlockStorage(): IBlockStorage {
@@ -162,9 +169,9 @@ export class RoundManager {
   }
 
   /**
-   * Exposes the Block Records Storage.
+   * Exposes the Record Storage.
    */
-  public getBlockRecordsStorage(): IBlockRecordsStorage {
-    return this.blockRecordsStorage;
+  public getRecordStorage(): IAggregatorRecordStorage {
+    return this.recordStorage;
   }
 }
