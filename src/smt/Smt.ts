@@ -5,8 +5,9 @@ import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.
 import logger from '../logger.js';
 
 /**
- * Wrapper for SparseMerkleTree that provides thread-safe operations
- * using a locking mechanism.
+ * Wrapper for SparseMerkleTree that provides concurrency control
+ * using a locking mechanism to ensure sequential execution of
+ * asynchronous operations.
  */
 export class Smt {
   private smtUpdateLock: boolean = false;
