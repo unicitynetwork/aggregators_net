@@ -4,23 +4,26 @@ import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 
 import { AggregatorGateway } from '../src/AggregatorGateway.js';
 import { Commitment } from '../src/commitment/Commitment.js';
 import logger from '../src/logger.js';
+import { IReplicaSet, setupReplicaSet } from './TestUtils.js';
 
-describe('Round Manager Tests', () => {
-  jest.setTimeout(60000);
+describe('Round Manager Integration Tests', () => {
+  jest.setTimeout(120000); // Increased timeout for replica set setup
 
-  let mongoServer: MongoMemoryServer;
+  let replicaSet: IReplicaSet;
+  let mongoUri: string;
   let aggregator: AggregatorGateway;
 
   beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
-    const mongoUri = mongoServer.getUri();
-    logger.info(`Connecting to in-memory MongoDB at ${mongoUri}`);
+    // Set up MongoDB replica set for transaction support
+    replicaSet = await setupReplicaSet('rm-integration-');
+    mongoUri = replicaSet.uri;
+    logger.info(`Connecting to MongoDB replica set at ${mongoUri}`);
+    await mongoose.connect(mongoUri);
 
     logger.info('Starting aggregator...');
     aggregator = await AggregatorGateway.create({
@@ -43,9 +46,14 @@ describe('Round Manager Tests', () => {
       await mongoose.connection.close();
     }
 
-    if (mongoServer) {
-      await mongoServer.stop();
+    if (replicaSet?.containers) {
+      logger.info('Stopping replica set containers...');
+      for (const container of replicaSet.containers) {
+        await container.stop();
+      }
     }
+
+    logger.info('Disconnected from MongoDB replica set');
   });
 
   it('Submit commitment and create block', async () => {

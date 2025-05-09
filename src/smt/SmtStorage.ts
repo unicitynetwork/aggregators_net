@@ -31,27 +31,42 @@ export class SmtStorage implements ISmtStorage {
     return true;
   }
 
+  /**
+   * Stores multiple SMT nodes in a single atomic transaction.
+   *
+   * @param leaves The SMT nodes to store
+   * @returns Promise resolving to true if operation succeeds
+   */
   public async putBatch(leaves: SmtNode[]): Promise<boolean> {
     if (leaves.length === 0) {
       return true;
     }
 
+    const session = await mongoose.startSession();
+
     try {
+      session.startTransaction();
+
       // Use bulkWrite with updateOne operations that only insert new nodes
-      const operations = leaves.map((leaf) => ({
+      const operations = leaves.map((node) => ({
         updateOne: {
-          filter: { path: leaf.path },
-          update: { $setOnInsert: { path: leaf.path, value: leaf.value } },
+          filter: { path: node.path },
+          update: { $setOnInsert: { path: node.path, value: node.value } },
           upsert: true,
         },
       }));
 
-      await LeafModel.bulkWrite(operations);
+      await LeafModel.bulkWrite(operations, { session });
+
+      await session.commitTransaction();
+      logger.debug(`Successfully committed transaction for ${leaves.length} SMT nodes`);
       return true;
     } catch (error) {
-      // Log and rethrow the error
       logger.error('Error in SmtStorage putBatch:', error);
+      await session.abortTransaction();
       throw error;
+    } finally {
+      await session.endSession();
     }
   }
 }

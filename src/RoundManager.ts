@@ -13,15 +13,17 @@ import { AggregatorRecord } from './records/AggregatorRecord.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
+import { Smt } from './smt/Smt.js';
 import { SmtNode } from './smt/SmtNode.js';
 
 export class RoundManager {
   private commitmentCounter: number = 0;
   private submitCounter: number = 0;
+
   public constructor(
     public readonly config: IAggregatorConfig,
     public readonly alphabillClient: IAlphabillClient,
-    public readonly smt: SparseMerkleTree,
+    public readonly smt: Smt,
     public readonly blockStorage: IBlockStorage,
     public readonly recordStorage: IAggregatorRecordStorage,
     public readonly blockRecordsStorage: IBlockRecordsStorage,
@@ -79,20 +81,12 @@ export class RoundManager {
 
     // Add leaves to the SMT tree
     if (smtLeaves.length > 0) {
-      for (const leaf of smtLeaves) {
-        try {
-          await this.smt.addLeaf(leaf.path, leaf.value);
-        } catch (error) {
-          // Check if the error is "Cannot add leaf inside branch" which indicates
-          // the leaf is already in the tree - this is not a fatal error
-          if (error instanceof Error && error.message.includes('Cannot add leaf inside branch')) {
-            loggerWithMetadata.warn(`Leaf already exists in tree for path ${leaf.path} - skipping`);
-          } else {
-            loggerWithMetadata.error('Failed to add leaf to SMT:', error);
-            throw error;
-          }
-        }
-      }
+      const leaves = smtLeaves.map((leaf) => ({
+        path: leaf.path,
+        value: leaf.value,
+      }));
+
+      await this.smt.addLeaves(leaves);
     }
 
     try {
@@ -128,6 +122,7 @@ export class RoundManager {
         rootHash,
         null, // TODO add noDeletionProof
       );
+      // TODO use single transaction
       await this.blockStorage.put(block);
       await this.blockRecordsStorage.put({
         blockNumber: blockNumber,

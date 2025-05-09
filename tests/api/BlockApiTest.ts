@@ -3,7 +3,6 @@ import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import request from 'supertest';
 
@@ -11,19 +10,22 @@ import { AggregatorGateway } from '../../src/AggregatorGateway.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
 import logger from '../../src/logger.js';
 import { MockAlphabillClient } from '../../tests/consensus/alphabill/MockAlphabillClient.js';
+import { IReplicaSet, setupReplicaSet } from '../TestUtils.js';
 
 describe('Block API Endpoints', () => {
   let gateway: AggregatorGateway;
-  let mongoServer: MongoMemoryServer;
+  let replicaSet: IReplicaSet;
+  let mongoUri: string;
   let port: number;
   let mockAlphabillClient: MockAlphabillClient;
 
-  jest.setTimeout(30000);
+  jest.setTimeout(120000); // Increased timeout for replica set setup
 
   beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
-    const mongoUri = mongoServer.getUri();
-    logger.info(`Connecting to in-memory MongoDB at ${mongoUri}`);
+    // Set up MongoDB replica set for transaction support
+    replicaSet = await setupReplicaSet('block-api-test-');
+    mongoUri = replicaSet.uri;
+    logger.info(`Connecting to MongoDB replica set at ${mongoUri}`);
     await mongoose.connect(mongoUri);
 
     port = 3100 + Math.floor(Math.random() * 900);
@@ -50,7 +52,7 @@ describe('Block API Endpoints', () => {
     (AggregatorGateway as any).blockCreationActive = false;
 
     logger.info(`Test gateway started on port ${port}`);
-  }, 20000);
+  }, 40000); // Increased timeout for replica set and gateway setup
 
   afterAll(async () => {
     logger.info('Shutting down test gateway and MongoDB');
@@ -64,12 +66,14 @@ describe('Block API Endpoints', () => {
       logger.info('Mongoose connection closed');
     }
 
-    if (mongoServer) {
-      logger.info('Stopping MongoDB memory server...');
-      await mongoServer.stop();
-      logger.info('MongoDB memory server stopped');
+    if (replicaSet?.containers) {
+      logger.info('Stopping replica set containers...');
+      for (const container of replicaSet.containers) {
+        await container.stop();
+      }
+      logger.info('Replica set containers stopped');
     }
-  }, 15000);
+  }, 30000); // Increased timeout for cleanup
 
   beforeEach(async () => {
     // Clear all collections before each test
