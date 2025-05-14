@@ -20,7 +20,7 @@ export const LeafModel = model<ISmtNode>('Leaf', LeafSchema);
 export class SmtStorage implements ISmtStorage {
   public async getAll(): Promise<SmtNode[]> {
     const stored = await LeafModel.find({});
-    return stored.map((doc) => new SmtNode(BigInt(doc.path.toString()), new Uint8Array(doc.value)));
+    return stored.map((doc) => new SmtNode(doc.path, new Uint8Array(doc.value)));
   }
 
   public async put(leaf: SmtNode): Promise<boolean> {
@@ -67,6 +67,26 @@ export class SmtStorage implements ISmtStorage {
       throw error;
     } finally {
       await session.endSession();
+    }
+  }
+
+  /**
+   * Retrieves SMT nodes that match the specified paths.
+   *
+   * @param paths Array of paths (requestIds as BigInt) to look up
+   * @returns Promise resolving to an array of matching SMT nodes
+   */
+  public async getByPaths(paths: bigint[]): Promise<SmtNode[]> {
+    if (paths.length === 0) {
+      return [];
+    }
+
+    try {
+      const stored = await LeafModel.find({ path: { $in: paths } });
+      return stored.map((doc) => new SmtNode(doc.path, new Uint8Array(doc.value)));
+    } catch (error) {
+      logger.error('Error retrieving SMT nodes by paths:', error);
+      throw error;
     }
   }
 }

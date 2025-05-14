@@ -23,9 +23,12 @@ import { IAlphabillClient } from './consensus/alphabill/IAlphabillClient.js';
 import { LeaderElection } from './highAvailability/LeaderElection.js';
 import { LeadershipStorage } from './highAvailability/LeadershipStorage.js';
 import logger from './logger.js';
+import { BlockRecords } from './records/BlockRecords.js';
+import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { RoundManager } from './RoundManager.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { Smt } from './smt/Smt.js';
+import { SmtNode } from './smt/SmtNode.js';
 import { SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
 import { MockAlphabillClient } from '../tests/consensus/alphabill/MockAlphabillClient.js';
 
@@ -46,6 +49,7 @@ export interface IAggregatorConfig {
   port?: number;
   concurrencyLimit?: number;
   serverId?: string;
+  blockCreationWaitTime?: number;
 }
 
 export interface IAlphabillConfig {
@@ -84,17 +88,28 @@ export class AggregatorGateway {
   private server: Server;
   private leaderElection: LeaderElection | null;
   private roundManager: RoundManager;
+  private blockRecordsStorage: IBlockRecordsStorage;
+  private smtStorage: ISmtStorage;
+  private smt: Smt;
 
   private constructor(
     serverId: string,
     server: Server,
     leaderElection: LeaderElection | null,
     roundManager: RoundManager,
+    blockRecordsStorage: IBlockRecordsStorage,
+    smtStorage: ISmtStorage,
+    smt: Smt,
   ) {
     this.serverId = serverId;
     this.server = server;
     this.leaderElection = leaderElection;
     this.roundManager = roundManager;
+    this.blockRecordsStorage = blockRecordsStorage;
+    this.smtStorage = smtStorage;
+    this.smt = smt;
+
+    this.setupBlockRecordsChangeListener();
   }
 
   public static async create(config: IGatewayConfig = {}): Promise<AggregatorGateway> {
@@ -111,6 +126,7 @@ export class AggregatorGateway {
         sslKeyPath: config.aggregatorConfig?.sslKeyPath ?? '',
         concurrencyLimit: config.aggregatorConfig?.concurrencyLimit ?? 100,
         serverId: config.aggregatorConfig?.serverId,
+        blockCreationWaitTime: config.aggregatorConfig?.blockCreationWaitTime ?? 10000,
       },
       highAvailability: {
         enabled: config.highAvailability?.enabled !== false,
@@ -208,7 +224,15 @@ export class AggregatorGateway {
       logger.info(`Leader election process started for server ${serverId}.`);
     }
 
-    return new AggregatorGateway(serverId, server, leaderElection, roundManager);
+    return new AggregatorGateway(
+      serverId,
+      server,
+      leaderElection,
+      roundManager,
+      storage.blockRecordsStorage,
+      storage.smtStorage,
+      smt,
+    );
   }
 
   private static onBecomeLeader(aggregatorServerId: string, roundManager: RoundManager): void {
@@ -276,6 +300,7 @@ export class AggregatorGateway {
         serverId: serverId,
         activeRequests: activeRequests,
         maxConcurrentRequests: maxConcurrentRequests,
+        smtRootHash: aggregatorService.getSmt().rootHash.toString(),
       });
     });
 
@@ -687,9 +712,11 @@ export class AggregatorGateway {
     // Wait for any in-progress block creation to complete
     if (isBlockCreationInProgress) {
       logger.info('Waiting for any block creation to complete before shutdown...');
-      const blockCreationWaitTime = 10000;
+      const blockCreationWaitTime = this.roundManager.config.blockCreationWaitTime ?? 10000;
       await new Promise<void>((resolve) => setTimeout(resolve, blockCreationWaitTime));
     }
+
+    await this.blockRecordsStorage.stopWatchingChanges();
 
     await this.leaderElection?.shutdown();
     this.server?.close();
@@ -721,5 +748,70 @@ export class AggregatorGateway {
    */
   public getRoundManager(): RoundManager {
     return this.roundManager;
+  }
+
+  private async setupBlockRecordsChangeListener(): Promise<void> {
+    await this.blockRecordsStorage.startWatchingChanges();
+
+    this.blockRecordsStorage.addChangeListener(async (blockRecords: BlockRecords) => {
+      // Skip if this node is the leader (leader already has the latest data)
+      if (this.isLeader()) {
+        logger.debug('Ignoring BlockRecords change as this node is the leader');
+        return;
+      }
+
+      if (blockRecords.requestIds.length === 0) {
+        logger.debug(`BlockRecords for block ${blockRecords.blockNumber} has no requestIds, skipping SMT update`);
+        return;
+      }
+
+      logger.info(
+        `Follower node received BlockRecords change for block ${blockRecords.blockNumber} with ${blockRecords.requestIds.length} requestIds`,
+      );
+
+      const paths = blockRecords.requestIds.map((id: RequestId) => id.toBigInt());
+
+      const maxRetries = 5;
+      let retryCount = 0;
+      let leaves: SmtNode[] = [];
+
+      while (retryCount < maxRetries) {
+        leaves = await this.smtStorage.getByPaths(paths);
+
+        if (leaves.length === paths.length) {
+          break;
+        }
+
+        logger.warn(
+          `Only retrieved ${leaves.length}/${paths.length} SMT leaves for block ${blockRecords.blockNumber}. ` +
+            `Retrying (${retryCount + 1}/${maxRetries})...`,
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+        retryCount++;
+      }
+
+      if (leaves.length !== paths.length) {
+        const errorMessage =
+          `Failed to retrieve all SMT leaves after ${maxRetries} retries. ` +
+          `Got ${leaves.length}/${paths.length} leaves for block ${blockRecords.blockNumber}. `;
+        throw new Error(errorMessage);
+      }
+
+      logger.info(
+        `Retrieved ${leaves.length} SMT leaves for block ${blockRecords.blockNumber}, updating in-memory SMT`,
+      );
+
+      const leavesToAdd = leaves.map((leaf) => ({
+        path: leaf.path,
+        value: leaf.value,
+      }));
+
+      await this.smt.addLeaves(leavesToAdd);
+
+      logger.info(`Updated in-memory SMT for follower node, new root hash: ${this.smt.rootHash.toString()}`);
+    });
+
+    logger.info(`BlockRecords change listener initialized for server ${this.serverId}`);
   }
 }

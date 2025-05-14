@@ -12,4 +12,12 @@ export interface ISmtStorage {
   putBatch(nodes: SmtNode[]): Promise<boolean>;
 
   getAll(): Promise<SmtNode[]>;
+
+  /**
+   * Retrieves SMT nodes that match the specified paths.
+   *
+   * @param paths Array of paths (requestIds as BigInt) to look up
+   * @returns Promise resolving to an array of matching SMT nodes
+   */
+  getByPaths(paths: bigint[]): Promise<SmtNode[]>;
 }

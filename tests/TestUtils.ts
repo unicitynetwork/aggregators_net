@@ -49,7 +49,7 @@ export async function setupReplicaSet(containerNamePrefix: string = 'mongo'): Pr
 
   const containers = await Promise.all(
     ports.map((port) =>
-      new GenericContainer('mongo:7')
+      new GenericContainer('mongo:8')
         .withName(`${containerNamePrefix}${port}`)
         .withNetworkMode('host')
         .withCommand(['mongod', '--replSet', 'rs0', '--port', `${port}`, '--bind_ip', 'localhost'])
@@ -149,8 +149,6 @@ export async function setupReplicaSet(containerNamePrefix: string = 'mongo'): Pr
 export async function generateTestCommitments(count: number, signingService?: SigningService): Promise<Commitment[]> {
   const commitments: Commitment[] = [];
   const signer = signingService || getTestSigningService();
-
-  logger.info(`Generating ${count} test commitments...`);
 
   for (let i = 0; i < count; i++) {
     const randomId = uuidv4();
