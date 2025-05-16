@@ -61,6 +61,8 @@ describe('BlockRecords Change Stream Test', () => {
 
     blockRecordsStorage.addChangeListener(changeListener);
     logger.info('Change stream listening started');
+    
+    await delay(500);
 
     const commitments = await generateTestCommitments(5);
     logger.info(`Generated ${commitments.length} test commitments`);
