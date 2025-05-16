@@ -113,14 +113,16 @@ export class AggregatorGateway {
   }
 
   public static async create(config: IGatewayConfig = {}): Promise<AggregatorGateway> {
+    const DEFAULT_MONGODB_URI = 'mongodb://localhost:27017/';
+    const DEFAULT_TOKEN_PARTITION_URL = 'http://localhost:9001/rpc';
+    const DEFAULT_INITIAL_BLOCK_HASH = '185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969';
+
     config = {
       aggregatorConfig: {
         chainId: config.aggregatorConfig?.chainId ?? 1,
         version: config.aggregatorConfig?.version ?? 1,
         forkId: config.aggregatorConfig?.forkId ?? 1,
-        initialBlockHash:
-          config.aggregatorConfig?.initialBlockHash ??
-          '185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969',
+        initialBlockHash: config.aggregatorConfig?.initialBlockHash ?? DEFAULT_INITIAL_BLOCK_HASH,
         port: config.aggregatorConfig?.port ?? 80,
         sslCertPath: config.aggregatorConfig?.sslCertPath ?? '',
         sslKeyPath: config.aggregatorConfig?.sslKeyPath ?? '',
@@ -136,19 +138,18 @@ export class AggregatorGateway {
       },
       alphabill: {
         useMock: config.alphabill?.useMock ?? false,
-        networkId: config.alphabill?.networkId,
-        tokenPartitionId: config.alphabill?.tokenPartitionId,
-        tokenPartitionUrl: config.alphabill?.tokenPartitionUrl,
+        networkId: config.alphabill?.networkId ?? 3,
+        tokenPartitionId: config.alphabill?.tokenPartitionId ?? 2,
+        tokenPartitionUrl: config.alphabill?.tokenPartitionUrl ?? DEFAULT_TOKEN_PARTITION_URL,
         privateKey: config.alphabill?.privateKey,
       },
       storage: {
-        uri: config.storage?.uri ?? 'mongodb://localhost:27017/',
+        uri: config.storage?.uri ?? DEFAULT_MONGODB_URI,
       },
     };
 
     const serverId = config.aggregatorConfig!.serverId || `${os.hostname()}-${process.pid}`;
-    const mongoUri = config.storage?.uri ?? 'mongodb://localhost:27017/';
-    const storage = await AggregatorStorage.init(mongoUri);
+    const storage = await AggregatorStorage.init(config.storage!.uri!);
 
     const alphabillClient = await AggregatorGateway.setupAlphabillClient(config.alphabill!, serverId);
     const smt = await AggregatorGateway.setupSmt(storage.smtStorage, serverId);
@@ -712,7 +713,7 @@ export class AggregatorGateway {
     // Wait for any in-progress block creation to complete
     if (isBlockCreationInProgress) {
       logger.info('Waiting for any block creation to complete before shutdown...');
-      const blockCreationWaitTime = this.roundManager.config.blockCreationWaitTime ?? 10000;
+      const blockCreationWaitTime = this.roundManager.config.blockCreationWaitTime!;
       await new Promise<void>((resolve) => setTimeout(resolve, blockCreationWaitTime));
     }
 
@@ -750,9 +751,7 @@ export class AggregatorGateway {
     return this.roundManager;
   }
 
-  private async setupBlockRecordsChangeListener(): Promise<void> {
-    await this.blockRecordsStorage.startWatchingChanges();
-
+  private setupBlockRecordsChangeListener(): void {
     this.blockRecordsStorage.addChangeListener(async (blockRecords: BlockRecords) => {
       // Skip if this node is the leader (leader already has the latest data)
       if (this.isLeader()) {

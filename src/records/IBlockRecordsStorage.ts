@@ -13,6 +13,5 @@ export interface IBlockRecordsStorage {
 
   addChangeListener(listener: BlockRecordsChangeListener): void;
   removeChangeListener(listener: BlockRecordsChangeListener): void;
-  startWatchingChanges(): Promise<void>;
   stopWatchingChanges(): Promise<void>;
 }

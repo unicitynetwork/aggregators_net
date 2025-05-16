@@ -66,6 +66,11 @@ export class BlockRecordsStorage implements IBlockRecordsStorage {
    * @param listener The callback function to be called when changes occur
    */
   public addChangeListener(listener: BlockRecordsChangeListener): void {
+    // Start watching for changes if this is the first listener
+    if (this.changeListeners.length === 0) {
+      this.startWatchingChanges();
+    }
+
     this.changeListeners.push(listener);
     logger.debug(`Added block records change listener. Total listeners: ${this.changeListeners.length}`);
   }
@@ -79,13 +84,36 @@ export class BlockRecordsStorage implements IBlockRecordsStorage {
     if (index !== -1) {
       this.changeListeners.splice(index, 1);
       logger.debug(`Removed block records change listener. Remaining listeners: ${this.changeListeners.length}`);
+
+      // Stop watching for changes if no more listeners remain
+      if (this.changeListeners.length === 0) {
+        this.stopWatchingChanges().catch((error: unknown) => {
+          logger.error('Error stopping change stream after last listener removed:', error);
+        });
+      }
+    }
+  }
+
+  /**
+   * Stops watching for changes in the BlockRecords collection
+   */
+  public async stopWatchingChanges(): Promise<void> {
+    if (this.changeStream) {
+      try {
+        await this.changeStream.close();
+        this.changeStream = null;
+        logger.info('Stopped watching for changes in BlockRecords collection');
+      } catch (error) {
+        logger.error('Error closing BlockRecords change stream:', error);
+        throw error;
+      }
     }
   }
 
   /**
    * Starts watching for changes in the BlockRecords collection
    */
-  public async startWatchingChanges(): Promise<void> {
+  private startWatchingChanges(): void {
     if (this.changeStream) {
       logger.debug('Change stream already running for BlockRecords collection');
       return;
@@ -97,7 +125,7 @@ export class BlockRecordsStorage implements IBlockRecordsStorage {
         fullDocument: 'updateLookup',
       });
 
-      this.changeStream.on('change', async (change: ChangeStreamDocument<IBlockRecords>) => {
+      this.changeStream.on('change', (change: ChangeStreamDocument<IBlockRecords>) => {
         try {
           if (change.operationType === 'insert' && change.fullDocument) {
             const { blockNumber, requestIds } = change.fullDocument;
@@ -136,22 +164,6 @@ export class BlockRecordsStorage implements IBlockRecordsStorage {
     } catch (error: unknown) {
       logger.error('Failed to start watching BlockRecords collection:', error);
       throw error;
-    }
-  }
-
-  /**
-   * Stops watching for changes in the BlockRecords collection
-   */
-  public async stopWatchingChanges(): Promise<void> {
-    if (this.changeStream) {
-      try {
-        await this.changeStream.close();
-        this.changeStream = null;
-        logger.info('Stopped watching for changes in BlockRecords collection');
-      } catch (error) {
-        logger.error('Error closing BlockRecords change stream:', error);
-        throw error;
-      }
     }
   }
 }
