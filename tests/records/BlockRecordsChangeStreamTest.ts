@@ -59,7 +59,6 @@ describe('BlockRecords Change Stream Test', () => {
     blockRecordsStorage = new BlockRecordsStorage();
     smtStorage = new SmtStorage();
 
-    await blockRecordsStorage.startWatchingChanges();
     blockRecordsStorage.addChangeListener(changeListener);
     logger.info('Change stream listening started');
 

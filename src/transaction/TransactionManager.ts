@@ -31,7 +31,11 @@ export class TransactionManager implements ITransactionManager<mongoose.ClientSe
       return result;
     } catch (error) {
       logger.error('Transaction failed, aborting:', error);
-      await session.abortTransaction();
+      try {
+        await session.abortTransaction();
+      } catch (abortError) {
+        logger.error('Error aborting transaction:', abortError);
+      }
       throw error;
     } finally {
       await session.endSession();

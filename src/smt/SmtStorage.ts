@@ -63,7 +63,11 @@ export class SmtStorage implements ISmtStorage {
       return true;
     } catch (error) {
       logger.error('Error in SmtStorage putBatch:', error);
-      await session.abortTransaction();
+      try {
+        await session.abortTransaction();
+      } catch (abortError) {
+        logger.error('Error aborting transaction:', abortError);
+      }
       throw error;
     } finally {
       await session.endSession();
