@@ -101,11 +101,12 @@ export class BlockRecordsStorage implements IBlockRecordsStorage {
     if (this.changeStream) {
       try {
         await this.changeStream.close();
-        this.changeStream = null;
         logger.info('Stopped watching for changes in BlockRecords collection');
       } catch (error) {
         logger.error('Error closing BlockRecords change stream:', error);
         throw error;
+      } finally {
+        this.changeStream = null;
       }
     }
   }
