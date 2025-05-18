@@ -1,5 +1,5 @@
 x-mongo-common: &mongo-common
-  image: mongo:7.0
+  image: mongo:8.0
   restart: always
   network_mode: "host"
   healthcheck: &mongo-healthcheck
@@ -39,7 +39,7 @@ services:
       test: ["CMD", "mongosh", "--host", "localhost", "--port", "27019", "--eval", "db.adminCommand('ping')"]
 
   mongo-init:
-    image: mongo:7.0
+    image: mongo:8.0
     container_name: mongo-init
     network_mode: "host"
     restart: "no"

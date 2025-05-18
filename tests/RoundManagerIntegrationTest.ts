@@ -6,20 +6,19 @@ import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import mongoose from 'mongoose';
 
+import { IReplicaSet, setupReplicaSet } from './TestUtils.js';
 import { AggregatorGateway } from '../src/AggregatorGateway.js';
 import { Commitment } from '../src/commitment/Commitment.js';
 import logger from '../src/logger.js';
-import { IReplicaSet, setupReplicaSet } from './TestUtils.js';
 
 describe('Round Manager Integration Tests', () => {
-  jest.setTimeout(120000); // Increased timeout for replica set setup
+  jest.setTimeout(120000);
 
   let replicaSet: IReplicaSet;
   let mongoUri: string;
   let aggregator: AggregatorGateway;
 
   beforeAll(async () => {
-    // Set up MongoDB replica set for transaction support
     replicaSet = await setupReplicaSet('rm-integration-');
     mongoUri = replicaSet.uri;
     logger.info(`Connecting to MongoDB replica set at ${mongoUri}`);

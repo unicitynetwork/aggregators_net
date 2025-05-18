@@ -35,8 +35,8 @@ const BlockSchema = new mongoose.Schema({
 const BlockModel = model<IBlock>('Block', BlockSchema);
 
 export class BlockStorage implements IBlockStorage {
-  public async put(block: Block): Promise<boolean> {
-    await new BlockModel({
+  public async put(block: Block, session?: mongoose.ClientSession): Promise<boolean> {
+    const blockDoc = new BlockModel({
       index: block.index,
       chainId: block.chainId,
       version: block.version,
@@ -46,7 +46,9 @@ export class BlockStorage implements IBlockStorage {
       previousBlockHash: block.previousBlockHash,
       rootHash: block.rootHash.imprint,
       noDeletionProofHash: block.noDeletionProofHash,
-    }).save();
+    });
+
+    await blockDoc.save({ session });
     return true;
   }
 

@@ -217,7 +217,7 @@ export class CommitmentStorage implements ICommitmentStorage {
     });
   }
 
-  public async confirmBlockProcessed(): Promise<boolean> {
+  public async confirmBlockProcessed(session?: mongoose.ClientSession): Promise<boolean> {
     const currentCursor = await CursorCheckpointModel.findById('commitmentCursor');
     logger.debug(`Confirming block processed. Current cursor: ${JSON.stringify(currentCursor)}`);
 
@@ -229,16 +229,22 @@ export class CommitmentStorage implements ICommitmentStorage {
     const endSequenceId = currentCursor.currentBatchEndSequenceId;
 
     logger.debug(`Updating cursor from IN_PROGRESS to COMPLETE, setting lastProcessedSequenceId to ${endSequenceId}`);
-    const result = await CursorCheckpointModel.updateOne(
-      { _id: 'commitmentCursor', status: CursorStatus.IN_PROGRESS },
-      {
-        $set: {
-          lastProcessedSequenceId: endSequenceId,
-          status: CursorStatus.COMPLETE,
-          currentBatchEndSequenceId: null,
-        },
+
+    const updateQuery = {
+      _id: 'commitmentCursor',
+      status: CursorStatus.IN_PROGRESS,
+    };
+
+    const updateData = {
+      $set: {
+        lastProcessedSequenceId: endSequenceId,
+        status: CursorStatus.COMPLETE,
+        currentBatchEndSequenceId: null,
       },
-    );
+    };
+
+    const result = await CursorCheckpointModel.updateOne(updateQuery, updateData, { session });
+
     const success = result.modifiedCount > 0;
     logger.debug(`Confirmation result: ${success ? 'SUCCESS' : 'FAILED'}`);
     return success;

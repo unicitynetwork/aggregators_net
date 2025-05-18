@@ -96,6 +96,55 @@ describe('SMT Storage Tests', () => {
     }
   });
 
+  it('Retrieve multiple nodes by their paths using getByPaths', async () => {
+    await LeafModel.deleteMany({});
+
+    const storage = new SmtStorage();
+
+    const testNodes: SmtNode[] = [];
+    for (let i = 0; i < 20; i++) {
+      const path = BigInt(5000 + i);
+      const value = new Uint8Array([i, 100 - i, i * 2]);
+      testNodes.push(new SmtNode(path, value));
+    }
+
+    logger.info('Storing 20 test nodes for getByPaths test...');
+    const storeResult = await storage.putBatch(testNodes);
+    expect(storeResult).toBe(true);
+
+    // Select a subset of paths to retrieve
+    const pathsToRetrieve = [
+      BigInt(5003),
+      BigInt(5007),
+      BigInt(5012),
+      BigInt(5019),
+      BigInt(9999), // Path that doesn't exist
+    ];
+
+    logger.info(`Retrieving nodes with specific paths: ${pathsToRetrieve.map((p) => p.toString()).join(', ')}...`);
+    const retrievedNodes = await storage.getByPaths(pathsToRetrieve);
+
+    logger.info(`Retrieved ${retrievedNodes.length} nodes from ${pathsToRetrieve.length} requested paths`);
+
+    // We should get 4 nodes, not 5, since one path doesn't exist
+    expect(retrievedNodes.length).toBe(4);
+
+    for (const retrievedNode of retrievedNodes) {
+      const expectedNode = testNodes.find((n) => n.path === retrievedNode.path);
+      expect(expectedNode).toBeDefined();
+      expect(HexConverter.encode(retrievedNode.value)).toEqual(HexConverter.encode(expectedNode!.value));
+      logger.info(`Verified node with path ${retrievedNode.path}`);
+    }
+
+    // Check that the non-existent path wasn't returned
+    const nonExistentNode = retrievedNodes.find((n) => n.path === BigInt(9999));
+    expect(nonExistentNode).toBeUndefined();
+
+    // Verify retrieving an empty path array returns empty result
+    const emptyPathResult = await storage.getByPaths([]);
+    expect(emptyPathResult.length).toBe(0);
+  });
+
   it('Try to store the same batch of SMT nodes twice', async () => {
     await LeafModel.deleteMany({});
 
