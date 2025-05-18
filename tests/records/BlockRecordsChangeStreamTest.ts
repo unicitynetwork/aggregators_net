@@ -35,7 +35,7 @@ describe('BlockRecords Change Stream Test', () => {
   afterAll(async () => {
     if (blockRecordsStorage) {
       blockRecordsStorage.removeChangeListener(changeListener);
-      await blockRecordsStorage.stopWatchingChanges();
+      await blockRecordsStorage.cleanup();
     }
 
     if (mongoose.connection.readyState !== 0) {

@@ -717,7 +717,7 @@ export class AggregatorGateway {
       await new Promise<void>((resolve) => setTimeout(resolve, blockCreationWaitTime));
     }
 
-    await this.blockRecordsStorage.stopWatchingChanges();
+    await this.blockRecordsStorage.cleanup();
 
     await this.leaderElection?.shutdown();
     this.server?.close();

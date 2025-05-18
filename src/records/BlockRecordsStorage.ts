@@ -1,6 +1,6 @@
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { BigintConverter } from '@unicitylabs/commons/lib/util/BigintConverter.js';
-import type { ChangeStreamDocument } from 'mongodb';
+import type { ChangeStreamDocument, Binary } from 'mongodb';
 import mongoose, { model } from 'mongoose';
 
 import { SCHEMA_TYPES } from '../StorageSchemaTypes.js';
@@ -95,9 +95,16 @@ export class BlockRecordsStorage implements IBlockRecordsStorage {
   }
 
   /**
+   * Cleans up resources by stopping the change stream
+   */
+  public async cleanup(): Promise<void> {
+    return this.stopWatchingChanges();
+  }
+
+  /**
    * Stops watching for changes in the BlockRecords collection
    */
-  public async stopWatchingChanges(): Promise<void> {
+  private async stopWatchingChanges(): Promise<void> {
     if (this.changeStream) {
       try {
         await this.changeStream.close();
@@ -132,7 +139,7 @@ export class BlockRecordsStorage implements IBlockRecordsStorage {
             const { blockNumber, requestIds } = change.fullDocument;
 
             // Mongoose does not automatically convert the blockNumber to a bigint when using the change stream, so we need to do it manually
-            const binary = blockNumber as any;
+            const binary = blockNumber as unknown as Binary;
             const uint8Array = new Uint8Array(binary.buffer);
             const blockNumberBigInt = BigintConverter.decode(uint8Array);
 
