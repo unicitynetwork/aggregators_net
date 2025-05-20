@@ -28,6 +28,7 @@ import { ISmtStorage } from './smt/ISmtStorage.js';
 import { Smt } from './smt/Smt.js';
 import { SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
 import { MockAlphabillClient } from '../tests/consensus/alphabill/MockAlphabillClient.js';
+import { generateDocsHtml } from "./docs/jsonRpcDocs.js";
 
 export interface IGatewayConfig {
   aggregatorConfig?: IAggregatorConfig;
@@ -263,6 +264,11 @@ export class AggregatorGateway {
     let activeRequests = 0;
     app.use(cors());
     app.use(bodyParser.json());
+
+    app.get("/docs", (req: Request, res: Response) => {
+      res.setHeader("Content-Type", "text/html");
+      res.send(generateDocsHtml());
+    });
 
     app.get('/health', (req: Request, res: Response) => {
       res.status(200).json({
