@@ -259,7 +259,7 @@ describe('Aggregator Record Storage Tests', () => {
     expect(nonExistentResult.length).toBe(0);
   });
 
-  it.only('Should preserve signature recovery byte when storing and retrieving', async () => {
+  it('Should preserve signature recovery byte when storing and retrieving', async () => {
     await mongoose.connection.collection('aggregatorrecords').deleteMany({});
 
     // Create a signature with a specific recovery byte
@@ -274,7 +274,7 @@ describe('Aggregator Record Storage Tests', () => {
     const transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([4, 5, 6])).digest();
     const requestId = await RequestId.create(signingService.publicKey, stateHash);
 
-    const authenticator = new Authenticator(signingService.publicKey, 'ES256K', originalSignature, stateHash);
+    const authenticator = new Authenticator(signingService.publicKey, 'secp256k1', originalSignature, stateHash);
     const record = new AggregatorRecord(requestId, transactionHash, authenticator);
 
     await storage.put(record);
