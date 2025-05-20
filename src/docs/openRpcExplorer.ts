@@ -1,4 +1,4 @@
-import openRpcDocument from './openrpc.json';
+import openRpcDocument from './openrpc.json' with { type: 'json' };
 
 export { openRpcDocument };
 
