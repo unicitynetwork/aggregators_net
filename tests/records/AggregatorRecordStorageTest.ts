@@ -4,6 +4,7 @@ import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { MongoMemoryServer } from 'mongodb-memory-server';
@@ -256,5 +257,40 @@ describe('Aggregator Record Storage Tests', () => {
     const nonExistentRequestId = await RequestId.create(signingService.publicKey, nonExistentStateHash);
     const nonExistentResult = await storage.getByRequestIds([nonExistentRequestId]);
     expect(nonExistentResult.length).toBe(0);
+  });
+
+  it.only('Should preserve signature recovery byte when storing and retrieving', async () => {
+    await mongoose.connection.collection('aggregatorrecords').deleteMany({});
+
+    // Create a signature with a specific recovery byte
+    const sigBytes = new Uint8Array(64).fill(1);
+    const recoveryByte = 27; // Non-zero recovery value
+    const originalSignature = new Signature(sigBytes, recoveryByte);
+    const encodedOriginal = originalSignature.encode();
+
+    const storage = new AggregatorRecordStorage();
+    const signingService = await SigningService.createFromSecret(SigningService.generatePrivateKey());
+    const stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2, 3])).digest();
+    const transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([4, 5, 6])).digest();
+    const requestId = await RequestId.create(signingService.publicKey, stateHash);
+
+    const authenticator = new Authenticator(signingService.publicKey, 'ES256K', originalSignature, stateHash);
+    const record = new AggregatorRecord(requestId, transactionHash, authenticator);
+
+    await storage.put(record);
+    const retrieved = await storage.get(requestId);
+
+    expect(retrieved).not.toBeNull();
+    assert(retrieved);
+
+    // Verify the signature bytes are preserved
+    expect(HexConverter.encode(retrieved.authenticator.signature.bytes)).toEqual(
+      HexConverter.encode(originalSignature.bytes),
+    );
+
+    // Verify the recovery byte is preserved by comparing the encoded signatures
+    const encodedRetrieved = retrieved.authenticator.signature.encode();
+    expect(encodedRetrieved[encodedRetrieved.length - 1]).toEqual(recoveryByte);
+    expect(HexConverter.encode(encodedRetrieved)).toEqual(HexConverter.encode(encodedOriginal));
   });
 });
