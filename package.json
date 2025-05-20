@@ -14,6 +14,7 @@
     "lint:fix": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --fix",
     "test": "jest tests/ --runInBand --testPathIgnorePatterns=\"tests/benchmarks\"",
     "test:ci": "jest tests/ --runInBand --ci --reporters=default --testPathIgnorePatterns=\"tests/benchmarks\"",
+    "test:no-docker": "jest tests/ --runInBand --testPathIgnorePatterns=\"tests/benchmarks|tests/highAvailability|tests/consensus/alphabill|tests/api|tests/smt/SmtStorageTest|tests/RoundManagerIntegrationTest|tests/RoundManagerUnitTest\"",
     "benchmark": "jest tests/benchmarks --runInBand --testNamePattern=\"Benchmark\""
   },
   "type": "module",
