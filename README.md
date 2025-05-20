@@ -7,6 +7,8 @@ This repository contains the API definition and JavaScript implementations for c
 Unicity's infrastructure comprises a decentralized Agent layer interacting with a hierarchical Proof Aggregation layer. The communication API enables agents to:
 1. Submit state transition requests to the Aggregation layer.
 2. Retrieve unicity proofs that include timestamped inclusion proofs and global non-deletion proofs.
+For convenience the gateway serves interactive documentation powered by OpenRPC at `/docs`. The raw OpenRPC document can be fetched from `/openrpc` and the explorer allows sending test requests directly from the browser.
+
 
 ## API Operations
 
