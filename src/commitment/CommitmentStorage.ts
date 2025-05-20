@@ -206,7 +206,7 @@ export class CommitmentStorage implements ICommitmentStorage {
       const authenticator = new Authenticator(
         commitment.authenticator.publicKey,
         commitment.authenticator.algorithm,
-        new Signature(commitment.authenticator.signature.slice(0, -1), commitment.authenticator.signature[65]),
+        Signature.decode(commitment.authenticator.signature),
         DataHash.fromImprint(commitment.authenticator.stateHash),
       );
       return new Commitment(
