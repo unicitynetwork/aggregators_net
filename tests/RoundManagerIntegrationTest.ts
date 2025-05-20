@@ -6,10 +6,10 @@ import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import mongoose from 'mongoose';
 
+import { IReplicaSet, setupReplicaSet } from './TestUtils.js';
 import { AggregatorGateway } from '../src/AggregatorGateway.js';
 import { Commitment } from '../src/commitment/Commitment.js';
 import logger from '../src/logger.js';
-import { IReplicaSet, setupReplicaSet } from './TestUtils.js';
 
 describe('Round Manager Integration Tests', () => {
   jest.setTimeout(120000); // Increased timeout for replica set setup
@@ -73,16 +73,48 @@ describe('Round Manager Integration Tests', () => {
     // Check if commitment is included in next few blocks
     let commitmentFound = false;
     let notSubmittedCommitmentFound = false;
+    
+    const latestBlockBeforeCheck = await roundManager.getBlockRecordsStorage().getLatest();
+    const startBlockNumber = latestBlockBeforeCheck ? latestBlockBeforeCheck.blockNumber : 0n;
+    
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    
     for (let i = 0; i < 5; i++) {
-      const blockRecords = await roundManager.getBlockRecordsStorage().getLatest();
-      if (blockRecords?.requestIds.find((requestId) => requestId.hash.equals(requestId.hash))) {
-        commitmentFound = true;
+      const latestBlock = await roundManager.getBlockRecordsStorage().getLatest();
+      if (!latestBlock) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        continue;
       }
-      if (blockRecords?.requestIds.find((requestId) => requestId.hash.equals(notSubmittedRequestId.hash))) {
+      
+      if (latestBlock.requestIds.find((rid) => rid.hash.equals(requestId.hash))) {
+        commitmentFound = true;
+        break;
+      }
+      
+      if (latestBlock.requestIds.find((rid) => rid.hash.equals(notSubmittedRequestId.hash))) {
         notSubmittedCommitmentFound = true;
       }
+      
+      // Also check previous blocks in case we missed it
+      const currentBlockNum = latestBlock.blockNumber;
+      for (let blockNum = startBlockNumber; blockNum < currentBlockNum; blockNum++) {
+        const block = await roundManager.getBlockRecordsStorage().get(blockNum);
+        if (block && block.requestIds.find((rid) => rid.hash.equals(requestId.hash))) {
+          commitmentFound = true;
+          break;
+        }
+        if (block && block.requestIds.find((rid) => rid.hash.equals(notSubmittedRequestId.hash))) {
+          notSubmittedCommitmentFound = true;
+        }
+      }
+      
+      if (commitmentFound) {
+        break;
+      }
+      
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
+    
     expect(commitmentFound).toBeTruthy();
     expect(notSubmittedCommitmentFound).toBeFalsy();
   });
