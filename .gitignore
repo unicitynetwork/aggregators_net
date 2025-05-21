@@ -87,6 +87,9 @@ web_modules/
 .next
 out
 
+# Client build output
+public/openrpc/bundle.js
+
 # Nuxt.js build / generate output
 .nuxt
 dist

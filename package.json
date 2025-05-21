@@ -4,7 +4,8 @@
   "description": "This repository contains the API definition and JavaScript implementations for communication between the Agent and Aggregation layers on the Unicity blockchain platform.",
   "main": "./src/index.ts",
   "scripts": {
-    "build": "webpack",
+    "build": "webpack && npm run build:client",
+    "build:client": "webpack --config client/webpack.config.js",
     "start": "npm run build && node -r dotenv/config dist/index.cjs",
     "docker:mongo": "docker compose -f tests/docker/mongodb-docker-compose.yml up -d",
     "docker:mongo:down": "docker compose -f tests/docker/mongodb-docker-compose.yml down -v",
@@ -32,7 +33,10 @@
     "express": "5.1.0",
     "mongodb": "6.15.0",
     "mongoose": "8.13.2",
-    "winston": "3.17.0"
+    "winston": "3.17.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@open-rpc/playground": "^1.11.5"
   },
   "devDependencies": {
     "@babel/preset-env": "7.26.9",
@@ -59,6 +63,8 @@
     "ts-loader": "9.5.2",
     "typescript-eslint": "8.30.1",
     "webpack": "5.99.6",
-    "webpack-cli": "6.0.1"
+    "webpack-cli": "6.0.1",
+    "@types/react": "^18.2.52",
+    "@types/react-dom": "^18.2.17"
   }
 }

@@ -29,6 +29,8 @@ import { Smt } from './smt/Smt.js';
 import { SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
 import { MockAlphabillClient } from '../tests/consensus/alphabill/MockAlphabillClient.js';
 import { generateDocsHtml } from "./docs/jsonRpcDocs.js";
+import path from 'path';
+import { OPENRPC_DOCUMENT } from "./docs/openrpc.js";
 
 export interface IGatewayConfig {
   aggregatorConfig?: IAggregatorConfig;
@@ -268,6 +270,15 @@ export class AggregatorGateway {
     app.get("/docs", (req: Request, res: Response) => {
       res.setHeader("Content-Type", "text/html");
       res.send(generateDocsHtml());
+    });
+
+    app.use(
+      '/openrpc',
+      express.static(path.join(__dirname, '..', 'public', 'openrpc')),
+    );
+
+    app.get('/openrpc.json', (req: Request, res: Response) => {
+      res.json(OPENRPC_DOCUMENT);
     });
 
     app.get('/health', (req: Request, res: Response) => {
