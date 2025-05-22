@@ -35,7 +35,8 @@ jobs:
           tags: ghcr.io/${{ github.repository }}:${{ github.sha }}
 
       - name: Print image digest
-        run: echo "Image digest is: ${{ steps.build-and-push.outputs.digest }}"
+        run: |
+         echo "Image digest is: ${{ steps.build-and-push.outputs.digest }}"
 
   call-deploy:
     needs: build
