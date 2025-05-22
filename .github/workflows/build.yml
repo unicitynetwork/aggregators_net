@@ -36,5 +36,5 @@ jobs:
     needs: build
     uses: ./.github/workflows/deploy.yml
     with:
-      aggregator_tag: ${{ github.sha }}"
+      aggregator_tag: ${{ github.sha }}
       environment: devnet
