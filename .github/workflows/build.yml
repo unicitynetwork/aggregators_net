@@ -34,6 +34,9 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}:${{ github.sha }}
 
+      - name: Print image digest
+        run: echo "Image digest is: ${{ steps.build-and-push.outputs.digest }}"
+
   call-deploy:
     needs: build
     uses: ./.github/workflows/deploy.yml
