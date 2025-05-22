@@ -8,8 +8,6 @@ on:
 
 jobs:
   build:
-    outputs:
-      image_name: ${{ steps.extract_name.outputs.image_name }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,18 +32,9 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}:${{ github.sha }}
 
-      - name: Extract image name
-        id: extract_name
-        run: |
-          echo "github.sha=${{ github.sha }}"
-          echo "${{ steps.build_and_push.outputs.metadata }}"
-#         image_name=$( echo "${{ steps.build_and_push.outputs.metadata }}" | jq -r .image.name )
-#         echo "image_name=${image_name}"
-#         echo "image_name=${image_name}" >> $GITHUB_OUTPUT
-
-# call-deploy:
-#   needs: build
-#   uses: ./.github/workflows/deploy.yml
-#   with:
-#     aggregator_tag: ${{ needs.build.outputs.image_name }}
-#     environment: devnet
+  call-deploy:
+    needs: build
+    uses: ./.github/workflows/deploy.yml
+    with:
+      aggregator_tag: ${{ github.sha }}"
+      environment: devnet
