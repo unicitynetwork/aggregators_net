@@ -8,18 +8,19 @@ on:
         required: true
         type: choice
         options:
-          - test
-          - main
-        default: 'test'
+          - devnet
+          - aggregator-test
+          - mainnet
+        default: 'devnet'
       aggregator_tag:
-        description: 'Docker image hash or tag. Specify "default" to use latest commit id from main branch'
+        description: 'Docker image hash, branch or tag'
         required: true
         type: string
-        default: 'default'
+        default: 'main'
 
 jobs:
   deploy:
-    name: Deploy to ${{ github.event.inputs.environment  }}
+    name: Deploy to ${{ github.event.inputs.environment }}
     runs-on: ubuntu-latest
     environment:
       name: "${{ github.event.inputs.environment }}"
@@ -32,38 +33,15 @@ jobs:
           # Fetch all history for all tags and branches
           fetch-depth: 0 # Important to get refs of other branches
 
-      - name: Get default branch name
-        id: get_branch
-        run: echo "branch_name=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)" >> $GITHUB_OUTPUT
-
-      - name: Get latest commit ID of default branch
-        id: get_hash
-        run: |
-          DEFAULT_BRANCH="${{ steps.get_branch.outputs.branch_name }}"
-          echo "Default branch is: $DEFAULT_BRANCH"
-          COMMIT_ID=$(git rev-parse "origin/$DEFAULT_BRANCH")
-          echo "Latest commit on $DEFAULT_BRANCH is $COMMIT_ID"
-          echo "commit_id=$COMMIT_ID" >> $GITHUB_OUTPUT
-
-      - name: Sanitize input parameters
-        id: trim_tag
+      - name: Process input
+        id: process_input
         run: |
           raw_input="${{ github.event.inputs.aggregator_tag }}"
           trimmed_input=$(echo "$raw_input" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-
-          if [ "${trimmed_input}" == "default" ]; then
-            echo "aggregator_tag=${{ steps.get_hash.outputs.commit_id }}" >> $GITHUB_OUTPUT
-          else
-            echo "aggregator_tag=${trimmed_input}" >> $GITHUB_OUTPUT
-          fi
-
-
-      - name: Show parameters & environment
-        run: |
-          echo "Target Server: ${{ vars.TARGET_SERVER }}"
-          echo "Tag: ${{ steps.trim_tag.outputs.aggregator_tag }}"
-          ls -la
-          env|sort
+          COMMIT_ID=$(git rev-parse ${trimmed_input}")
+          echo "commit_id=${COMMIT_ID}"
+          docker manifest "inspect ghcr.io/unicitynetwork/aggregators_net:${COMMIT_ID}"
+          echo "commit_id=${COMMIT_ID}" >> $GITHUB_OUTPUT
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -83,12 +61,25 @@ jobs:
       - name: Configure ssh
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan "${{ vars.JUMP_HOST }}" >> ~/.ssh/known_hosts
+
+          ssh-keyscan "jump-1.devnet.alphabill.org" >> ~/.ssh/known_hosts
+          ssh-keyscan "jump-1.mainnet.alphabill.org" >> ~/.ssh/known_hosts
+
           cat > ~/.ssh/config <<- EOF
-          Host mainjump
-            HostName ${{ vars.JUMP_HOST }}
+          Host devjump
+            HostName jump-1.devnet.alphabill.org
             User alpha
-          Host *.mainnet.alphabill.org
+
+          Host mainjump
+            HostName jump-1.mainnet.alphabill.org
+            User alpha
+
+          Host *.devnet-v2.alphabill.internal
+            ProxyJump devjump
+            StrictHostKeyChecking accept-new
+            User alpha
+
+          Host *.mainnet-v3.alphabill.internal
             ProxyJump mainjump
             StrictHostKeyChecking accept-new
             User alpha
@@ -96,10 +87,11 @@ jobs:
           cat ~/.ssh/config
 
       - name: Run Ansible Playbook
+        working-directory: ./ansible
+        env:
+          ANSIBLE_VAULT_PASSWORD: secrets.ANSIBLE_VAULT_PASSWORD
         run: |
-          ansible-playbook ansible/aggregator.yml \
-          -i "${{ vars.TARGET_SERVER }}," \
-          -e "aggregator_mongodb_uri=${{ secrets.aggregator_mongodb_uri }}" \
-          -e "aggregator_private_key=${{ secrets.aggregator_private_key }}" \
-          -e "aggregator_initial_block_hash=${{ vars.aggregator_initial_block_hash }}" \
-          -e "aggregator_tag=${{ steps.trim_tag.outputs.aggregator_tag }}"
+          ansible-playbook aggregator.yml \
+          -e "env=${{ github.event.inputs.environment }}" \
+          -e "aggregator_tag=${{ steps.process_input.outputs.commit_id }}"
+

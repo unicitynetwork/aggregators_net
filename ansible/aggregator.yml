@@ -3,9 +3,13 @@
   remote_user: alpha
   become: false
   gather_facts: true
-  hosts: all
+  hosts: "{{env}}"
+
+  vars_files:
+    - "vars/{{env}}.yml"
 
   tasks:
+
     - name: Create dir
       ansible.builtin.file:
         path: "/home/alpha/aggregator"
@@ -34,6 +38,10 @@
         files:
           - docker-compose.yml
         state: absent
+      tags:
+#       - never
+        - restart
+        - stop
 
     - name: Start aggregator
       community.docker.docker_compose_v2:
@@ -41,4 +49,7 @@
         files:
           - docker-compose.yml
         state: present
-
+      tags:
+#       - never
+        - restart
+        - start
