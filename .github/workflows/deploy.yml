@@ -17,15 +17,18 @@ on:
         required: true
         type: string
         default: 'origin/main'
-  push:
+  pull_request:
+    types: [closed]
     branches:
       - main
 
 jobs:
   deploy:
     name: Deploy Aggregator
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
-
     steps:
 
       - name: Check out repository code
