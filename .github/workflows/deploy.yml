@@ -38,7 +38,7 @@ jobs:
         run: |
           raw_input="${{ github.event.inputs.aggregator_tag }}"
           trimmed_input=$(echo "$raw_input" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-          COMMIT_ID=$(git rev-parse ${trimmed_input}")
+          COMMIT_ID=$(git rev-parse "${trimmed_input}")
           echo "commit_id=${COMMIT_ID}"
           docker manifest "inspect ghcr.io/unicitynetwork/aggregators_net:${COMMIT_ID}"
           echo "commit_id=${COMMIT_ID}" >> $GITHUB_OUTPUT
