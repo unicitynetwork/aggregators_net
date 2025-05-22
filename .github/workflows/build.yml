@@ -4,9 +4,12 @@ on:
   push:
     branches:
       - main
+      - devnet
 
 jobs:
   build:
+    outputs:
+      image_digest: ${{ steps.build-and-push.outputs.digest }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -23,9 +26,16 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
+        id: build-and-push
         uses: docker/build-push-action@v5
         with:
           context: .
           file: Dockerfile
           push: true
           tags: ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+  call-deploy:
+    needs: build
+    uses: ./.github/workflows/deploy.yml
+    with:
+      image_with_tag: ${{ needs.build.outputs.image_digest }}
