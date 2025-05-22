@@ -38,4 +38,5 @@ jobs:
     needs: build
     uses: ./.github/workflows/deploy.yml
     with:
-      image_with_tag: ${{ needs.build.outputs.image_digest }}
+      aggregator_tag: ${{ needs.build.outputs.image_digest }}
+      environment: devnet
