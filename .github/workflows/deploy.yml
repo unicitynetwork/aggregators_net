@@ -9,7 +9,7 @@ on:
         type: choice
         options:
           - devnet
-          - aggregator-test
+          - mainnet_test
           - mainnet
         default: 'devnet'
       aggregator_tag:
