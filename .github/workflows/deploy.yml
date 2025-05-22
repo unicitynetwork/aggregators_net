@@ -31,8 +31,6 @@ on:
 jobs:
   deploy:
     name: Deploy Aggregator
-    if: |
-      github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     steps:
 
@@ -43,13 +41,13 @@ jobs:
           fetch-depth: 0 # Important to get refs of other branches
 
       - name: Process input
-        id: process_input
+        id: process_inputs
         run: |
           echo "Triggered by: ${{ github.event_name }}"
-          raw_input="${{ github.event.inputs.aggregator_tag }}"
+          raw_input="${{ inputs.aggregator_tag }}"
           trimmed_input=$(echo "$raw_input" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           COMMIT_ID=$(git rev-parse "${trimmed_input}")
-          ENVIRONMENT="${{ github.event.inputs.environment }}"
+          ENVIRONMENT="${{ inputs.environment }}"
 
           # input parameters
           echo "commit_id=${COMMIT_ID}"
@@ -113,6 +111,6 @@ jobs:
           chmod 600 .vault_pass
 
           ansible-playbook aggregator.yml \
-          -e "env=${{ steps.process_input.outputs.environment }}" \
-          -e "aggregator_tag=${{ steps.process_input.outputs.commit_id }}"
+          -e "env=${{ steps.process_inputs.outputs.environment }}" \
+          -e "aggregator_tag=${{ steps.process_inputs.outputs.commit_id }}"
 
