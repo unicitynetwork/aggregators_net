@@ -36,7 +36,9 @@ jobs:
 
       - name: Print image digest
         run: |
+         echo "Image imageid is: ${{ steps.build-and-push.outputs.imageid }}"
          echo "Image digest is: ${{ steps.build-and-push.outputs.digest }}"
+         echo "Image metadata is: ${{ steps.build-and-push.outputs.metadata }}"
 
   call-deploy:
     needs: build
