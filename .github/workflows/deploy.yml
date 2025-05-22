@@ -17,17 +17,22 @@ on:
         required: true
         type: string
         default: 'origin/main'
-  pull_request:
-    types: [closed]
-    branches:
-      - main
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment'
+        required: true
+        type: string
+      aggregator_tag:
+        description: 'Docker image hash'
+        required: true
+        type: string
 
 jobs:
   deploy:
     name: Deploy Aggregator
     if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+      github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     steps:
 
@@ -40,27 +45,18 @@ jobs:
       - name: Process input
         id: process_input
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]
-          then
-            echo "Triggered by: workflow_dispatch"
-            raw_input="${{ github.event.inputs.aggregator_tag }}"
-            trimmed_input=$(echo "$raw_input" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-            COMMIT_ID=$(git rev-parse "${trimmed_input}")
-            ENVIRONMENT="${{ github.event.inputs.environment }}"
-          elif [[ "${{ github.event_name }}" == "push" ]]; then
-            echo "Triggered by: push to main"
-            COMMIT_ID=$(git rev-parse "origin/main")
-            ENVIRONMENT="devnet"
-          else
-            echo "::error::Unsupported event type: ${{ github.event_name }}"
-            exit 1
-          fi
+          echo "Triggered by: ${{ github.event_name }}"
+          raw_input="${{ github.event.inputs.aggregator_tag }}"
+          trimmed_input=$(echo "$raw_input" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          COMMIT_ID=$(git rev-parse "${trimmed_input}")
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
 
           # input parameters
           echo "commit_id=${COMMIT_ID}"
           echo "commit_id=${COMMIT_ID}" >> $GITHUB_OUTPUT
           echo "environment=${ENVIRONMENT}"
           echo "environment=${ENVIRONMENT}" >> $GITHUB_OUTPUT
+
           # check if docker image exists
           docker manifest inspect "ghcr.io/unicitynetwork/aggregators_net:${COMMIT_ID}"
 
