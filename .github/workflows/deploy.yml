@@ -89,7 +89,7 @@ jobs:
       - name: Run Ansible Playbook
         working-directory: ./ansible
         env:
-          ANSIBLE_VAULT_PASSWORD: secrets.ANSIBLE_VAULT_PASSWORD
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
         run: |
           ansible-playbook aggregator.yml \
           -e "env=${{ github.event.inputs.environment }}" \
