@@ -16,7 +16,7 @@ on:
         description: 'Docker image hash, branch or tag'
         required: true
         type: string
-        default: 'main'
+        default: 'origin/main'
 
 jobs:
   deploy:
