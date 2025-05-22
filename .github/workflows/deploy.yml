@@ -90,7 +90,11 @@ jobs:
         working-directory: ./ansible
         env:
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+          ANSIBLE_VAULT_PASSWORD_FILE: .vault_pass
         run: |
+          echo "$ANSIBLE_VAULT_PASSWORD" > .vault_pass
+          chmod 600 .vault_pass
+
           ansible-playbook aggregator.yml \
           -e "env=${{ github.event.inputs.environment }}" \
           -e "aggregator_tag=${{ steps.process_input.outputs.commit_id }}"
