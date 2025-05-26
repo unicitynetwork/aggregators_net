@@ -29,8 +29,8 @@ export class Smt {
   /**
    * Gets the root hash of the tree
    */
-  public async rootHash(): Promise<DataHash> {
-    return await this.smt.root.hashPromise;
+  public rootHash(): Promise<DataHash> {
+    return this.smt.root.hashPromise;
   }
 
   /**
