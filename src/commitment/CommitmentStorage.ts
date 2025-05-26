@@ -98,7 +98,7 @@ export class CommitmentStorage implements ICommitmentStorage {
     try {
       const sequenceId = await getNextSequenceValue('commitment_counter');
       const commitmentData = {
-        requestId: commitment.requestId.toDto(),
+        requestId: commitment.requestId.toJSON(),
         transactionHash: commitment.transactionHash.imprint,
         authenticator: {
           algorithm: commitment.authenticator.algorithm,
@@ -204,13 +204,13 @@ export class CommitmentStorage implements ICommitmentStorage {
 
     return commitments.map((commitment) => {
       const authenticator = new Authenticator(
-        commitment.authenticator.publicKey,
         commitment.authenticator.algorithm,
+        commitment.authenticator.publicKey,
         Signature.decode(commitment.authenticator.signature),
         DataHash.fromImprint(commitment.authenticator.stateHash),
       );
       return new Commitment(
-        RequestId.fromDto(commitment.requestId),
+        RequestId.fromJSON(commitment.requestId),
         DataHash.fromImprint(commitment.transactionHash),
         authenticator,
       );

@@ -27,13 +27,14 @@ export class AggregatorService {
     return validationResult;
   }
 
-  public async getInclusionProof(requestId: RequestId): Promise<InclusionProof | null> {
+  public async getInclusionProof(requestId: RequestId): Promise<InclusionProof> {
     const record = await this.recordStorage.get(requestId);
+    const merkleTreePath = await this.smt.getPath(requestId.toBigInt());
+
     if (!record) {
-      return null;
+      return new InclusionProof(merkleTreePath, null, null);
     }
 
-    const merkleTreePath = await this.smt.getPath(requestId.toBigInt());
     return new InclusionProof(merkleTreePath, record.authenticator, record.transactionHash);
   }
 

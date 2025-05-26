@@ -73,28 +73,28 @@ describe('Round Manager Integration Tests', () => {
     // Check if commitment is included in next few blocks
     let commitmentFound = false;
     let notSubmittedCommitmentFound = false;
-    
+
     const latestBlockBeforeCheck = await roundManager.getBlockRecordsStorage().getLatest();
     const startBlockNumber = latestBlockBeforeCheck ? latestBlockBeforeCheck.blockNumber : 0n;
-    
+
     await new Promise((resolve) => setTimeout(resolve, 2000));
-    
+
     for (let i = 0; i < 5; i++) {
       const latestBlock = await roundManager.getBlockRecordsStorage().getLatest();
       if (!latestBlock) {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         continue;
       }
-      
+
       if (latestBlock.requestIds.find((rid) => rid.hash.equals(requestId.hash))) {
         commitmentFound = true;
         break;
       }
-      
+
       if (latestBlock.requestIds.find((rid) => rid.hash.equals(notSubmittedRequestId.hash))) {
         notSubmittedCommitmentFound = true;
       }
-      
+
       // Also check previous blocks in case we missed it
       const currentBlockNum = latestBlock.blockNumber;
       for (let blockNum = startBlockNumber; blockNum < currentBlockNum; blockNum++) {
@@ -107,14 +107,14 @@ describe('Round Manager Integration Tests', () => {
           notSubmittedCommitmentFound = true;
         }
       }
-      
+
       if (commitmentFound) {
         break;
       }
-      
+
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
-    
+
     expect(commitmentFound).toBeTruthy();
     expect(notSubmittedCommitmentFound).toBeFalsy();
   });

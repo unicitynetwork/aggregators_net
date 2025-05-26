@@ -195,9 +195,9 @@ describe('Alphabill Client Integration Tests', () => {
         jsonrpc: '2.0',
         method: 'submit_commitment',
         params: {
-          requestId: requestId.toDto(),
-          transactionHash: transactionHash.toDto(),
-          authenticator: authenticator.toDto(),
+          requestId: requestId.toJSON(),
+          transactionHash: transactionHash.toJSON(),
+          authenticator: authenticator.toJSON(),
         },
         id: 1,
       }),
@@ -221,7 +221,7 @@ describe('Alphabill Client Integration Tests', () => {
         jsonrpc: '2.0',
         method: 'get_inclusion_proof',
         params: {
-          requestId: requestId.toDto(),
+          requestId: requestId.toJSON(),
         },
         id: 2,
       }),
@@ -233,7 +233,7 @@ describe('Alphabill Client Integration Tests', () => {
     expect(inclusionProofData).toHaveProperty('result');
     expect(inclusionProofData).toHaveProperty('id', 2);
 
-    const inclusionProof = InclusionProof.fromDto(inclusionProofData.result);
+    const inclusionProof = InclusionProof.fromJSON(inclusionProofData.result);
     const verificationResult = await inclusionProof.verify(requestId.toBigInt());
     expect(verificationResult).toBeTruthy();
   }, 60000);
@@ -252,9 +252,9 @@ describe('Alphabill Client Integration Tests', () => {
         jsonrpc: '2.0',
         method: 'submit_commitment',
         params: {
-          requestId: requestId.toDto(),
-          transactionHash: transactionHash.toDto(),
-          authenticator: authenticator.toDto(),
+          requestId: requestId.toJSON(),
+          transactionHash: transactionHash.toJSON(),
+          authenticator: authenticator.toJSON(),
         },
         id: 3,
       }),
