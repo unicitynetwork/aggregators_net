@@ -72,7 +72,7 @@ describe('Round Manager Tests', () => {
     commitmentStorage = new CommitmentStorage();
     blockRecordsStorage = new BlockRecordsStorage();
     smtStorage = new SmtStorage();
-    smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
+    smt = new SparseMerkleTree(HashAlgorithm.SHA256);
     const smtWrapper = new Smt(smt);
 
     roundManager = new RoundManager(

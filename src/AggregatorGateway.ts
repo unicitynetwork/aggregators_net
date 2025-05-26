@@ -20,6 +20,7 @@ import { AggregatorStorage } from './AggregatorStorage.js';
 import { Commitment } from './commitment/Commitment.js';
 import { AlphabillClient } from './consensus/alphabill/AlphabillClient.js';
 import { IAlphabillClient } from './consensus/alphabill/IAlphabillClient.js';
+import { generateDocsHtml } from './docs/jsonRpcDocs.js';
 import { LeaderElection } from './highAvailability/LeaderElection.js';
 import { LeadershipStorage } from './highAvailability/LeadershipStorage.js';
 import logger from './logger.js';
@@ -28,7 +29,6 @@ import { ISmtStorage } from './smt/ISmtStorage.js';
 import { Smt } from './smt/Smt.js';
 import { SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
 import { MockAlphabillClient } from '../tests/consensus/alphabill/MockAlphabillClient.js';
-import { generateDocsHtml } from "./docs/jsonRpcDocs.js";
 
 export interface IGatewayConfig {
   aggregatorConfig?: IAggregatorConfig;
@@ -265,8 +265,8 @@ export class AggregatorGateway {
     app.use(cors());
     app.use(bodyParser.json());
 
-    app.get("/docs", (req: Request, res: Response) => {
-      res.setHeader("Content-Type", "text/html");
+    app.get('/docs', (req: Request, res: Response) => {
+      res.setHeader('Content-Type', 'text/html');
       res.send(generateDocsHtml());
     });
 
@@ -420,9 +420,9 @@ export class AggregatorGateway {
 
     let commitment: Commitment;
     try {
-      const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
-      const transactionHash: DataHash = DataHash.fromDto(req.body.params.transactionHash);
-      const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
+      const requestId: RequestId = RequestId.fromJSON(req.body.params.requestId);
+      const transactionHash: DataHash = DataHash.fromJSON(req.body.params.transactionHash);
+      const authenticator: Authenticator = Authenticator.fromJSON(req.body.params.authenticator);
       commitment = new Commitment(requestId, transactionHash, authenticator);
     } catch (error) {
       AggregatorGateway.sendJsonRpcError(
@@ -474,7 +474,7 @@ export class AggregatorGateway {
 
     let requestId: RequestId;
     try {
-      requestId = RequestId.fromDto(req.body.params.requestId);
+      requestId = RequestId.fromJSON(req.body.params.requestId);
     } catch (error) {
       AggregatorGateway.sendJsonRpcError(
         res,
@@ -494,7 +494,7 @@ export class AggregatorGateway {
     }
     res.json({
       jsonrpc: '2.0',
-      result: inclusionProof.toDto(),
+      result: inclusionProof.toJSON(),
       id: req.body.id,
     });
   }
@@ -576,7 +576,7 @@ export class AggregatorGateway {
         version: block.version,
         forkId: block.forkId,
         timestamp: block.timestamp.toString(),
-        rootHash: block.rootHash.toDto(),
+        rootHash: block.rootHash.toJSON(),
         previousBlockHash: HexConverter.encode(block.previousBlockHash),
         noDeletionProofHash: block.noDeletionProofHash ? HexConverter.encode(block.noDeletionProofHash) : null,
       },
@@ -620,24 +620,25 @@ export class AggregatorGateway {
     res.json({
       jsonrpc: '2.0',
       result: commitments.map((commitment) => ({
-        requestId: commitment.requestId.toDto(),
-        transactionHash: commitment.transactionHash.toDto(),
-        authenticator: commitment.authenticator.toDto(),
+        requestId: commitment.requestId.toJSON(),
+        transactionHash: commitment.transactionHash.toJSON(),
+        authenticator: commitment.authenticator.toJSON(),
       })),
       id: req.body.id,
     });
   }
 
   private static async setupSmt(smtStorage: ISmtStorage, aggregatorServerId: string): Promise<Smt> {
-    const smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
+    const smt = new SparseMerkleTree(HashAlgorithm.SHA256);
     const smtLeaves = await smtStorage.getAll();
     if (smtLeaves.length > 0) {
       logger.info(`Server ${aggregatorServerId} found ${smtLeaves.length} leaves from storage.`);
       logger.info('Constructing tree...');
       for (const leaf of smtLeaves) {
-        await smt.addLeaf(leaf.path, leaf.value);
+        smt.addLeaf(leaf.path, leaf.value);
       }
-      logger.info(`Tree with root hash ${smt.rootHash.toString()} constructed successfully.`);
+      const rootHash = await smt.root.hashPromise;
+      logger.info(`Tree with root hash ${rootHash.toString()} constructed successfully.`);
     }
     return new Smt(smt);
   }

@@ -29,8 +29,8 @@ export class Smt {
   /**
    * Gets the root hash of the tree
    */
-  public get rootHash(): DataHash {
-    return this.smt.rootHash;
+  public async rootHash(): Promise<DataHash> {
+    return await this.smt.root.hashPromise;
   }
 
   /**
@@ -45,7 +45,7 @@ export class Smt {
    */
   public async addLeaf(path: bigint, value: Uint8Array): Promise<void> {
     return this.withSmtLock(async () => {
-      return this.smt.addLeaf(path, value);
+      this.smt.addLeaf(path, value);
     });
   }
 
@@ -65,7 +65,7 @@ export class Smt {
     return this.withSmtLock(async () => {
       for (const leaf of leaves) {
         try {
-          await this.smt.addLeaf(leaf.path, leaf.value);
+          this.smt.addLeaf(leaf.path, leaf.value);
         } catch (error) {
           // Check if the error is "Cannot add leaf inside branch" which indicates
           // the leaf is already in the tree - this is not a fatal error

@@ -23,7 +23,7 @@ export class BlockRecordsStorage implements IBlockRecordsStorage {
     try {
       await new BlockRecordsModel({
         blockNumber: blockRecords.blockNumber,
-        requestIds: blockRecords.requestIds.map((requestId) => requestId.toDto()),
+        requestIds: blockRecords.requestIds.map((requestId) => requestId.toJSON()),
       }).save();
     } catch (error) {
       logger.error('Failed to add block records: ', error);
@@ -39,7 +39,7 @@ export class BlockRecordsStorage implements IBlockRecordsStorage {
     }
     return new BlockRecords(
       blockNumber,
-      stored.requestIds.map((requestId) => RequestId.fromDto(requestId.toString())),
+      stored.requestIds.map((requestId) => RequestId.fromJSON(requestId.toString())),
     );
   }
 
@@ -50,7 +50,7 @@ export class BlockRecordsStorage implements IBlockRecordsStorage {
     }
     return new BlockRecords(
       stored.blockNumber,
-      stored.requestIds.map((requestId) => RequestId.fromDto(requestId.toString())),
+      stored.requestIds.map((requestId) => RequestId.fromJSON(requestId.toString())),
     );
   }
 }

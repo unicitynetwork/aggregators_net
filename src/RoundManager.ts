@@ -1,5 +1,4 @@
 import { Transaction } from '@unicitylabs/commons/lib/api/Transaction.js';
-import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
 import { IAggregatorConfig } from './AggregatorGateway.js';
@@ -97,7 +96,7 @@ export class RoundManager {
     }
 
     let submitHashResponse;
-    const rootHash = this.smt.rootHash;
+    const rootHash = await this.smt.rootHash();
     try {
       loggerWithMetadata.info(`Submitting hash to Alphabill: ${rootHash.toString()}...`);
       submitHashResponse = await this.alphabillClient.submitHash(rootHash);

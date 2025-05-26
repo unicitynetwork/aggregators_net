@@ -13,7 +13,7 @@ describe('SMT Wrapper Tests', () => {
   let smtWrapper: Smt;
 
   beforeEach(async () => {
-    smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
+    smt = new SparseMerkleTree(HashAlgorithm.SHA256);
     smtWrapper = new Smt(smt);
   });
 
@@ -85,7 +85,7 @@ describe('SMT Wrapper Tests', () => {
     const sumOfOperationTimes = 300 + 100 + 500 + 200 + 150;
     expect(totalTime).toBeGreaterThanOrEqual(sumOfOperationTimes);
 
-    expect(smtWrapper.rootHash).toBeDefined();
+    expect(await smtWrapper.rootHash()).toBeDefined();
   });
 
   it('should execute operations in FIFO order when waiting for lock', async () => {
@@ -144,21 +144,21 @@ describe('SMT Wrapper Tests', () => {
     let readRootDuringAdd: DataHash | null = null;
 
     const addPromise = smtWrapper.addLeaves(leavesToAdd);
-    const readPromise = smtWrapper.getPath(BigInt(1)).then((path) => {
-      readRootDuringAdd = smtWrapper.rootHash;
+    const readPromise = smtWrapper.getPath(BigInt(1)).then(async (path) => {
+      readRootDuringAdd = await smtWrapper.rootHash();
       return path;
     });
 
     await Promise.all([addPromise, readPromise]);
 
-    const tempSmt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
+    const tempSmt = new SparseMerkleTree(HashAlgorithm.SHA256);
     await tempSmt.addLeaf(BigInt(1), new Uint8Array([1]));
     await tempSmt.addLeaf(BigInt(2), new Uint8Array([2]));
-    const expectedRoot = tempSmt.rootHash;
+    const expectedRoot = await tempSmt.root.hashPromise;
 
     expect(readRootDuringAdd).toBeDefined();
     expect(readRootDuringAdd!.equals(expectedRoot)).toBe(true);
-    expect(smtWrapper.rootHash.equals(expectedRoot)).toBe(true);
+    expect((await smtWrapper.rootHash()).equals(expectedRoot)).toBe(true);
   });
 
   it('should skip duplicate leaves when using addLeaves batch function', async () => {
@@ -167,7 +167,7 @@ describe('SMT Wrapper Tests', () => {
     const value = new Uint8Array([1, 2, 3]);
 
     await smtWrapper.addLeaf(path, value);
-    const rootAfterFirstAdd = smtWrapper.rootHash;
+    const rootAfterFirstAdd = await smtWrapper.rootHash();
 
     // Adding the same leaf with addLeaf should throw an error
     try {
@@ -178,7 +178,7 @@ describe('SMT Wrapper Tests', () => {
     }
 
     // Root should remain unchanged after error
-    expect(smtWrapper.rootHash.equals(rootAfterFirstAdd)).toBe(true);
+    expect((await smtWrapper.rootHash()).equals(rootAfterFirstAdd)).toBe(true);
 
     // Now add a batch containing the duplicate leaf and a new leaf
     const newPath = BigInt(43);
@@ -191,7 +191,7 @@ describe('SMT Wrapper Tests', () => {
     ]);
 
     // Root should change after adding the new leaf (duplicate was skipped)
-    const rootAfterBatchAdd = smtWrapper.rootHash;
+    const rootAfterBatchAdd = await smtWrapper.rootHash();
     expect(rootAfterBatchAdd.equals(rootAfterFirstAdd)).toBe(false);
 
     // Verify both leaves exist by getting their paths
