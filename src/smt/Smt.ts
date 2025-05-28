@@ -30,7 +30,7 @@ export class Smt {
    * Gets the root hash of the tree
    */
   public rootHash(): Promise<DataHash> {
-    return this.smt.root.hashPromise;
+    return this.smt.root.calculateHash();
   }
 
   /**

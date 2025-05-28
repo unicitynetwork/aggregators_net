@@ -1,4 +1,4 @@
-import { Transaction } from '@unicitylabs/commons/lib/api/Transaction.js';
+import { LeafValue } from '@unicitylabs/commons/lib/api/LeafValue.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
 import { IAggregatorConfig } from './AggregatorGateway.js';
@@ -59,8 +59,8 @@ export class RoundManager {
         );
 
         const nodePath = commitment.requestId.toBigInt();
-        const transaction = await Transaction.create(commitment.authenticator, commitment.transactionHash);
-        smtLeaves.push(new SmtNode(nodePath, transaction.leafValue.imprint));
+        const leafValue = await LeafValue.create(commitment.authenticator, commitment.transactionHash);
+        smtLeaves.push(new SmtNode(nodePath, leafValue.bytes));
       }
     }
 
