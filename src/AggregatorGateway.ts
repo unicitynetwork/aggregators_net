@@ -637,7 +637,7 @@ export class AggregatorGateway {
       for (const leaf of smtLeaves) {
         smt.addLeaf(leaf.path, leaf.value);
       }
-      const rootHash = await smt.root.hashPromise;
+      const rootHash = await smt.root.calculateHash();
       logger.info(`Tree with root hash ${rootHash.toString()} constructed successfully.`);
     }
     return new Smt(smt);

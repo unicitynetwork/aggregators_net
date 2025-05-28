@@ -152,9 +152,9 @@ describe('SMT Wrapper Tests', () => {
     await Promise.all([addPromise, readPromise]);
 
     const tempSmt = new SparseMerkleTree(HashAlgorithm.SHA256);
-    await tempSmt.addLeaf(BigInt(1), new Uint8Array([1]));
-    await tempSmt.addLeaf(BigInt(2), new Uint8Array([2]));
-    const expectedRoot = await tempSmt.root.hashPromise;
+    tempSmt.addLeaf(BigInt(1), new Uint8Array([1]));
+    tempSmt.addLeaf(BigInt(2), new Uint8Array([2]));
+    const expectedRoot = await tempSmt.root.calculateHash();
 
     expect(readRootDuringAdd).toBeDefined();
     expect(readRootDuringAdd!.equals(expectedRoot)).toBe(true);

@@ -26,7 +26,7 @@
   "dependencies": {
     "@alphabill/alphabill-js-sdk": "1.0.0-rc2-rc.d20dc37",
     "@types/node": "22.14.1",
-    "@unicitylabs/commons": "2.4.0-rc.b25c9a0",
+    "@unicitylabs/commons": "2.4.0-rc.a5f85b0",
     "cors": "2.8.5",
     "dotenv": "16.5.0",
     "express": "5.1.0",
@@ -53,8 +53,8 @@
     "globals": "16.0.0",
     "jest": "29.7.0",
     "mongodb-memory-server": "10.1.4",
-    "supertest": "^7.1.0",
     "node-loader": "^2.1.0",
+    "supertest": "^7.1.0",
     "testcontainers": "10.24.2",
     "ts-loader": "9.5.2",
     "typescript-eslint": "8.30.1",
