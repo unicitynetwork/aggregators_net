@@ -1,5 +1,7 @@
 import { performance } from 'perf_hooks';
 
+import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import axios, { AxiosError } from 'axios';
 import mongoose from 'mongoose';
 
@@ -210,6 +212,7 @@ describe('Aggregator Request Performance Benchmark', () => {
       },
       alphabill: {
         useMock: true,
+        privateKey: HexConverter.encode(SigningService.generatePrivateKey()),
       },
       highAvailability: {
         enabled: false,

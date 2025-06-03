@@ -4,6 +4,8 @@ import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
+import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import axios from 'axios';
 import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
@@ -66,6 +68,7 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
     const commonConfig: IGatewayConfig = {
       alphabill: {
         useMock: true,
+        privateKey: HexConverter.encode(SigningService.generatePrivateKey()),
       },
       highAvailability: {
         enabled: true,
