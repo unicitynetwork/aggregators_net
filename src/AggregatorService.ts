@@ -1,5 +1,7 @@
 import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
+import { type ISigningService } from '@unicitylabs/commons/lib/signing/ISigningService.js';
+import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
 
 import { Commitment } from './commitment/Commitment.js';
 import { Block } from './hashchain/Block.js';
@@ -10,6 +12,7 @@ import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { RoundManager } from './RoundManager.js';
 import { Smt } from './smt/Smt.js';
 import { SubmitCommitmentResponse, SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
+
 export class AggregatorService {
   public constructor(
     public readonly roundManager: RoundManager,
@@ -17,12 +20,16 @@ export class AggregatorService {
     public readonly recordStorage: IAggregatorRecordStorage,
     public readonly blockStorage: IBlockStorage,
     public readonly blockRecordsStorage: IBlockRecordsStorage,
+    public readonly signingService: ISigningService<Signature>,
   ) {}
 
-  public async submitCommitment(commitment: Commitment): Promise<SubmitCommitmentResponse> {
+  public async submitCommitment(commitment: Commitment, receipt: boolean = false): Promise<SubmitCommitmentResponse> {
     const validationResult = await this.validateCommitment(commitment);
     if (validationResult.status === SubmitCommitmentStatus.SUCCESS && !validationResult.exists) {
       await this.roundManager.submitCommitment(commitment);
+    }
+    if (validationResult.status === SubmitCommitmentStatus.SUCCESS && receipt) {
+      await validationResult.addReceipt(commitment, this.signingService);
     }
     return validationResult;
   }
