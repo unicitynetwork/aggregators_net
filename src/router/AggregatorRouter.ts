@@ -15,40 +15,7 @@ import {
   handleGetBlock,
   handleGetBlockCommitments,
 } from './AggregatorHandlers.js';
-
-interface IJsonRpcError {
-  jsonrpc: string;
-  error: {
-    code: number;
-    message: string;
-    data?: unknown;
-  };
-  id: string | number | null;
-}
-
-function sendJsonRpcError(
-  res: Response,
-  httpStatus: number,
-  errorCode: number,
-  message: string,
-  id: string | number | null,
-  data?: unknown,
-): void {
-  const errorResponse: IJsonRpcError = {
-    jsonrpc: '2.0',
-    error: {
-      code: errorCode,
-      message: message,
-    },
-    id: id,
-  };
-
-  if (data !== undefined) {
-    errorResponse.error.data = data;
-  }
-
-  res.status(httpStatus).json(errorResponse);
-}
+import { sendJsonRpcError } from './JsonRpcUtils.js';
 
 export function setupRouter(
   config: IGatewayConfig,
