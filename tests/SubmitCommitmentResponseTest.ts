@@ -5,9 +5,9 @@ import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
+import { SubmitCommitmentResponse, SubmitCommitmentStatus, IRequestJson } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
 
 import { Commitment } from '../src/commitment/Commitment.js';
-import { SubmitCommitmentResponse, SubmitCommitmentStatus, IRequestJSON } from '../src/SubmitCommitmentResponse.js';
 
 describe('SubmitCommitmentResponse Receipt Tests', () => {
   let signingService: SigningService;
@@ -33,26 +33,26 @@ describe('SubmitCommitmentResponse Receipt Tests', () => {
     const response = new SubmitCommitmentResponse(SubmitCommitmentStatus.SUCCESS);
 
     // Add receipt (this should sign the request hash)
-    await response.addReceipt(commitment, signingService);
+    await response.addSignedReceipt(commitment.requestId, commitment.authenticator.stateHash, commitment.transactionHash, signingService);
 
     // Verify the response has the expected fields
-    expect(response.algorithm).toBe(signingService.algorithm);
-    expect(response.publicKey).toBe(HexConverter.encode(signingService.publicKey));
-    expect(response.signature).toBeTruthy();
-    expect(response.request).toBeTruthy();
+    expect(response.receipt!.algorithm).toBe(signingService.algorithm);
+    expect(response.receipt!.publicKey).toBe(HexConverter.encode(signingService.publicKey));
+    expect(response.receipt!.signature).toBeTruthy();
+    expect(response.receipt!.request).toBeTruthy();
 
     // Get the signature object directly (no JSON parsing needed)
-    const signatureFromResponse = response.signature!;
+    const signatureFromResponse = response.receipt!.signature!;
 
     // Get the same request hash that was signed
-    const requestHash = response.request!.hash;
+    const requestHash = response.receipt!.request!.hash;
 
     // Verify the signature using the signing service (aggregator side)
     const isValidSignature = await signingService.verify(requestHash.imprint, signatureFromResponse);
     expect(isValidSignature).toBe(true);
 
     // Verify using only the public key (client side)
-    const aggregatorPublicKey = HexConverter.decode(response.publicKey);
+    const aggregatorPublicKey = HexConverter.decode(response.receipt!.publicKey);
 
     const isValidWithPublicKeyOnly = await SigningService.verifyWithPublicKey(
       requestHash.imprint,
@@ -76,10 +76,10 @@ describe('SubmitCommitmentResponse Receipt Tests', () => {
     const response = new SubmitCommitmentResponse(SubmitCommitmentStatus.SUCCESS);
 
     // Add receipt
-    await response.addReceipt(commitment, signingService);
+    await response.addSignedReceipt(commitment.requestId, commitment.authenticator.stateHash, commitment.transactionHash, signingService);
 
     // Get the signature object directly (no JSON parsing needed)
-    const signatureFromResponse = response.signature!;
+    const signatureFromResponse = response.receipt!.signature!;
 
     // Try to verify with different data (should fail)
     const wrongData = new TextEncoder().encode('wrong-data');
@@ -90,7 +90,7 @@ describe('SubmitCommitmentResponse Receipt Tests', () => {
 
   it('should create valid JSON response with receipt', async () => {
     const response = new SubmitCommitmentResponse(SubmitCommitmentStatus.SUCCESS);
-    await response.addReceipt(commitment, signingService);
+    await response.addSignedReceipt(commitment.requestId, commitment.authenticator.stateHash, commitment.transactionHash, signingService);
 
     const jsonResponse = response.toJSON();
 
@@ -105,11 +105,11 @@ describe('SubmitCommitmentResponse Receipt Tests', () => {
 
     // Verify clients can reconstruct the signature from JSON
     const signatureFromJson = Signature.fromJSON(jsonResponse.signature!);
-    expect(signatureFromJson.bytes).toEqual(response.signature!.bytes);
-    expect(signatureFromJson.algorithm).toBe(response.signature!.algorithm);
+    expect(signatureFromJson.bytes).toEqual(response.receipt!.signature!.bytes);
+    expect(signatureFromJson.algorithm).toBe(response.receipt!.signature!.algorithm);
 
     // Check the JSON structure of the request with proper typing
-    const requestJson: IRequestJSON = jsonResponse.request!;
+    const requestJson: IRequestJson = jsonResponse.request!;
     expect(requestJson.service).toBe('aggregator');
     expect(requestJson.method).toBe('submit_commitment');
     expect(requestJson.requestId).toBe(commitment.requestId.toJSON());
