@@ -2,12 +2,12 @@ import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
+import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
 import { Request, Response } from 'express';
 
 import { AggregatorService } from '../AggregatorService.js';
 import { Commitment } from '../commitment/Commitment.js';
 import logger from '../logger.js';
-import { SubmitCommitmentStatus } from '../SubmitCommitmentResponse.js';
 import { sendJsonRpcError, parseBoolean } from './JsonRpcUtils.js';
 
 export async function handleSubmitCommitment(
