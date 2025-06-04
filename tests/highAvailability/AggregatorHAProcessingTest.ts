@@ -1,6 +1,7 @@
 import { MongoDBContainer, StartedMongoDBContainer } from '@testcontainers/mongodb';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
+import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
@@ -13,7 +14,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { AggregatorGateway, IGatewayConfig } from '../../src/AggregatorGateway.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
 import logger from '../../src/logger.js';
-import { SubmitCommitmentStatus } from '../../src/SubmitCommitmentResponse.js';
 
 async function generateTestCommitments(count: number): Promise<Commitment[]> {
   const commitments: Commitment[] = [];
@@ -37,7 +37,7 @@ async function generateTestCommitments(count: number): Promise<Commitment[]> {
     sigBytes[64] = 0;
     const signature = new Signature(sigBytes.slice(0, 64), sigBytes[64]);
 
-    const authenticator = new Authenticator(publicKey, 'mock-algo', signature, stateHash);
+    const authenticator = new Authenticator('mock-algo', publicKey, signature, stateHash);
 
     commitments.push(new Commitment(requestId, transactionHash, authenticator));
   }
@@ -224,7 +224,7 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
       // Submit a batch to the leader
       const leaderBatch = commitments.slice(i, i + batchSize);
       const leaderPromises = leaderBatch.map((commitment, index) => {
-        const requestId = commitment.requestId.toDto();
+        const requestId = commitment.requestId.toJSON();
 
         return axios
           .post(leaderUrl, {
@@ -232,8 +232,8 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
             method: 'submit_commitment',
             params: {
               requestId: requestId,
-              transactionHash: commitment.transactionHash.toDto(),
-              authenticator: commitment.authenticator.toDto(),
+              transactionHash: commitment.transactionHash.toJSON(),
+              authenticator: commitment.authenticator.toJSON(),
             },
             id: i + index + 1,
           })
@@ -259,7 +259,7 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
       const followerBatch = commitments.slice(i + batchSize, i + batchSize * 2);
       if (followerBatch.length > 0) {
         const followerPromises = followerBatch.map((commitment, index) => {
-          const requestId = commitment.requestId.toDto();
+          const requestId = commitment.requestId.toJSON();
 
           return axios
             .post(followerUrl, {
@@ -267,8 +267,8 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
               method: 'submit_commitment',
               params: {
                 requestId: requestId,
-                transactionHash: commitment.transactionHash.toDto(),
-                authenticator: commitment.authenticator.toDto(),
+                transactionHash: commitment.transactionHash.toJSON(),
+                authenticator: commitment.authenticator.toJSON(),
               },
               id: i + batchSize + index + 1,
             })
