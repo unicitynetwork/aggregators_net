@@ -17,8 +17,13 @@ For convenience the gateway serves interactive documentation at `/docs`. The pag
 - **Description:** Allows an agent to submit a state transition request to the Aggregation layer.
 - **Input:**
   - `requestId` (string, 64 digit hex number): The unique identifier for the request.
-  - `transactionHash` (string, 64 hex number): The hash of the state transition.
-  - `authenticator` (structure {stateHash - 64 digit hex of the original state hash, publicKey - hex, signature - hex, signAlg - string, hashAlg - string}): Self-authentication of the transition request submission, contains digital signature (or more generically, ZK proof) of the transactionHash signed by the agent's private key (ZK proof of the respective computation linked to the initial state hash and transition hash).
+  - `transactionHash` (string, 64 digit hex number): The hash of the state transition.
+  - `authenticator` (object): Self-authentication of the transition request submission, contains digital signature (or more generically, ZK proof) of the transactionHash signed by the agent's private key. Structure:
+    - `stateHash` (string, 64 digit hex): Hash of the original state
+    - `publicKey` (string, hex): Agent's public key for authentication
+    - `signature` (string, hex): Digital signature
+    - `signAlg` (string): Signature algorithm standard
+    - `hashAlg` (string): Hash algorithm standard
   - `receipt` (optional, boolean): If true, provides a signed receipt in the response.
 - **Output:**
   - status (string): `success` Indicates if the request was successfully submitted.
