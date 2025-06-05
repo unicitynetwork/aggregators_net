@@ -3,6 +3,7 @@ import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import mongoose from 'mongoose';
 import request from 'supertest';
 
@@ -39,6 +40,7 @@ describe('Block API Endpoints', () => {
       },
       alphabill: {
         useMock: true,
+        privateKey: HexConverter.encode(SigningService.generatePrivateKey()),
       },
       storage: {
         uri: mongoUri,

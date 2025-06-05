@@ -64,6 +64,7 @@ describe('Concurrency Limiter Tests', () => {
       },
       alphabill: {
         useMock: true,
+        privateKey: HexConverter.encode(SigningService.generatePrivateKey()),
       },
       highAvailability: {
         enabled: false,

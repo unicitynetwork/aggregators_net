@@ -36,6 +36,12 @@ export const RPC_METHODS: RpcMethodDoc[] = [
         description: 'Authenticator structure with signature and public key.',
         required: true,
       },
+      {
+        name: 'receipt',
+        type: 'boolean',
+        description: 'If true, provides a signed receipt in the response.',
+        required: false,
+      },
     ],
     example: {
       requestId: '<request id>',
@@ -47,8 +53,9 @@ export const RPC_METHODS: RpcMethodDoc[] = [
         signAlg: 'ed25519',
         hashAlg: 'SHA256',
       },
+      receipt: true,
     },
-    result: 'SubmitCommitmentResponse object',
+    result: 'SubmitCommitmentResponse object with status and optional receipt containing algorithm, publicKey, signature, and request fields',
   },
   {
     name: 'get_inclusion_proof',

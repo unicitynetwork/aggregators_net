@@ -18,6 +18,7 @@ import { MongoDBContainer, StartedMongoDBContainer } from '@testcontainers/mongo
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
+import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
@@ -28,7 +29,6 @@ import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 
 
 import { AggregatorGateway } from '../../../src/AggregatorGateway.js';
 import logger from '../../../src/logger.js';
-import { SubmitCommitmentStatus } from '../../../src/SubmitCommitmentResponse.js';
 
 describe('Alphabill Client Integration Tests', () => {
   const composeFilePath = 'tests';

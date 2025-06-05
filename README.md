@@ -17,25 +17,39 @@ For convenience the gateway serves interactive documentation at `/docs`. The pag
 - **Description:** Allows an agent to submit a state transition request to the Aggregation layer.
 - **Input:**
   - `requestId` (string, 64 digit hex number): The unique identifier for the request.
-  - `payload` (string, 64 hex number): The hash of the state transition.
-  - `authenticator` (structure {state - 64 digit hex of the original state hash, pubkey - hex, signatue - hex, sign_alg - string, hash_alg - string}): Self-authentication of the transition request submission, contains digital signature (or more generically, ZK proof) of the payload signed by the agent's private key (ZK proof of the respective computation linked to the initial state hash and transition hash).
+  - `transactionHash` (string, 64 digit hex number): The hash of the state transition.
+  - `authenticator` (object): Self-authentication of the transition request submission, contains digital signature (or more generically, ZK proof) of the transactionHash signed by the agent's private key. Structure:
+    - `stateHash` (string, 64 digit hex): Hash of the original state
+    - `publicKey` (string, hex): Agent's public key for authentication
+    - `signature` (string, hex): Digital signature
+    - `signAlg` (string): Signature algorithm standard
+    - `hashAlg` (string): Hash algorithm standard
+  - `receipt` (optional, boolean): If true, provides a signed receipt in the response.
 - **Output:**
   - status (string): `success` Indicates if the request was successfully submitted.
+  - receipt (optional, object): Signed receipt if requested, containing:
+    - `algorithm` (string): Signing algorithm used by the aggregator
+    - `publicKey` (string, hex): Aggregator's public key for signature verification
+    - `signature` (string): Digital signature of the request hash
+    - `request` (object): The signed request data containing:
+      - `service` (string): "aggregator"
+      - `method` (string): "submit_commitment"
+      - `requestId` (string, hex): The request identifier
+      - `transactionHash` (string, hex): The transaction hash
+      - `stateHash` (string, hex): The state hash
 
 ### 2. Get Inclusion/exclusion proof
 - **Operation:** `get_inclusion_proof`
-- **Description:** Retrieves the individual inclusion/exclusion proof for a specific state transition request (optionally, at specific block number)
+- **Description:** Retrieves the individual inclusion/exclusion proof for a specific state transition request
 - **Input:**
   - `requestId` (string, 64 digit hex number): The unique identifier for the state transition request as it was submitted to the unicity.
-  - `blockNum` (optional, integer): the block number for which to generate the inclusion/exclusion proof (normally, a hash path between the root at the given blockNum and the respective leaf position corresponding to the requestId)
 - **Output:**
   - `inclusionProof` (object, hash path in the unicity tree from the root to the respective leaf or null vertex): Contains proof elements showing the request's inclusion in the unicity SMT (or its exclusion otherwise).
 
 ### 3. Get No-Deletion proof
 - **Operation:** `get_no_deletion_proof`
-- **Description:** Retrieves the global nodeletion proof for the aggregator data structure at specific block number (the nodel proof is recursive, it proves already no deletion/modification of any aggregator records since the genesis till the current blocknum)
-- **Input:**
-  - `blockNum` (integer): the block number for which to generate the inclusion/exclusion proof (normally, a hash path between the root at the given blockNum and the respective leaf position corresponding to the requestId)
+- **Description:** Retrieves the global no-deletion proof for the aggregator data structure (the no-deletion proof is recursive, proving no deletion/modification of any aggregator records since genesis)
+- **Input:** None
 - **Output:**
   - `nonDeletionProof` (object): Zero-knowledge proof confirming no deletion has occurred since the genesis.
 
@@ -116,110 +130,126 @@ The `/health` endpoint provides status information about the server:
 
 This allows load balancers to monitor all servers while providing role information.
 
-## SDK, Transport-Agnostic JavaScript Functions
-The `AggregatorAPI` class provides transport-agnostic functions for submitting requests and fetching proofs.
-### Constructor
- - **Arguments:**
-   - `transport` (object): object implementing communication between agent and Unicity gateway
-### submitStateTransition
- - **Implements:** `submit_commitment`
- - **Arguments:**
-   - `requestId` (string, 64 digit hex) - unique ID of the state transition request. Normally, this id is calculated from the original state hash and public key (or some other public input for ZK proof)
-   - `payload` (string, 64 digit hex) - hash of the agent transition
-   - `authenticator` (object, structure {state - 64 digit hex of the original state hash, pubkey - hex, signatue - hex, sign_alg - string, hash_alg - string}) - authenticating the request submission, links payload to requestId, so that only authenticated transition request could be submitted (ex., agent owner uses his private key to sign the tranistion request, or keyless agent submits ZK proof of correct transition from its source state to a new state). Structure:
-     - `state` (string, 64 digit hex) - hash of the origin/source state of the transition
-     - `pubkey` (string, hex) - public ID for the authentication
-     - `signature` (string, hex) - signature/ZK-proof of the payload for the pubkey
-     - `sign_alg` (string) - signature algorithm standard
-     - `hash_alg` (string) - hash algorithm standard
- - **Returns:**
-   - `result` (object) - responce from transport
-### getInclusionProof
- - **Implements:** `get_inclusion_proof`
- - **Arguments:**
-   - `requestId` (string, 64 digit hex) - unique ID of the state transition request
-   - `blockNum` (Optional, integer) - number of a specific block for which to extract the proof. Note, there is no guarantee proofs can be extracted for "ancient" blocks
- - **Returns:**
-   - `result` (object) - responce from transport
-### getNodelProof
- - **Implements:** `get_no_deletion_proof`
- - **Arguments:**
-   - `blockNum` (Optional, integer) - number of a specific block for which to extract the proof. Note, there is no guarantee proofs can be extracted for "ancient" blocks
- - **Returns:**
-   - `result` (object) - responce from transport
+## SDK Integration
 
-## JSON-RPC Client and Server Libraries
+For token operations and state transitions, use the [Unicity State Transition SDK](https://github.com/unicitynetwork/state-transition-sdk).
 
-### JSON-RPC Client
+### Basic Usage
 
-The client uses JSON-RPC to communicate with the Aggregation layer.
-#### send
- - **Implements:** Delivers API request to the Unicity Aggregator Layer gateway endpoint
- - **Arguments:**
-   - `method` (string) - Unicity API method (ex., aggregator_submit, aggregator_get_path or aggregator_get_nodel)
-   - `params` (object) - Struct containing parameters
+```javascript
+// Create aggregator client
+const aggregatorClient = new AggregatorClient('https://gateway-test1.unicity.network:443');
+const client = new StateTransitionClient(aggregatorClient);
 
-### JSON-RPC Server
+// Get inclusion proof and create transaction
+const inclusionProof = await client.getInclusionProof(commitment);
+const transaction = await client.createTransaction(commitment, inclusionProof);
+```
 
-The server processes JSON-RPC requests and calls the corresponding handler functions.
+For complete documentation, examples, and API reference, visit the [State Transition SDK repository](https://github.com/unicitynetwork/state-transition-sdk).
 
 ## Example
-You can submit and query the status of transaction requests via command-line tools. Use the source code of these tools as a reference.
+You can submit and query the status of transaction requests via command-line tools from the separate [Unicity CLI repository](https://github.com/unicitynetwork/cli).
 
-### register_request.js
-Use this to submit your state transition request via command line to the Unicity Aggregator Layer
- - **Usage:** node register_request.js <endpoint_url> <secret> <state> <transition>
-   - `endpoint_url` - URL of the Unicity Aggregator Layer Gateway endpoint
-   - `secret` - a secret phrase to be used for generating self-authenticated state transition request
-   - `state` - a string containg origin state definition
-   - `transition` - a string containing state transition from the origin state to some new state
-- **Output:** result of the request submission. Note, successful submission does not guarantee that the strate transition request has been registered within the uni8city aggregation layer. It only means that the aggregaor gateway has received and validated the submission. In order to get the proof of the request submission use `get_request.js`
+### Installation
 
-### get_request.js
-Use this to request the profs about your state transition request via command line to the Unicity Aggregator Layer
- - **Usage:** node get_request.js <endpoint_url> <request_id>
-   - `endpoint_url` - URL of the Unicity Aggregator Layer Gateway endpoint
-   - `request_id` - the request id
-- **Output:** the proofs
+```bash
+# Clone the CLI repository
+git clone https://github.com/unicitynetwork/cli.git
+cd cli
+
+# Install dependencies
+npm install
+
+# Build the project
+npm run build
+```
+
+### Register Request
+Register a new state transition request
+
+**Usage:** 
+```bash
+npm run register-request -- -e <endpoint_url> <secret> <state> <transition>
+```
+
+**Parameters:**
+- `-e, --endpoint <url>` - Aggregator endpoint URL
+- `<secret>` - Secret key for signing the request
+- `<state>` - Source state data (will be hashed)
+- `<transition>` - Transition data (will be hashed)
+
+**Example:**
+```bash
+npm run register-request -- -e https://gateway-test1.unicity.network:443 mySecretKey "initial state" "new transition"
+```
+
+**Output:** Result of the request submission. Note, successful submission does not guarantee that the state transition request has been registered within the unicity aggregation layer. It only means that the aggregator gateway has received and validated the submission. To get the proof of the request submission, use the get-request command.
+
+### Get Request
+Retrieve an inclusion proof for a specific request ID
+
+**Usage:**
+```bash
+npm run get-request -- -e <endpoint_url> <request_id>
+```
+
+**Parameters:**
+- `-e, --endpoint <url>` - Aggregator endpoint URL (default: https://gateway.unicity.network)
+- `<request_id>` - The request ID
+
+**Example:**
+```bash
+npm run get-request -- -e https://gateway-test1.unicity.network:443 7c8a9b0f1d2e3f4a5b6c7d8e9f0a1b2c
+```
+
+**Output:** The inclusion proofs
 
 ## Integration with your project
- - Include this github project as submodule in your project.
- - Import `UnicityProvider.js`, `JSONRPCTransport`, `SignerEC` and `SHA256Hasher` into your nodejs app.
- - Initialize Unicity provider as here (endpointUrl - url of the Unicity aggregator endpoint, secret - your agent secret, )
-```
-const transport = new JSONRPCTransport(endpointUrl);
-const signer = new SignerEC(crypto.createHash('sha256').update(secret).digest('hex'));
-const hasher = new SHA256Hasher();
-const provider = new UnicityProvider(transport, signer, hasher);
-```
- - Hint: calculate hash of the original `plaintext` as 64 digit hex string `crypto.createHash('sha256').update(plaintext).digest('hex')`
- - Submit state transition request as here (stateHash - hash of the original state as 64 digit hex string, payload - hash of the serialized state transition as 64 digit hex string)
-```
-try {
-	const { requestId, result } = await provider.submitStateTransition(stateHash, payload);
-        if (result.status === 'success') {
-            console.log('Request successfully registered. Request ID:', requestId);
-        } else {
-            console.error('Failed to register request:', result);
-        }
-    } catch (err) {
-        console.error('Error registering request:', err.message);
-    }
-```
- - get proof of the state transition request as here
-```
-try {
-	const { status, path, nodel } = await provider.extractProofs(requestId);
-	console.log(`STATUS: ${status}`);
-	console.log(`PATH: ${JSON.stringify(path, null, 4)}`);
-    } catch (err) {
-        console.error('Error getting request:', err.message);
-    }
-```
+
+To integrate token operations and state transitions into your project:
+
+1. **Use the State Transition SDK** for token functionality:
+   ```bash
+   npm install @unicitylabs/state-transition-sdk
+   ```
+
+2. **For direct API access**, make HTTP POST requests to the aggregator gateway using JSON-RPC 2.0 format:
+   ```javascript
+   const response = await fetch('https://gateway-test1.unicity.network:443/', {
+     method: 'POST',
+     headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({
+       jsonrpc: '2.0',
+       method: 'submit_commitment',
+       params: {
+         requestId: '<64-digit hex request ID>',
+         transactionHash: '<64-digit hex transaction hash>',
+         authenticator: {
+           stateHash: '<64-digit hex state hash>',
+           publicKey: '<hex public key>',
+           signature: '<hex signature>',
+           signAlg: 'ed25519',
+           hashAlg: 'SHA256'
+         }
+       },
+       id: 1
+     })
+   });
+   ```
+
+3. **For command-line operations**, use the [Unicity CLI](https://github.com/unicitynetwork/cli)
+
+For complete integration examples and usage patterns, see the [State Transition SDK documentation](https://github.com/unicitynetwork/state-transition-sdk).
 
 ## Summary
 
-- **Transport-Agnostic Functions:** `AggregatorAPI` defines core functions for submitting and retrieving proofs.
-- **JSON-RPC Client & Server:** Provides JSON-RPC-based communication for practical implementation.
+This repository provides the **Unicity Agent-Aggregator API** with the following components:
 
-This setup provides a robust, transport-agnostic way to communicate between the Agent and Aggregation layers, with JSON-RPC implementations for easy integration.
+- **JSON-RPC API**: Core operations for submitting commitments and retrieving proofs
+- **Block Operations**: Querying blockchain state and block information  
+- **High Availability**: Leader election and distributed processing capabilities
+- **CLI Tools**: Available in the [Unicity CLI repository](https://github.com/unicitynetwork/cli)
+- **SDK Integration**: Token operations via the [State Transition SDK](https://github.com/unicitynetwork/state-transition-sdk)
+
+This setup provides a robust, scalable way to communicate between the Agent and Aggregation layers on the Unicity blockchain platform.

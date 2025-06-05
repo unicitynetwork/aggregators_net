@@ -1,4 +1,6 @@
 import { MongoDBContainer, StartedMongoDBContainer } from '@testcontainers/mongodb';
+import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import axios, { type AxiosResponse } from 'axios';
 import mongoose from 'mongoose';
 
@@ -58,6 +60,7 @@ describe('High Availability Tests', () => {
       },
       alphabill: {
         useMock: true,
+        privateKey: HexConverter.encode(SigningService.generatePrivateKey()),
       },
       storage: {
         uri: mongoUri,
