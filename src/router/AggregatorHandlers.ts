@@ -98,7 +98,7 @@ export async function handleGetNoDeletionProof(
   res: Response,
   aggregatorService: AggregatorService,
 ): Promise<void> {
-  const noDeletionProof = await aggregatorService.getNodeletionProof();
+  const noDeletionProof = await aggregatorService.getNoDeletionProof();
   if (noDeletionProof == null) {
     sendJsonRpcError(res, 404, -32001, 'No deletion proof not found', req.body.id);
     return;

@@ -60,7 +60,7 @@ export class AggregatorService {
     return new InclusionProof(merkleTreePath, record.authenticator, record.transactionHash);
   }
 
-  public getNodeletionProof(): Promise<void> {
+  public getNoDeletionProof(): Promise<void> {
     throw new Error('Not implemented.');
   }
 
