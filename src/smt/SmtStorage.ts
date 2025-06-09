@@ -69,4 +69,35 @@ export class SmtStorage implements ISmtStorage {
       await session.endSession();
     }
   }
+
+  /**
+   * Gets SMT nodes in chunks
+   *
+   * @param chunkSize The maximum number of nodes to return per chunk
+   * @param callback Function called for each chunk of nodes
+   * @returns Promise that resolves when all chunks have been processed
+   */
+  public async getAllInChunks(chunkSize: number, callback: (chunk: SmtNode[]) => Promise<void>): Promise<void> {
+    let processedCount = 0;
+    let chunk: SmtNode[] = [];
+
+    const cursor = LeafModel.find({}).cursor();
+
+    for await (const doc of cursor) {
+      const node = new SmtNode(BigInt(doc.path.toString()), new Uint8Array(doc.value));
+      chunk.push(node);
+
+      if (chunk.length >= chunkSize) {
+        await callback(chunk);
+        processedCount += chunk.length;
+        logger.debug(`Processed ${processedCount} SMT nodes in chunks`);
+        chunk = [];
+      }
+    }
+
+    if (chunk.length > 0) {
+      await callback(chunk);
+      processedCount += chunk.length;
+    }
+  }
 }

@@ -245,17 +245,36 @@ export class AggregatorGateway {
 
   private static async setupSmt(smtStorage: ISmtStorage, aggregatorServerId: string): Promise<Smt> {
     const smt = new SparseMerkleTree(HashAlgorithm.SHA256);
-    const smtLeaves = await smtStorage.getAll();
-    if (smtLeaves.length > 0) {
-      logger.info(`Server ${aggregatorServerId} found ${smtLeaves.length} leaves from storage.`);
-      logger.info('Constructing tree...');
-      for (const leaf of smtLeaves) {
-        smt.addLeaf(leaf.path, leaf.value);
+    const smtWrapper = new Smt(smt);
+    
+    let totalLeaves = 0;
+    const chunkSize = 1000;
+    
+    logger.info(`Server ${aggregatorServerId} loading SMT leaves in chunks of ${chunkSize}...`);
+    
+    await smtStorage.getAllInChunks(chunkSize, async (chunk) => {
+      const leaves = chunk.map(leaf => ({
+        path: leaf.path,
+        value: leaf.value
+      }));
+      
+      await smtWrapper.addLeaves(leaves);
+      totalLeaves += chunk.length;
+      
+      if (totalLeaves % (chunkSize * 5) === 0) {
+        logger.info(`Server ${aggregatorServerId} processed ${totalLeaves} leaves...`);
       }
-      const rootHash = await smt.root.calculateHash();
+    });
+    
+    if (totalLeaves > 0) {
+      const rootHash = await smtWrapper.rootHash();
+      logger.info(`Server ${aggregatorServerId} loaded ${totalLeaves} leaves from storage.`);
       logger.info(`Tree with root hash ${rootHash.toString()} constructed successfully.`);
+    } else {
+      logger.info(`Server ${aggregatorServerId} found no existing leaves in storage.`);
     }
-    return new Smt(smt);
+    
+    return smtWrapper;
   }
 
   private static startNextBlock(roundManager: RoundManager): void {
