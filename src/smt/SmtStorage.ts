@@ -84,7 +84,7 @@ export class SmtStorage implements ISmtStorage {
     const cursor = LeafModel.find({}).cursor();
 
     for await (const doc of cursor) {
-      const node = new SmtNode(BigInt(doc.path.toString()), new Uint8Array(doc.value));
+      const node = new SmtNode(doc.path, doc.value);
       chunk.push(node);
 
       if (chunk.length >= chunkSize) {

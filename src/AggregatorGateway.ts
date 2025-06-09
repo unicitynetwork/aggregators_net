@@ -253,12 +253,7 @@ export class AggregatorGateway {
     logger.info(`Server ${aggregatorServerId} loading SMT leaves in chunks of ${chunkSize}...`);
     
     await smtStorage.getAllInChunks(chunkSize, async (chunk) => {
-      const leaves = chunk.map(leaf => ({
-        path: leaf.path,
-        value: leaf.value
-      }));
-      
-      await smtWrapper.addLeaves(leaves);
+      await smtWrapper.addLeaves(chunk);
       totalLeaves += chunk.length;
       
       if (totalLeaves % (chunkSize * 5) === 0) {

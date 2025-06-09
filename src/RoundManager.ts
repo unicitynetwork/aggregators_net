@@ -80,12 +80,7 @@ export class RoundManager {
 
     // Add leaves to the SMT tree
     if (smtLeaves.length > 0) {
-      const leaves = smtLeaves.map((leaf) => ({
-        path: leaf.path,
-        value: leaf.value,
-      }));
-
-      await this.smt.addLeaves(leaves);
+      await this.smt.addLeaves(smtLeaves);
     }
 
     try {
