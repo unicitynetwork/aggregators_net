@@ -1,6 +1,7 @@
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
+import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
@@ -18,7 +19,6 @@ import { AggregatorRecordStorage } from '../src/records/AggregatorRecordStorage.
 import { BlockRecordsStorage } from '../src/records/BlockRecordsStorage.js';
 import { RoundManager } from '../src/RoundManager.js';
 import { Smt } from '../src/smt/Smt.js';
-import { SubmitCommitmentStatus } from '../src/SubmitCommitmentResponse.js';
 
 describe('AggregatorService Tests', () => {
   jest.setTimeout(30000);
@@ -110,12 +110,20 @@ describe('AggregatorService Tests', () => {
       {} as never,
     );
 
+    const mockSigningService = {
+      algorithm: 'mock-algo',
+      publicKey: new Uint8Array(32),
+      sign: jest.fn().mockResolvedValue(new Signature(new Uint8Array(64), 0)),
+      verify: jest.fn().mockResolvedValue(true),
+    };
+
     aggregatorService = new AggregatorService(
       roundManager,
       new Smt(smt),
       recordStorage,
       blockStorage,
       blockRecordsStorage,
+      mockSigningService,
     );
   });
 
@@ -127,7 +135,6 @@ describe('AggregatorService Tests', () => {
     const result = await aggregatorService.submitCommitment(commitment);
 
     expect(result.status).toBe(SubmitCommitmentStatus.SUCCESS);
-    expect(result.exists).toBe(false);
 
     expect(submitCommitmentSpy).toHaveBeenCalledTimes(1);
     expect(submitCommitmentSpy).toHaveBeenCalledWith(commitment);
@@ -140,7 +147,6 @@ describe('AggregatorService Tests', () => {
 
     const result1 = await aggregatorService.submitCommitment(commitment);
     expect(result1.status).toBe(SubmitCommitmentStatus.SUCCESS);
-    expect(result1.exists).toBe(false);
     expect(submitCommitmentSpy).toHaveBeenCalledTimes(1);
 
     await recordStorage.put(commitment);
@@ -148,7 +154,6 @@ describe('AggregatorService Tests', () => {
 
     const result2 = await aggregatorService.submitCommitment(commitment);
     expect(result2.status).toBe(SubmitCommitmentStatus.SUCCESS);
-    expect(result2.exists).toBe(true);
 
     expect(submitCommitmentSpy).not.toHaveBeenCalled();
   });
@@ -164,7 +169,6 @@ describe('AggregatorService Tests', () => {
 
     const result2 = await aggregatorService.submitCommitment(commitment2);
     expect(result2.status).toBe(SubmitCommitmentStatus.REQUEST_ID_EXISTS);
-    expect(result2.exists).toBe(false);
   });
 
   it('should retrieve commitments for a block number', async () => {

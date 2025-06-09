@@ -179,10 +179,15 @@ export class AlphabillClient implements IAlphabillClient {
       version: 1n,
     }).sign(this.proofFactory, this.proofFactory, [this.alwaysTrueProofFactory]);
     const updateNonFungibleTokenHash = await this.tokenClient.sendTransaction(updateNonFungibleTokenTransactionOrder);
+
+    const waitProofStartTime = Date.now();
     const updateNonFungibleTokenProof = await this.tokenClient.waitTransactionProof(
       updateNonFungibleTokenHash,
       UpdateNonFungibleToken,
     );
+    const waitProofDuration = Date.now() - waitProofStartTime;
+    logger.info(`Waited for transaction proof (took ${waitProofDuration}ms)`);
+
     const updateNftTxStatus = updateNonFungibleTokenProof.transactionRecord.serverMetadata.successIndicator;
     logger.info(`Update NFT transaction status - ${TransactionStatus[updateNftTxStatus]}.`);
     return new SubmitHashResponse(token.data, updateNonFungibleTokenProof);

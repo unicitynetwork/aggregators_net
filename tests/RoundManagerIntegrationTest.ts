@@ -30,7 +30,7 @@ describe('Round Manager Integration Tests', () => {
       aggregatorConfig: {
         port: 1111,
       },
-      alphabill: { useMock: true },
+      alphabill: { useMock: true, privateKey: HexConverter.encode(SigningService.generatePrivateKey()) },
       storage: {
         uri: mongoUri,
       },
