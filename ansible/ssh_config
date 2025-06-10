@@ -1,0 +1,10 @@
+Host unicity-mainnet-jump
+    User unicity
+    HostName jump-1.mainnet.unicity.network
+    StrictHostKeyChecking accept-new
+
+Host *.mainnet-v4.internal
+    User unicity
+    ProxyJump unicity-mainnet-jump
+    StrictHostKeyChecking accept-new
+

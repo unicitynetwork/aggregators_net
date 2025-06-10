@@ -8,10 +8,9 @@ on:
         required: true
         type: choice
         options:
-          - devnet
-          - mainnet_test
-          - mainnet
-        default: 'devnet'
+          - mainnet_v4_test
+          - mainnet_v4
+        default: 'mainnet_v4_test'
       aggregator_tag:
         description: 'Docker image is tagged with git commit id. Can be resolved from branch or tag.'
         required: true
@@ -83,41 +82,18 @@ jobs:
       - name: Configure ssh
         run: |
           mkdir -p ~/.ssh
-
-          ssh-keyscan "jump-1.devnet.alphabill.org" >> ~/.ssh/known_hosts
-          ssh-keyscan "jump-1.mainnet.alphabill.org" >> ~/.ssh/known_hosts
-
-          cat > ~/.ssh/config <<- EOF
-          Host devjump
-            HostName jump-1.devnet.alphabill.org
-            User alpha
-
-          Host mainjump
-            HostName jump-1.mainnet.alphabill.org
-            User alpha
-
-          Host *.devnet-v2.alphabill.internal
-            ProxyJump devjump
-            StrictHostKeyChecking accept-new
-            User alpha
-
-          Host *.mainnet-v3.alphabill.internal
-            ProxyJump mainjump
-            StrictHostKeyChecking accept-new
-            User alpha
-          EOF
-          cat ~/.ssh/config
+          cp ansible/ssh_config ~/.ssh/config
 
       - name: Run Ansible Playbook
         working-directory: ./ansible
         env:
-          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD_V2 }}
           ANSIBLE_VAULT_PASSWORD_FILE: .vault_pass
         run: |
           echo "$ANSIBLE_VAULT_PASSWORD" > .vault_pass
           chmod 600 .vault_pass
 
           ansible-playbook aggregator.yml \
-          -e "env=${{ steps.process_inputs.outputs.environment }}" \
-          -e "aggregator_tag=${{ steps.process_inputs.outputs.commit_id }}"
+            -e "env=${{ steps.process_inputs.outputs.environment }}" \
+            -e "aggregator_tag=${{ steps.process_inputs.outputs.commit_id }}"
 

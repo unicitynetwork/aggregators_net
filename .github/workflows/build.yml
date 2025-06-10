@@ -31,12 +31,12 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}:${{ github.sha }}
 
-  call-deploy:
-    needs: build
-    uses: ./.github/workflows/deploy.yml
-    with:
-      aggregator_tag: ${{ github.sha }}
-      environment: devnet
-    secrets:
-      ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
-      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  #call-deploy:
+  #  needs: build
+  #  uses: ./.github/workflows/deploy.yml
+  #  with:
+  #    aggregator_tag: ${{ github.sha }}
+  #    environment: devnet_v3
+  #  secrets:
+  #    ANSIBLE_VAULT_PASSWORD_V2: ${{ secrets.ANSIBLE_VAULT_PASSWORD_V2 }}
+  #    SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
