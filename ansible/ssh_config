@@ -1,21 +1,10 @@
-Host devjump
-    User alpha
-    HostName jump-1.devnet.alphabill.org
-    StrictHostKeyChecking accept-new
-
-Host *.devnet-v2.alphabill.internal
-    User alpha
-    ProxyJump devjump
-    StrictHostKeyChecking accept-new
-
 Host unicity-mainnet-jump
     User unicity
     HostName jump-1.mainnet.unicity.network
     StrictHostKeyChecking accept-new
-    IdentityFile ~/.ssh/unicity2
 
 Host *.mainnet-v4.internal
     User unicity
     ProxyJump unicity-mainnet-jump
     StrictHostKeyChecking accept-new
-    IdentityFile ~/.ssh/unicity2
+
