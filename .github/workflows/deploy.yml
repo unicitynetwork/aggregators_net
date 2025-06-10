@@ -8,10 +8,9 @@ on:
         required: true
         type: choice
         options:
-          - devnet_v2
-          - mainnet_v4
           - mainnet_v4_test
-        default: 'devnet_v2'
+          - mainnet_v4
+        default: 'mainnet_v4_test'
       aggregator_tag:
         description: 'Docker image is tagged with git commit id. Can be resolved from branch or tag.'
         required: true
