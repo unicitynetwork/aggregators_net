@@ -32,6 +32,8 @@ on:
       ANSIBLE_VAULT_PASSWORD:
         required: true
 
+run-name: Deploy to ${{ inputs.environment }} with tag ${{ inputs.aggregator_tag }} (triggered by ${{ github.event_name }})
+
 jobs:
   deploy:
     name: Deploy Aggregator to ${{ inputs.environment }}
@@ -96,4 +98,3 @@ jobs:
           ansible-playbook aggregator.yml \
             -e "env=${{ steps.process_inputs.outputs.environment }}" \
             -e "aggregator_tag=${{ steps.process_inputs.outputs.commit_id }}"
-
