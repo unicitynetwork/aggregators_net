@@ -48,14 +48,14 @@ describe('SubmitCommitmentResponse Receipt Tests', () => {
     const requestHash = response.receipt!.request!.hash;
 
     // Verify the signature using the signing service (aggregator side)
-    const isValidSignature = await signingService.verify(requestHash.imprint, signatureFromResponse);
+    const isValidSignature = await signingService.verify(requestHash.data, signatureFromResponse);
     expect(isValidSignature).toBe(true);
 
     // Verify using only the public key (client side)
     const aggregatorPublicKey = HexConverter.decode(response.receipt!.publicKey);
 
     const isValidWithPublicKeyOnly = await SigningService.verifyWithPublicKey(
-      requestHash.imprint,
+      requestHash.data,
       signatureFromResponse.bytes, // Just the signature bytes (64), not including recovery byte
       aggregatorPublicKey,
     );
@@ -65,7 +65,7 @@ describe('SubmitCommitmentResponse Receipt Tests', () => {
     const differentPrivateKey = SigningService.generatePrivateKey();
     const differentSigningService = await SigningService.createFromSecret(differentPrivateKey);
     const isValidWithDifferentSigningService = await SigningService.verifyWithPublicKey(
-      requestHash.imprint,
+      requestHash.data,
       signatureFromResponse.bytes,
       differentSigningService.publicKey,
     );
