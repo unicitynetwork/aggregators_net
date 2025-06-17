@@ -147,7 +147,7 @@ describe('AggregatorService Tests', () => {
     expect(receipt.request).toBeDefined();
     
     const requestHash = receipt.request.hash;
-    const signatureValid = await signingService.verify(requestHash.imprint, receipt.signature);
+    const signatureValid = await signingService.verify(requestHash.data, receipt.signature);
     expect(signatureValid).toBe(true);
     
     expect(receipt.publicKey).toBe(HexConverter.encode(signingService.publicKey));
