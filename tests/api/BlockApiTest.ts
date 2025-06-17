@@ -11,6 +11,7 @@ import { AggregatorGateway } from '../../src/AggregatorGateway.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
 import logger from '../../src/logger.js';
 import { MockAlphabillClient } from '../../tests/consensus/alphabill/MockAlphabillClient.js';
+import { MockValidationService } from '../mocks/MockValidationService.js';
 import { IReplicaSet, setupReplicaSet } from '../TestUtils.js';
 
 describe('Block API Endpoints', () => {
@@ -33,6 +34,8 @@ describe('Block API Endpoints', () => {
 
     mockAlphabillClient = new MockAlphabillClient();
 
+    const mockValidationService = new MockValidationService();
+
     gateway = await AggregatorGateway.create({
       aggregatorConfig: {
         port: port,
@@ -48,6 +51,7 @@ describe('Block API Endpoints', () => {
       highAvailability: {
         enabled: false,
       },
+      validationService: mockValidationService,
     });
 
     // Disable the block creation waiting period for tests

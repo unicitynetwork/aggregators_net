@@ -5,6 +5,8 @@ import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommi
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
+import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
@@ -19,6 +21,8 @@ import { AggregatorRecordStorage } from '../src/records/AggregatorRecordStorage.
 import { BlockRecordsStorage } from '../src/records/BlockRecordsStorage.js';
 import { RoundManager } from '../src/RoundManager.js';
 import { Smt } from '../src/smt/Smt.js';
+import { MockValidationService } from './mocks/MockValidationService.js';
+import { IValidationService } from '../src/ValidationService.js';
 
 describe('AggregatorService Tests', () => {
   jest.setTimeout(30000);
@@ -33,7 +37,8 @@ describe('AggregatorService Tests', () => {
   let blockRecordsStorage: BlockRecordsStorage;
   let smt: SparseMerkleTree;
   let alphabillClient: MockAlphabillClient;
-
+  let signingService: SigningService;
+  let validationService: IValidationService;
   const createTestCommitment = async (id: number): Promise<Commitment> => {
     const stateHashBytes = new TextEncoder().encode(`state-${id}-test`);
     const stateHash = new DataHash(HashAlgorithm.SHA256, stateHashBytes);
@@ -110,20 +115,20 @@ describe('AggregatorService Tests', () => {
       {} as never,
     );
 
-    const mockSigningService = {
-      algorithm: 'mock-algo',
-      publicKey: new Uint8Array(32),
-      sign: jest.fn().mockResolvedValue(new Signature(new Uint8Array(64), 0)),
-      verify: jest.fn().mockResolvedValue(true),
-    };
+    const privateKey = SigningService.generatePrivateKey();
+    signingService = await SigningService.createFromSecret(privateKey);
 
+    validationService = new MockValidationService();
+    await validationService.initialize(mongoUri);
+    
     aggregatorService = new AggregatorService(
       roundManager,
       new Smt(smt),
       recordStorage,
       blockStorage,
       blockRecordsStorage,
-      mockSigningService,
+      signingService,
+      validationService,
     );
   });
 
@@ -132,9 +137,21 @@ describe('AggregatorService Tests', () => {
 
     const commitment = await createTestCommitment(1);
 
-    const result = await aggregatorService.submitCommitment(commitment);
+    const result = await aggregatorService.submitCommitment(commitment, true);
 
     expect(result.status).toBe(SubmitCommitmentStatus.SUCCESS);
+    expect(result.receipt).toBeDefined();
+
+    const receipt = result.receipt!;
+    expect(receipt.signature).toBeDefined();
+    expect(receipt.request).toBeDefined();
+    
+    const requestHash = receipt.request.hash;
+    const signatureValid = await signingService.verify(requestHash.imprint, receipt.signature);
+    expect(signatureValid).toBe(true);
+    
+    expect(receipt.publicKey).toBe(HexConverter.encode(signingService.publicKey));
+    expect(receipt.algorithm).toBe(signingService.algorithm);
 
     expect(submitCommitmentSpy).toHaveBeenCalledTimes(1);
     expect(submitCommitmentSpy).toHaveBeenCalledWith(commitment);

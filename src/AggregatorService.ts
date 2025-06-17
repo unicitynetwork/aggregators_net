@@ -12,11 +12,7 @@ import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js'
 import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { RoundManager } from './RoundManager.js';
 import { Smt } from './smt/Smt.js';
-
-interface IValidationResult {
-  status: SubmitCommitmentStatus;
-  exists: boolean;
-}
+import { IValidationService } from './ValidationService.js';
 
 export class AggregatorService {
   public constructor(
@@ -26,27 +22,22 @@ export class AggregatorService {
     public readonly blockStorage: IBlockStorage,
     public readonly blockRecordsStorage: IBlockRecordsStorage,
     public readonly signingService: ISigningService<Signature>,
+    private readonly validationService: IValidationService,
   ) {}
 
   public async submitCommitment(commitment: Commitment, receipt: boolean = false): Promise<SubmitCommitmentResponse> {
-    const validationResult = await this.validateCommitment(commitment);
+    const validationResult = await this.validationService.validateCommitment(commitment);
     
     if (validationResult.status === SubmitCommitmentStatus.SUCCESS && !validationResult.exists) {
       await this.roundManager.submitCommitment(commitment);
     }
     
-    const response = new SubmitCommitmentResponse(validationResult.status);
-    
     if (validationResult.status === SubmitCommitmentStatus.SUCCESS && receipt) {
-      await response.addSignedReceipt(
-        commitment.requestId, 
-        commitment.authenticator.stateHash, 
-        commitment.transactionHash, 
-        this.signingService
-      );
+      const response = new SubmitCommitmentResponse(validationResult.status);
+      await response.addSignedReceipt(commitment.requestId, commitment.authenticator.stateHash, commitment.transactionHash, this.signingService);
+      return response;
     }
-    
-    return response;
+    return new SubmitCommitmentResponse(validationResult.status);
   }
 
   public async getInclusionProof(requestId: RequestId): Promise<InclusionProof> {
@@ -93,29 +84,5 @@ export class AggregatorService {
     }
 
     return await this.recordStorage.getByRequestIds(blockRecords.requestIds);
-  }
-
-  private async validateCommitment(commitment: Commitment): Promise<IValidationResult> {
-    const { authenticator, requestId, transactionHash } = commitment;
-    
-    const expectedRequestId = await RequestId.create(authenticator.publicKey, authenticator.stateHash);
-    if (!expectedRequestId.hash.equals(requestId.hash)) {
-      return { status: SubmitCommitmentStatus.REQUEST_ID_MISMATCH, exists: false };
-    }
-    
-    if (!(await authenticator.verify(transactionHash))) {
-      return { status: SubmitCommitmentStatus.AUTHENTICATOR_VERIFICATION_FAILED, exists: false };
-    }
-    
-    const existingRecord = await this.recordStorage.get(requestId);
-    if (existingRecord) {
-      if (!existingRecord.transactionHash.equals(transactionHash)) {
-        return { status: SubmitCommitmentStatus.REQUEST_ID_EXISTS, exists: true };
-      } else {
-        return { status: SubmitCommitmentStatus.SUCCESS, exists: true };
-      }
-    }
-    
-    return { status: SubmitCommitmentStatus.SUCCESS, exists: false };
   }
 }
