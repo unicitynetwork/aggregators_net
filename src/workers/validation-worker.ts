@@ -9,7 +9,7 @@ import { AggregatorRecordStorage } from '../records/AggregatorRecordStorage.js';
 import mongoose from 'mongoose';
 import logger from '../logger.js';
 
-interface ValidationRequest {
+export interface ValidationRequest {
   commitment: {
     requestId: string;
     transactionHash: string;
@@ -23,7 +23,7 @@ interface ValidationRequest {
   mongoUri: string;
 }
 
-interface ValidationResult {
+export interface ValidationResult {
   status: SubmitCommitmentStatus;
   exists: boolean;
 }

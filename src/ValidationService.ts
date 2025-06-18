@@ -2,15 +2,10 @@ import { resolve } from 'path';
 import { availableParallelism } from 'os';
 import { existsSync } from 'fs';
 import { spawn, Pool, Worker, ModuleThread } from 'threads';
-import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { Commitment } from './commitment/Commitment.js';
+import { ValidationRequest, ValidationResult } from './workers/validation-worker.js';
 import logger from './logger.js';
-
-export interface ValidationResult {
-  status: SubmitCommitmentStatus;
-  exists: boolean;
-}
 
 export interface IValidationService {
   initialize(mongoUri: string): Promise<void>;
@@ -19,19 +14,7 @@ export interface IValidationService {
 }
 
 interface ValidationWorkerMethods {
-  validateCommitment(request: {
-    commitment: {
-      requestId: string;
-      transactionHash: string;
-      authenticator: {
-        algorithm: string;
-        publicKey: string;
-        signature: string;
-        stateHash: string;
-      };
-    };
-    mongoUri: string;
-  }): Promise<ValidationResult>;
+  validateCommitment(request: ValidationRequest): Promise<ValidationResult>;
   [methodName: string]: (...args: any[]) => any;
 }
 
