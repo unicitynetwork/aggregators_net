@@ -1,8 +1,7 @@
 import { resolve } from 'path';
 import { availableParallelism } from 'os';
 import { existsSync } from 'fs';
-// @ts-ignore - threads.js has module resolution issues
-import { spawn, Pool, Worker } from 'threads';
+import { spawn, Pool, Worker, ModuleThread } from 'threads';
 import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { Commitment } from './commitment/Commitment.js';
@@ -19,7 +18,7 @@ export interface IValidationService {
   terminate(): Promise<void>;
 }
 
-type ValidationWorker = {
+interface ValidationWorkerMethods {
   validateCommitment(request: {
     commitment: {
       requestId: string;
@@ -33,7 +32,10 @@ type ValidationWorker = {
     };
     mongoUri: string;
   }): Promise<ValidationResult>;
-};
+  [methodName: string]: (...args: any[]) => any;
+}
+
+type ValidationWorker = ModuleThread<ValidationWorkerMethods>;
 
 export class ValidationService implements IValidationService {
   private pool: Pool<ValidationWorker> | null = null;
@@ -52,7 +54,7 @@ export class ValidationService implements IValidationService {
 
     logger.info(`Initializing validation service with ${this.threads} worker threads`);
 
-    this.pool = Pool(() => spawn<ValidationWorker>(new Worker(workerPath)), {
+    this.pool = Pool(() => spawn<ValidationWorkerMethods>(new Worker(workerPath)), {
       size: this.threads,
       concurrency: this.threads
     });

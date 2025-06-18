@@ -1,4 +1,3 @@
-// @ts-ignore - threads.js has module resolution issues
 import { expose } from 'threads/worker';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
@@ -84,7 +83,7 @@ const validationWorker = {
           };
         }
       }
-      
+
       return { 
         status: SubmitCommitmentStatus.SUCCESS, 
         exists: false,
