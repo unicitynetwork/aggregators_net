@@ -30,8 +30,6 @@ export class ValidationService implements IValidationService {
   public async initialize(mongoUri: string): Promise<void> {
     this.mongoUri = mongoUri;
     
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
     const workerPath = path.resolve(__dirname, './workers/validation-worker.cjs');
     
     if (!existsSync(workerPath)) {
