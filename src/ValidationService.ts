@@ -4,6 +4,7 @@ import { existsSync } from 'fs';
 // @ts-ignore - threads.js has module resolution issues
 import { spawn, Pool, Worker } from 'threads';
 import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { Commitment } from './commitment/Commitment.js';
 import logger from './logger.js';
 
@@ -60,8 +61,6 @@ export class ValidationService implements IValidationService {
   }
 
   public async validateCommitment(commitment: Commitment): Promise<ValidationResult> {
-    const startTime = Date.now();
-    
     if (!this.pool) {
       throw new Error('ValidationService not initialized. Call initialize() first.');
     }
@@ -72,8 +71,8 @@ export class ValidationService implements IValidationService {
         transactionHash: commitment.transactionHash.toJSON(),
         authenticator: {
           algorithm: commitment.authenticator.algorithm,
-          publicKey: JSON.stringify(Array.from(commitment.authenticator.publicKey)),
-          signature: JSON.stringify(Array.from(commitment.authenticator.signature.encode())),
+          publicKey: HexConverter.encode(commitment.authenticator.publicKey),
+          signature: HexConverter.encode(commitment.authenticator.signature.encode()),
           stateHash: commitment.authenticator.stateHash.toJSON()
         }
       },

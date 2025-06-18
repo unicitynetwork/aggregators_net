@@ -5,6 +5,7 @@ import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommi
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { AggregatorRecordStorage } from '../records/AggregatorRecordStorage.js';
 import mongoose from 'mongoose';
 import logger from '../logger.js';
@@ -40,8 +41,8 @@ const validationWorker = {
 
       const requestId = RequestId.fromJSON(request.commitment.requestId);
       const transactionHash = DataHash.fromJSON(request.commitment.transactionHash);
-      const publicKeyArray = new Uint8Array(JSON.parse(request.commitment.authenticator.publicKey));
-      const signatureArray = new Uint8Array(JSON.parse(request.commitment.authenticator.signature));
+      const publicKeyArray = HexConverter.decode(request.commitment.authenticator.publicKey);
+      const signatureArray = HexConverter.decode(request.commitment.authenticator.signature);
       const signature = Signature.decode(signatureArray);
       const stateHash = DataHash.fromJSON(request.commitment.authenticator.stateHash);
       
