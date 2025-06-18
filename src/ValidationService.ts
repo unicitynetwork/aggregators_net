@@ -1,4 +1,5 @@
-import { resolve } from 'path';
+import path, { dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { availableParallelism } from 'os';
 import { existsSync } from 'fs';
 import { spawn, Pool, Worker, ModuleThread } from 'threads';
@@ -29,13 +30,16 @@ export class ValidationService implements IValidationService {
   public async initialize(mongoUri: string): Promise<void> {
     this.mongoUri = mongoUri;
     
-    const workerPath = resolve(process.cwd(), 'dist/workers/validation-worker.cjs');
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const workerPath = path.resolve(__dirname, './workers/validation-worker.cjs');
     
     if (!existsSync(workerPath)) {
       throw new Error(`Validation worker not found at ${workerPath}. Make sure to run 'npm run build' first.`);
     }
 
     logger.info(`Initializing validation service with ${this.threads} worker threads`);
+    logger.info(`Using worker at: ${workerPath}`);
 
     this.pool = Pool(() => spawn<ValidationWorkerMethods>(new Worker(workerPath)), {
       size: this.threads,
