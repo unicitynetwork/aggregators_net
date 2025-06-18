@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 
 import { AggregatorGateway, IGatewayConfig } from '../../src/AggregatorGateway.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
+import { MockValidationService } from '../mocks/MockValidationService.js';
 import logger from '../../src/logger.js';
 import { delay, generateTestCommitments, setupReplicaSet } from '../TestUtils.js';
 import type { IReplicaSet } from '../TestUtils.js';
@@ -202,6 +203,8 @@ describe('Aggregator Request Performance Benchmark', () => {
     mongoUri = replicaSet.uri;
     logger.info(`Connecting to MongoDB replica set, using connection URI: ${mongoUri}`);
 
+    const mockValidationService = new MockValidationService();
+
     const testConfig: IGatewayConfig = {
       aggregatorConfig: {
         chainId: 1,
@@ -220,6 +223,7 @@ describe('Aggregator Request Performance Benchmark', () => {
       storage: {
         uri: mongoUri,
       },
+      validationService: mockValidationService,
     };
 
     logger.info('Starting AggregatorGateway...');

@@ -32,6 +32,7 @@
     "express": "5.1.0",
     "mongodb": "6.15.0",
     "mongoose": "8.13.2",
+    "threads": "1.7.0",
     "winston": "3.17.0"
   },
   "devDependencies": {

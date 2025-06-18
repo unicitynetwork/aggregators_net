@@ -53,8 +53,7 @@ export async function setupReplicaSet(containerNamePrefix: string = 'mongo'): Pr
         .withName(`${containerNamePrefix}${port}`)
         .withNetworkMode('host')
         .withCommand(['mongod', '--replSet', 'rs0', '--port', `${port}`, '--bind_ip', 'localhost'])
-        .withStartupTimeout(120000)
-        .withWaitStrategy(Wait.forLogMessage('Waiting for connections'))
+        .withWaitStrategy(Wait.forLogMessage('Waiting for connections').withStartupTimeout(120000))
         .start(),
     ),
   );

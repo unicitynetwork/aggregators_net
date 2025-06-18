@@ -10,6 +10,7 @@ import logger from '../../src/logger.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
 import { SmtStorage } from '../../src/smt/SmtStorage.js';
 import { IReplicaSet, setupReplicaSet, delay } from '../TestUtils.js';
+import { MockValidationService } from '../mocks/MockValidationService.js';
 
 describe('SMT Chunked Loading Tests', () => {
   jest.setTimeout(300000);
@@ -118,6 +119,8 @@ describe('SMT Chunked Loading Tests', () => {
     logger.info('Creating AggregatorGateway to test chunked SMT loading...');
     const startTime = Date.now();
     
+    const mockValidationService = new MockValidationService();
+    
     gateway = await AggregatorGateway.create({
       aggregatorConfig: {
         port: port,
@@ -133,6 +136,7 @@ describe('SMT Chunked Loading Tests', () => {
       highAvailability: {
         enabled: false,
       },
+      validationService: mockValidationService,
     });
     
     const loadTime = Date.now() - startTime;

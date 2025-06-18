@@ -12,6 +12,7 @@ import { AggregatorGateway } from '../../src/AggregatorGateway.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
 import logger from '../../src/logger.js';
 import { IReplicaSet, setupReplicaSet } from '../TestUtils.js';
+import { MockValidationService } from '../mocks/MockValidationService.js';
 
 const testLog = (message: string): boolean => process.stdout.write(`[TEST] ${message}\n`);
 
@@ -57,6 +58,8 @@ describe('Concurrency Limiter Tests', () => {
 
     port = 3000 + Math.floor(Math.random() * 1000);
 
+    const mockValidationService = new MockValidationService();
+
     gateway = await AggregatorGateway.create({
       aggregatorConfig: {
         port: port,
@@ -72,6 +75,7 @@ describe('Concurrency Limiter Tests', () => {
       storage: {
         uri: mongoUri,
       },
+      validationService: mockValidationService,
     });
 
     unicitySigningService = new SigningService(

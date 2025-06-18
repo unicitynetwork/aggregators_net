@@ -28,6 +28,7 @@ import mongoose from 'mongoose';
 import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 'testcontainers';
 
 import { AggregatorGateway } from '../../../src/AggregatorGateway.js';
+import { MockValidationService } from '../../mocks/MockValidationService.js';
 import logger from '../../../src/logger.js';
 
 describe('Alphabill Client Integration Tests', () => {
@@ -149,6 +150,9 @@ describe('Alphabill Client Integration Tests', () => {
     logger.info(`Create NFT transaction status - ${TransactionStatus[createNftTxStatus]}.`);
 
     logger.info('Starting aggregator...');
+    
+    const mockValidationService = new MockValidationService();
+    
     aggregator = await AggregatorGateway.create({
       aggregatorConfig: {
         initialBlockHash: initialBlockHash,
@@ -163,6 +167,7 @@ describe('Alphabill Client Integration Tests', () => {
       storage: {
         uri: mongoContainer.getConnectionString() + '?directConnection=true',
       },
+      validationService: mockValidationService,
     });
     logger.info('Aggregator running.');
     stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2])).digest();

@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { AggregatorGateway, IGatewayConfig } from '../../src/AggregatorGateway.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
+import { MockValidationService } from '../mocks/MockValidationService.js';
 import logger from '../../src/logger.js';
 
 async function generateTestCommitments(count: number): Promise<Commitment[]> {
@@ -65,6 +66,9 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
     mongoUri = mongoContainer.getConnectionString();
     logger.info(`Connecting to MongoDB test container, using connection URI: ${mongoUri}`);
 
+    const mockValidationServiceLeader = new MockValidationService();
+    const mockValidationServiceFollower = new MockValidationService();
+
     const commonConfig: IGatewayConfig = {
       alphabill: {
         useMock: true,
@@ -90,6 +94,7 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
         forkId: 1,
         port: 9876,
       },
+      validationService: mockValidationServiceLeader,
     };
 
     logger.info('Starting leader AggregatorGateway...');
@@ -131,6 +136,7 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
         forkId: 1,
         port: 9877,
       },
+      validationService: mockValidationServiceFollower,
     };
 
     logger.info('Starting follower AggregatorGateway...');

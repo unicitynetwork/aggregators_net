@@ -22,12 +22,14 @@ import { setupRouter } from './router/AggregatorRouter.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { Smt } from './smt/Smt.js';
 import { MockAlphabillClient } from '../tests/consensus/alphabill/MockAlphabillClient.js';
+import { ValidationService, IValidationService } from './ValidationService.js';
 
 export interface IGatewayConfig {
   aggregatorConfig?: IAggregatorConfig;
   alphabill?: IAlphabillConfig;
   highAvailability?: IHighAvailabilityConfig;
   storage?: IStorageConfig;
+  validationService?: IValidationService;
 }
 
 export interface IAggregatorConfig {
@@ -68,17 +70,20 @@ export class AggregatorGateway {
   private server: Server;
   private leaderElection: LeaderElection | null;
   private roundManager: RoundManager;
+  private validationService: IValidationService | undefined;
 
   private constructor(
     serverId: string,
     server: Server,
     leaderElection: LeaderElection | null,
     roundManager: RoundManager,
+    validationService: IValidationService | undefined,
   ) {
     this.serverId = serverId;
     this.server = server;
     this.leaderElection = leaderElection;
     this.roundManager = roundManager;
+    this.validationService = validationService;
   }
 
   public static async create(config: IGatewayConfig = {}): Promise<AggregatorGateway> {
@@ -112,6 +117,7 @@ export class AggregatorGateway {
       storage: {
         uri: config.storage?.uri ?? 'mongodb://localhost:27017/',
       },
+      validationService: config.validationService,
     };
 
     const serverId = config.aggregatorConfig!.serverId || `${os.hostname()}-${process.pid}`;
@@ -136,6 +142,10 @@ export class AggregatorGateway {
     );
 
     const signingService = new SigningService(HexConverter.decode(config.alphabill.privateKey));
+    
+    const validationService = config.validationService || new ValidationService();
+    await validationService.initialize(mongoUri);
+    
     const aggregatorService = new AggregatorService(
       roundManager,
       smt,
@@ -143,6 +153,7 @@ export class AggregatorGateway {
       storage.blockStorage,
       storage.blockRecordsStorage,
       signingService,
+      validationService,
     );
 
     let leaderElection: LeaderElection | null = null;
@@ -198,7 +209,7 @@ export class AggregatorGateway {
       logger.info(`Leader election process started for server ${serverId}.`);
     }
 
-    return new AggregatorGateway(serverId, server, leaderElection, roundManager);
+    return new AggregatorGateway(serverId, server, leaderElection, roundManager, validationService);
   }
 
   private static onBecomeLeader(aggregatorServerId: string, roundManager: RoundManager): void {
@@ -333,6 +344,10 @@ export class AggregatorGateway {
     if (AggregatorGateway.blockCreationTimer) {
       clearTimeout(AggregatorGateway.blockCreationTimer);
       AggregatorGateway.blockCreationTimer = null;
+    }
+
+    if (this.validationService) {
+      await this.validationService.terminate();
     }
 
     logger.info('Aggregator gateway stopped successfully');

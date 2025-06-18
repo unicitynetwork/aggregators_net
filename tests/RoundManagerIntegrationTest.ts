@@ -9,6 +9,7 @@ import mongoose from 'mongoose';
 import { IReplicaSet, setupReplicaSet } from './TestUtils.js';
 import { AggregatorGateway } from '../src/AggregatorGateway.js';
 import { Commitment } from '../src/commitment/Commitment.js';
+import { MockValidationService } from './mocks/MockValidationService.js';
 import logger from '../src/logger.js';
 
 describe('Round Manager Integration Tests', () => {
@@ -26,6 +27,9 @@ describe('Round Manager Integration Tests', () => {
     await mongoose.connect(mongoUri);
 
     logger.info('Starting aggregator...');
+    
+    const mockValidationService = new MockValidationService();
+    
     aggregator = await AggregatorGateway.create({
       aggregatorConfig: {
         port: 1111,
@@ -34,6 +38,7 @@ describe('Round Manager Integration Tests', () => {
       storage: {
         uri: mongoUri,
       },
+      validationService: mockValidationService,
     });
     logger.info('Aggregator running.');
   });
