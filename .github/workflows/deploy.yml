@@ -8,22 +8,38 @@ on:
         required: true
         type: choice
         options:
-          - test
-          - main
-        default: 'test'
+          - mainnet_v4_test
+          - mainnet_v4
+        default: 'mainnet_v4_test'
       aggregator_tag:
-        description: 'Docker image hash or tag. Specify "default" to use latest commit id from main branch'
+        description: 'Docker image is tagged with git commit id. Can be resolved from branch or tag.'
         required: true
         type: string
-        default: 'default'
+        default: 'origin/main'
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment'
+        required: true
+        type: string
+      aggregator_tag:
+        description: 'Docker image hash'
+        required: true
+        type: string
+    secrets:
+      SSH_PRIVATE_KEY:
+        required: true
+      ANSIBLE_VAULT_PASSWORD:
+        required: true
+
+run-name: Deploy to ${{ inputs.environment }} with tag ${{ inputs.aggregator_tag }} (triggered by ${{ github.event_name }})
 
 jobs:
   deploy:
-    name: Deploy to ${{ github.event.inputs.environment  }}
+    name: Deploy Aggregator to ${{ inputs.environment }}
     runs-on: ubuntu-latest
     environment:
-      name: "${{ github.event.inputs.environment }}"
-
+      name: "${{ inputs.environment }}"
     steps:
 
       - name: Check out repository code
@@ -32,38 +48,23 @@ jobs:
           # Fetch all history for all tags and branches
           fetch-depth: 0 # Important to get refs of other branches
 
-      - name: Get default branch name
-        id: get_branch
-        run: echo "branch_name=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)" >> $GITHUB_OUTPUT
-
-      - name: Get latest commit ID of default branch
-        id: get_hash
+      - name: Process input
+        id: process_inputs
         run: |
-          DEFAULT_BRANCH="${{ steps.get_branch.outputs.branch_name }}"
-          echo "Default branch is: $DEFAULT_BRANCH"
-          COMMIT_ID=$(git rev-parse "origin/$DEFAULT_BRANCH")
-          echo "Latest commit on $DEFAULT_BRANCH is $COMMIT_ID"
-          echo "commit_id=$COMMIT_ID" >> $GITHUB_OUTPUT
-
-      - name: Sanitize input parameters
-        id: trim_tag
-        run: |
-          raw_input="${{ github.event.inputs.aggregator_tag }}"
+          echo "Triggered by: ${{ github.event_name }}"
+          raw_input="${{ inputs.aggregator_tag }}"
           trimmed_input=$(echo "$raw_input" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          COMMIT_ID=$(git rev-parse "${trimmed_input}")
+          ENVIRONMENT="${{ inputs.environment }}"
 
-          if [ "${trimmed_input}" == "default" ]; then
-            echo "aggregator_tag=${{ steps.get_hash.outputs.commit_id }}" >> $GITHUB_OUTPUT
-          else
-            echo "aggregator_tag=${trimmed_input}" >> $GITHUB_OUTPUT
-          fi
+          # input parameters
+          echo "commit_id=${COMMIT_ID}"
+          echo "commit_id=${COMMIT_ID}" >> $GITHUB_OUTPUT
+          echo "environment=${ENVIRONMENT}"
+          echo "environment=${ENVIRONMENT}" >> $GITHUB_OUTPUT
 
-
-      - name: Show parameters & environment
-        run: |
-          echo "Target Server: ${{ vars.TARGET_SERVER }}"
-          echo "Tag: ${{ steps.trim_tag.outputs.aggregator_tag }}"
-          ls -la
-          env|sort
+          # check if docker image exists
+          docker manifest inspect "ghcr.io/unicitynetwork/aggregators_net:${COMMIT_ID}"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -76,30 +77,24 @@ jobs:
           pip install ansible # Or specify a version like ansible==7.4.0
 
       - name: Configure SSH Key
-        uses: webfactory/ssh-agent@v0.9.0
+        uses: webfactory/ssh-agent@v0.9.1
         with:
-          ssh-private-key: ${{ secrets.DEPLOY_PRIVATE_KEY }} # Reference the secret
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Configure ssh
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan "${{ vars.JUMP_HOST }}" >> ~/.ssh/known_hosts
-          cat > ~/.ssh/config <<- EOF
-          Host mainjump
-            HostName ${{ vars.JUMP_HOST }}
-            User alpha
-          Host *.mainnet.alphabill.org
-            ProxyJump mainjump
-            StrictHostKeyChecking accept-new
-            User alpha
-          EOF
-          cat ~/.ssh/config
+          cp ansible/ssh_config ~/.ssh/config
 
       - name: Run Ansible Playbook
+        working-directory: ./ansible
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD_V2 }}
+          ANSIBLE_VAULT_PASSWORD_FILE: .vault_pass
         run: |
-          ansible-playbook ansible/aggregator.yml \
-          -i "${{ vars.TARGET_SERVER }}," \
-          -e "aggregator_mongodb_uri=${{ secrets.aggregator_mongodb_uri }}" \
-          -e "aggregator_private_key=${{ secrets.aggregator_private_key }}" \
-          -e "aggregator_initial_block_hash=${{ vars.aggregator_initial_block_hash }}" \
-          -e "aggregator_tag=${{ steps.trim_tag.outputs.aggregator_tag }}"
+          echo "$ANSIBLE_VAULT_PASSWORD" > .vault_pass
+          chmod 600 .vault_pass
+
+          ansible-playbook aggregator.yml \
+            -e "env=${{ steps.process_inputs.outputs.environment }}" \
+            -e "aggregator_tag=${{ steps.process_inputs.outputs.commit_id }}"

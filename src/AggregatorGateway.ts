@@ -5,19 +5,13 @@ import { Server } from 'node:http';
 import os from 'node:os';
 
 import { DefaultSigningService } from '@alphabill/alphabill-js-sdk/lib/signing/DefaultSigningService.js';
-import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
-import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
-import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import bodyParser from 'body-parser';
-import cors from 'cors';
-import express, { Request, Response } from 'express';
 
 import { AggregatorService } from './AggregatorService.js';
 import { AggregatorStorage } from './AggregatorStorage.js';
-import { Commitment } from './commitment/Commitment.js';
 import { AlphabillClient } from './consensus/alphabill/AlphabillClient.js';
 import { IAlphabillClient } from './consensus/alphabill/IAlphabillClient.js';
 import { LeaderElection } from './highAvailability/LeaderElection.js';
@@ -26,17 +20,20 @@ import logger from './logger.js';
 import { BlockRecords } from './records/BlockRecords.js';
 import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { RoundManager } from './RoundManager.js';
+import { setupRouter } from './router/AggregatorRouter.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { Smt } from './smt/Smt.js';
 import { SmtNode } from './smt/SmtNode.js';
 import { SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
 import { MockAlphabillClient } from '../tests/consensus/alphabill/MockAlphabillClient.js';
+import { ValidationService, IValidationService } from './ValidationService.js';
 
 export interface IGatewayConfig {
   aggregatorConfig?: IAggregatorConfig;
   alphabill?: IAlphabillConfig;
   highAvailability?: IHighAvailabilityConfig;
   storage?: IStorageConfig;
+  validationService?: IValidationService;
 }
 
 export interface IAggregatorConfig {
@@ -71,16 +68,6 @@ export interface IStorageConfig {
   uri?: string;
 }
 
-interface IJsonRpcError {
-  jsonrpc: string;
-  error: {
-    code: number;
-    message: string;
-    data?: unknown;
-  };
-  id: string | number | null;
-}
-
 export class AggregatorGateway {
   private static blockCreationActive = false;
   private static blockCreationTimer: NodeJS.Timeout | null = null;
@@ -91,6 +78,7 @@ export class AggregatorGateway {
   private blockRecordsStorage: IBlockRecordsStorage;
   private smtStorage: ISmtStorage;
   private smt: Smt;
+  private validationService: IValidationService | undefined;
 
   private constructor(
     serverId: string,
@@ -100,6 +88,7 @@ export class AggregatorGateway {
     blockRecordsStorage: IBlockRecordsStorage,
     smtStorage: ISmtStorage,
     smt: Smt,
+    validationService: IValidationService | undefined,
   ) {
     this.serverId = serverId;
     this.server = server;
@@ -110,6 +99,7 @@ export class AggregatorGateway {
     this.smt = smt;
 
     this.setupBlockRecordsChangeListener();
+    this.validationService = validationService;
   }
 
   public static async create(config: IGatewayConfig = {}): Promise<AggregatorGateway> {
@@ -146,10 +136,15 @@ export class AggregatorGateway {
       storage: {
         uri: config.storage?.uri ?? DEFAULT_MONGODB_URI,
       },
+      validationService: config.validationService,
     };
 
     const serverId = config.aggregatorConfig!.serverId || `${os.hostname()}-${process.pid}`;
     const storage = await AggregatorStorage.init(config.storage!.uri!);
+
+    if (!config.alphabill?.privateKey) {
+      throw new Error('Alphabill private key must be defined in hex encoding.');
+    }
 
     const alphabillClient = await AggregatorGateway.setupAlphabillClient(config.alphabill!, serverId);
     const smt = await AggregatorGateway.setupSmt(storage.smtStorage, serverId);
@@ -163,12 +158,20 @@ export class AggregatorGateway {
       storage.commitmentStorage,
       storage.smtStorage,
     );
+
+    const signingService = new SigningService(HexConverter.decode(config.alphabill.privateKey));
+
+    const validationService = config.validationService || new ValidationService();
+    await validationService.initialize(mongoUri);
+
     const aggregatorService = new AggregatorService(
       roundManager,
       smt,
       storage.recordStorage,
       storage.blockStorage,
       storage.blockRecordsStorage,
+      signingService,
+      validationService,
     );
 
     let leaderElection: LeaderElection | null = null;
@@ -194,9 +197,8 @@ export class AggregatorGateway {
       AggregatorGateway.blockCreationActive = true;
       AggregatorGateway.startNextBlock(roundManager);
     }
-    const app = express();
-    AggregatorGateway.setupRouter(
-      app,
+
+    const app = setupRouter(
       config,
       aggregatorService,
       serverId,
@@ -233,6 +235,7 @@ export class AggregatorGateway {
       storage.blockRecordsStorage,
       storage.smtStorage,
       smt,
+      validationService
     );
   }
 
@@ -255,12 +258,13 @@ export class AggregatorGateway {
     config: IAlphabillConfig,
     aggregatorServerId: string,
   ): Promise<IAlphabillClient> {
-    const { useMock, privateKey, tokenPartitionUrl, tokenPartitionId, networkId } = config;
+    const { useMock, tokenPartitionUrl, tokenPartitionId, networkId, privateKey } = config;
     if (useMock) {
       logger.info(`Server ${aggregatorServerId} using mock AlphabillClient.`);
       return new MockAlphabillClient();
     }
     logger.info(`Server ${aggregatorServerId} using real AlphabillClient.`);
+
     if (!privateKey) {
       throw new Error('Alphabill private key must be defined in hex encoding.');
     }
@@ -277,389 +281,33 @@ export class AggregatorGateway {
     return await AlphabillClient.create(signingService, tokenPartitionUrl, tokenPartitionId, networkId);
   }
 
-  private static setupRouter(
-    app: express.Application,
-    config: IGatewayConfig,
-    aggregatorService: AggregatorService,
-    serverId: string,
-    leaderElection: LeaderElection | null,
-    maxConcurrentRequests: number,
-  ): void {
-    let activeRequests = 0;
-    app.use(cors());
-    app.use(bodyParser.json());
-
-    app.get('/health', (req: Request, res: Response) => {
-      res.status(200).json({
-        status: 'ok',
-        role:
-          config.highAvailability?.enabled !== false
-            ? leaderElection && leaderElection.isCurrentLeader()
-              ? 'leader'
-              : 'follower'
-            : 'standalone',
-        serverId: serverId,
-        activeRequests: activeRequests,
-        maxConcurrentRequests: maxConcurrentRequests,
-        smtRootHash: aggregatorService.getSmt().rootHash.toString(),
-      });
-    });
-
-    app.post('/', async (req: Request, res: Response) => {
-      // Check if we're at capacity before processing the request
-      if (config.aggregatorConfig?.concurrencyLimit && activeRequests >= maxConcurrentRequests) {
-        logger.warn(`Concurrency limit reached (${activeRequests}/${maxConcurrentRequests}). Request rejected.`);
-        AggregatorGateway.sendJsonRpcError(
-          res,
-          503,
-          -32000,
-          'Server is at capacity. Please try again later.',
-          req.body?.id || null,
-        );
-        return;
-      }
-
-      if (config.aggregatorConfig?.concurrencyLimit) {
-        activeRequests++;
-        let countDecremented = false;
-
-        // decrement counter only once
-        const decrementCounter = (): void => {
-          if (!countDecremented) {
-            countDecremented = true;
-            activeRequests--;
-          }
-        };
-
-        // Listen for normal completion
-        res.on('finish', decrementCounter);
-
-        // Also listen for abrupt connection close
-        res.on('close', decrementCounter);
-      }
-
-      if (!aggregatorService) {
-        AggregatorGateway.sendJsonRpcError(res, 500, -32603, 'Internal error: Service not initialized.', req.body.id);
-        return;
-      }
-
-      if (req.body.jsonrpc !== '2.0' || !req.body.params) {
-        AggregatorGateway.sendJsonRpcError(
-          res,
-          400,
-          -32600,
-          'Invalid Request: Not a valid JSON-RPC 2.0 request',
-          req.body.id,
-        );
-        return;
-      }
-
-      try {
-        switch (req.body.method) {
-          case 'submit_commitment':
-            await AggregatorGateway.handleSubmitCommitment(req, res, aggregatorService);
-            break;
-          case 'get_inclusion_proof':
-            await AggregatorGateway.handleGetInclusionProof(req, res, aggregatorService);
-            break;
-          case 'get_no_deletion_proof':
-            await AggregatorGateway.handleGetNoDeletionProof(req, res, aggregatorService);
-            break;
-          case 'get_block_height':
-            await AggregatorGateway.handleGetBlockHeight(req, res, aggregatorService);
-            break;
-          case 'get_block':
-            await AggregatorGateway.handleGetBlock(req, res, aggregatorService);
-            break;
-          case 'get_block_commitments':
-            await AggregatorGateway.handleGetBlockCommitments(req, res, aggregatorService);
-            break;
-          default:
-            res.sendStatus(400);
-            break;
-        }
-      } catch (error) {
-        logger.error(`Error processing ${req.body.method}:`, error);
-        AggregatorGateway.sendJsonRpcError(
-          res,
-          500,
-          -32603,
-          `Internal error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          req.body.id,
-        );
-      }
-    });
-  }
-
-  private static sendJsonRpcError(
-    res: Response,
-    httpStatus: number,
-    errorCode: number,
-    message: string,
-    id: string | number | null,
-    data?: unknown,
-  ): void {
-    const errorResponse: IJsonRpcError = {
-      jsonrpc: '2.0',
-      error: {
-        code: errorCode,
-        message: message,
-      },
-      id: id,
-    };
-
-    if (data !== undefined) {
-      errorResponse.error.data = data;
-    }
-
-    res.status(httpStatus).json(errorResponse);
-  }
-
-  private static async handleSubmitCommitment(
-    req: Request,
-    res: Response,
-    aggregatorService: AggregatorService,
-  ): Promise<void> {
-    logger.info(`Received submit_commitment request: ${req.body.params.requestId}`);
-
-    const missingFields = [];
-    if (!req.body.params.requestId) missingFields.push('requestId');
-    if (!req.body.params.transactionHash) missingFields.push('transactionHash');
-    if (!req.body.params.authenticator) missingFields.push('authenticator');
-
-    if (missingFields.length > 0) {
-      AggregatorGateway.sendJsonRpcError(
-        res,
-        400,
-        -32602,
-        `Invalid parameters: Missing required fields: ${missingFields.join(', ')}`,
-        req.body.id,
-      );
-      return;
-    }
-
-    let commitment: Commitment;
-    try {
-      const requestId: RequestId = RequestId.fromDto(req.body.params.requestId);
-      const transactionHash: DataHash = DataHash.fromDto(req.body.params.transactionHash);
-      const authenticator: Authenticator = Authenticator.fromDto(req.body.params.authenticator);
-      commitment = new Commitment(requestId, transactionHash, authenticator);
-    } catch (error) {
-      AggregatorGateway.sendJsonRpcError(
-        res,
-        400,
-        -32602,
-        'Invalid parameters: Could not create commitment',
-        req.body.id,
-        { details: error instanceof Error ? error.message : 'Unknown error' },
-      );
-      return;
-    }
-    const response = await aggregatorService.submitCommitment(commitment);
-    if (response.status !== SubmitCommitmentStatus.SUCCESS) {
-      AggregatorGateway.sendJsonRpcError(
-        res,
-        400,
-        -32000,
-        'Failed to submit commitment',
-        req.body.id,
-        response.toDto(),
-      );
-      return;
-    }
-    res.json({
-      jsonrpc: '2.0',
-      result: response.toDto(),
-      id: req.body.id,
-    });
-  }
-
-  private static async handleGetInclusionProof(
-    req: Request,
-    res: Response,
-    aggregatorService: AggregatorService,
-  ): Promise<void> {
-    logger.info(`Received get_inclusion_proof request: ${req.body.params.requestId}`);
-
-    if (!req.body.params.requestId) {
-      AggregatorGateway.sendJsonRpcError(
-        res,
-        400,
-        -32602,
-        'Invalid parameters: Missing required field: requestId',
-        req.body.id,
-      );
-      return;
-    }
-
-    let requestId: RequestId;
-    try {
-      requestId = RequestId.fromDto(req.body.params.requestId);
-    } catch (error) {
-      AggregatorGateway.sendJsonRpcError(
-        res,
-        400,
-        -32602,
-        'Invalid parameters: Invalid requestId format',
-        req.body.id,
-        { details: error instanceof Error ? error.message : 'Unknown error' },
-      );
-      return;
-    }
-
-    const inclusionProof = await aggregatorService.getInclusionProof(requestId);
-    if (inclusionProof == null) {
-      AggregatorGateway.sendJsonRpcError(res, 404, -32001, 'Inclusion proof not found', req.body.id);
-      return;
-    }
-    res.json({
-      jsonrpc: '2.0',
-      result: inclusionProof.toDto(),
-      id: req.body.id,
-    });
-  }
-
-  private static async handleGetNoDeletionProof(
-    req: Request,
-    res: Response,
-    aggregatorService: AggregatorService,
-  ): Promise<void> {
-    const noDeletionProof = await aggregatorService.getNodeletionProof();
-    if (noDeletionProof == null) {
-      AggregatorGateway.sendJsonRpcError(res, 404, -32001, 'No deletion proof not found', req.body.id);
-      return;
-    }
-    res.json({
-      jsonrpc: '2.0',
-      result: noDeletionProof,
-      id: req.body.id,
-    });
-  }
-
-  private static async handleGetBlockHeight(
-    req: Request,
-    res: Response,
-    aggregatorService: AggregatorService,
-  ): Promise<void> {
-    logger.info('Received get_block_height request');
-    const currentBlockNumber = await aggregatorService.getCurrentBlockNumber();
-    res.json({
-      jsonrpc: '2.0',
-      result: { blockNumber: currentBlockNumber.toString() },
-      id: req.body.id,
-    });
-  }
-
-  private static async handleGetBlock(
-    req: Request,
-    res: Response,
-    aggregatorService: AggregatorService,
-  ): Promise<void> {
-    logger.info(`Received get_block request: ${req.body.params.blockNumber}`);
-
-    if (!req.body.params.blockNumber) {
-      AggregatorGateway.sendJsonRpcError(res, 400, -32602, 'Invalid parameters: blockNumber is required', req.body.id);
-      return;
-    }
-
-    let blockNumber;
-    try {
-      // Handle "latest" as a special case
-      if (req.body.params.blockNumber === 'latest') {
-        blockNumber = await aggregatorService.getCurrentBlockNumber();
-      } else {
-        blockNumber = BigInt(req.body.params.blockNumber);
-      }
-    } catch {
-      AggregatorGateway.sendJsonRpcError(
-        res,
-        400,
-        -32602,
-        'Invalid parameters: blockNumber must be a valid number or "latest"',
-        req.body.id,
-      );
-      return;
-    }
-
-    const block = await aggregatorService.getBlockByNumber(blockNumber);
-
-    if (!block) {
-      AggregatorGateway.sendJsonRpcError(res, 404, -32001, `Block ${blockNumber.toString()} not found`, req.body.id);
-      return;
-    }
-
-    res.json({
-      jsonrpc: '2.0',
-      result: {
-        index: block.index.toString(),
-        chainId: block.chainId,
-        version: block.version,
-        forkId: block.forkId,
-        timestamp: block.timestamp.toString(),
-        rootHash: block.rootHash.toDto(),
-        previousBlockHash: HexConverter.encode(block.previousBlockHash),
-        noDeletionProofHash: block.noDeletionProofHash ? HexConverter.encode(block.noDeletionProofHash) : null,
-      },
-      id: req.body.id,
-    });
-  }
-
-  private static async handleGetBlockCommitments(
-    req: Request,
-    res: Response,
-    aggregatorService: AggregatorService,
-  ): Promise<void> {
-    logger.info(`Received get_block_commitments request: ${req.body.params.blockNumber}`);
-
-    if (!req.body.params.blockNumber) {
-      AggregatorGateway.sendJsonRpcError(res, 400, -32602, 'Invalid parameters: blockNumber is required', req.body.id);
-      return;
-    }
-
-    let blockNumber;
-    try {
-      blockNumber = BigInt(req.body.params.blockNumber);
-    } catch {
-      AggregatorGateway.sendJsonRpcError(
-        res,
-        400,
-        -32602,
-        'Invalid parameters: blockNumber must be a valid number',
-        req.body.id,
-      );
-      return;
-    }
-
-    const commitments = await aggregatorService.getCommitmentsByBlockNumber(blockNumber);
-
-    if (commitments === null) {
-      AggregatorGateway.sendJsonRpcError(res, 404, -32001, `Block ${blockNumber.toString()} not found`, req.body.id);
-      return;
-    }
-
-    res.json({
-      jsonrpc: '2.0',
-      result: commitments.map((commitment) => ({
-        requestId: commitment.requestId.toDto(),
-        transactionHash: commitment.transactionHash.toDto(),
-        authenticator: commitment.authenticator.toDto(),
-      })),
-      id: req.body.id,
-    });
-  }
-
   private static async setupSmt(smtStorage: ISmtStorage, aggregatorServerId: string): Promise<Smt> {
-    const smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
-    const smtLeaves = await smtStorage.getAll();
-    if (smtLeaves.length > 0) {
-      logger.info(`Server ${aggregatorServerId} found ${smtLeaves.length} leaves from storage.`);
-      logger.info('Constructing tree...');
-      for (const leaf of smtLeaves) {
-        await smt.addLeaf(leaf.path, leaf.value);
+    const smt = new SparseMerkleTree(HashAlgorithm.SHA256);
+    const smtWrapper = new Smt(smt);
+
+    let totalLeaves = 0;
+    const chunkSize = 1000;
+
+    logger.info(`Server ${aggregatorServerId} loading SMT leaves in chunks of ${chunkSize}...`);
+
+    await smtStorage.getAllInChunks(chunkSize, async (chunk) => {
+      await smtWrapper.addLeaves(chunk);
+      totalLeaves += chunk.length;
+
+      if (totalLeaves % (chunkSize * 5) === 0) {
+        logger.info(`Server ${aggregatorServerId} processed ${totalLeaves} leaves...`);
       }
-      logger.info(`Tree with root hash ${smt.rootHash.toString()} constructed successfully.`);
+    });
+
+    if (totalLeaves > 0) {
+      const rootHash = await smtWrapper.rootHash();
+      logger.info(`Server ${aggregatorServerId} loaded ${totalLeaves} leaves from storage.`);
+      logger.info(`Tree with root hash ${rootHash.toString()} constructed successfully.`);
+    } else {
+      logger.info(`Server ${aggregatorServerId} found no existing leaves in storage.`);
     }
-    return new Smt(smt);
+
+    return smtWrapper;
   }
 
   private static startNextBlock(roundManager: RoundManager): void {
@@ -725,6 +373,10 @@ export class AggregatorGateway {
     if (AggregatorGateway.blockCreationTimer) {
       clearTimeout(AggregatorGateway.blockCreationTimer);
       AggregatorGateway.blockCreationTimer = null;
+    }
+
+    if (this.validationService) {
+      await this.validationService.terminate();
     }
 
     logger.info('Aggregator gateway stopped successfully');

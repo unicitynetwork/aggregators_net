@@ -3,6 +3,7 @@ import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { Binary } from 'mongodb';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
@@ -59,8 +60,9 @@ describe('CommitmentStorage Tests', () => {
 
     const originalTransactionHashImprint = new Uint8Array(commitment.transactionHash.imprint);
     const originalStateHashImprint = new Uint8Array(commitment.authenticator.stateHash.imprint);
-    const originalRequestId = commitment.requestId.toDto();
+    const originalRequestId = commitment.requestId.toJSON();
     const originalSignatureWithoutRecovery = new Uint8Array(commitment.authenticator.signature.bytes);
+
     const originalPublicKey = new Uint8Array(commitment.authenticator.publicKey);
     const originalAlgorithm = commitment.authenticator.algorithm;
 
@@ -72,14 +74,14 @@ describe('CommitmentStorage Tests', () => {
 
     const retrievedCommitment = retrievedCommitments[0];
 
-    expect(retrievedCommitment.requestId.toDto()).toEqual(originalRequestId);
+    expect(retrievedCommitment.requestId.toJSON()).toEqual(originalRequestId);
     expect(new Uint8Array(retrievedCommitment.transactionHash.imprint)).toEqual(originalTransactionHashImprint);
     expect(new Uint8Array(retrievedCommitment.authenticator.stateHash.imprint)).toEqual(originalStateHashImprint);
 
     const retrievedSignatureWithoutRecovery = new Uint8Array(retrievedCommitment.authenticator.signature.bytes);
     expect(retrievedSignatureWithoutRecovery).toEqual(originalSignatureWithoutRecovery);
 
-    expect(new Uint8Array(retrievedCommitment.authenticator.publicKey)).toEqual(originalPublicKey);
+    expect(retrievedCommitment.authenticator.publicKey).toEqual(originalPublicKey);
     expect(retrievedCommitment.authenticator.algorithm).toEqual(originalAlgorithm);
     expect(retrievedCommitment.transactionHash.algorithm).toEqual(commitment.transactionHash.algorithm);
     expect(retrievedCommitment.authenticator.stateHash.algorithm).toEqual(commitment.authenticator.stateHash.algorithm);
@@ -98,7 +100,7 @@ describe('CommitmentStorage Tests', () => {
     }
 
     const originalValues = commitments.map((c) => ({
-      requestId: c.requestId.toDto(),
+      requestId: c.requestId.toJSON(),
       transactionHashImprint: new Uint8Array(c.transactionHash.imprint),
       stateHashImprint: new Uint8Array(c.authenticator.stateHash.imprint),
       signatureBytes: new Uint8Array(c.authenticator.signature.bytes),
@@ -115,14 +117,14 @@ describe('CommitmentStorage Tests', () => {
 
     const sortedOriginalValues = [...originalValues].sort((a, b) => a.requestId.localeCompare(b.requestId));
     const sortedRetrievedCommitments = [...retrievedCommitments].sort((a, b) =>
-      a.requestId.toDto().localeCompare(b.requestId.toDto()),
+      a.requestId.toJSON().localeCompare(b.requestId.toJSON()),
     );
 
     for (let i = 0; i < commitmentCount; i++) {
       const original = sortedOriginalValues[i];
       const retrieved = sortedRetrievedCommitments[i];
 
-      expect(retrieved.requestId.toDto()).toEqual(original.requestId);
+      expect(retrieved.requestId.toJSON()).toEqual(original.requestId);
       expect(new Uint8Array(retrieved.transactionHash.imprint)).toEqual(original.transactionHashImprint);
       expect(new Uint8Array(retrieved.authenticator.stateHash.imprint)).toEqual(original.stateHashImprint);
       expect(new Uint8Array(retrieved.authenticator.signature.bytes)).toEqual(original.signatureBytes);
@@ -142,7 +144,7 @@ describe('CommitmentStorage Tests', () => {
     }
 
     const firstBatchValues = firstBatch.map((c) => ({
-      requestId: c.requestId.toDto(),
+      requestId: c.requestId.toJSON(),
       transactionHashImprint: new Uint8Array(c.transactionHash.imprint),
     }));
 
@@ -162,22 +164,68 @@ describe('CommitmentStorage Tests', () => {
     }
 
     const secondBatchValues = secondBatch.map((c) => ({
-      requestId: c.requestId.toDto(),
+      requestId: c.requestId.toJSON(),
       transactionHashImprint: new Uint8Array(c.transactionHash.imprint),
     }));
 
     const retrievedSecondBatch = await storage.getCommitmentsForBlock();
     expect(retrievedSecondBatch).toHaveLength(secondBatchSize);
 
-    const secondBatchRequestIds = retrievedSecondBatch.map((c) => c.requestId.toDto());
+    const secondBatchRequestIds = retrievedSecondBatch.map((c) => c.requestId.toJSON());
     for (const value of firstBatchValues) {
       expect(secondBatchRequestIds).not.toContain(value.requestId);
     }
 
     for (const commitment of retrievedSecondBatch) {
-      const originalValue = secondBatchValues.find((v) => v.requestId === commitment.requestId.toDto());
+      const originalValue = secondBatchValues.find((v) => v.requestId === commitment.requestId.toJSON());
       expect(originalValue).toBeDefined();
       expect(new Uint8Array(commitment.transactionHash.imprint)).toEqual(originalValue!.transactionHashImprint);
     }
+  });
+
+  it('Should deserialize commitments with binary-encoded data from MongoDB', async () => {
+    const testData = {
+      _id: new mongoose.Types.ObjectId('681473d410effd5dbc73f88f'),
+      requestId: '000003877b9912cd053c00a9325e7d2802125437c3515aeef1f5a6ace3c986e463c3',
+      transactionHash: new Binary(Buffer.from('AABZgwTQahvgy3R0aNKjUMAl4NhEVN55tT/8gsFAf7x1OQ==', 'base64')),
+      authenticator: {
+        algorithm: 'secp256k1',
+        publicKey: new Binary(Buffer.from('Albc+Z8hnwsSuIv4fvIcLajFbovOJhSsWBfkwg9wpr0i', 'base64')),
+        signature: new Binary(
+          Buffer.from(
+            '1IxmtrNju19IIg1xZ8BxxFIECPPbGQNAiSinEg3s+HAVZmDMQzPyoBAxdYUZ5qryxzjJg/cYOzFayKNXSPIKxQE=',
+            'base64',
+          ),
+        ),
+        stateHash: new Binary(Buffer.from('AABZgwTQahvgy3R0aNKjUMAl4NhEVN55tT/8gsFAf7x1OQ==', 'base64')),
+      },
+      sequenceId: 1,
+      __v: 0,
+    };
+
+    await mongoose.connection.collection('commitments').insertOne(testData);
+
+    const retrievedCommitments = await storage.getCommitmentsForBlock();
+
+    expect(retrievedCommitments).toHaveLength(1);
+    const retrieved = retrievedCommitments[0];
+
+    expect(retrieved.requestId.toJSON()).toEqual(
+      '000003877b9912cd053c00a9325e7d2802125437c3515aeef1f5a6ace3c986e463c3',
+    );
+
+    const expectedTransactionHash = Buffer.from('AABZgwTQahvgy3R0aNKjUMAl4NhEVN55tT/8gsFAf7x1OQ==', 'base64');
+    expect(new Uint8Array(retrieved.transactionHash.imprint)).toEqual(new Uint8Array(expectedTransactionHash));
+
+    expect(retrieved.authenticator.algorithm).toEqual('secp256k1');
+    const expectedPublicKey = Buffer.from('Albc+Z8hnwsSuIv4fvIcLajFbovOJhSsWBfkwg9wpr0i', 'base64');
+    expect(retrieved.authenticator.publicKey).toEqual(new Uint8Array(expectedPublicKey));
+    const expectedSignature = Buffer.from(
+      '1IxmtrNju19IIg1xZ8BxxFIECPPbGQNAiSinEg3s+HAVZmDMQzPyoBAxdYUZ5qryxzjJg/cYOzFayKNXSPIKxQE=',
+      'base64',
+    );
+    expect(retrieved.authenticator.signature.encode()).toEqual(new Uint8Array(expectedSignature));
+    const expectedStateHash = Buffer.from('AABZgwTQahvgy3R0aNKjUMAl4NhEVN55tT/8gsFAf7x1OQ==', 'base64');
+    expect(new Uint8Array(retrieved.authenticator.stateHash.imprint)).toEqual(new Uint8Array(expectedStateHash));
   });
 });

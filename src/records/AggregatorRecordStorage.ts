@@ -94,9 +94,9 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
       return null;
     }
     const authenticator = new Authenticator(
-      stored.authenticator.publicKey,
       stored.authenticator.algorithm,
-      new Signature(stored.authenticator.signature.slice(0, -1), stored.authenticator.signature[65]),
+      stored.authenticator.publicKey,
+      Signature.decode(stored.authenticator.signature),
       DataHash.fromImprint(stored.authenticator.stateHash),
     );
     return new AggregatorRecord(requestId, DataHash.fromImprint(stored.transactionHash), authenticator);
@@ -116,9 +116,9 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
       const originalRequestId = requestIds.find((id) => id.toBigInt() === stored.requestId)!;
 
       const authenticator = new Authenticator(
-        stored.authenticator.publicKey,
         stored.authenticator.algorithm,
-        new Signature(stored.authenticator.signature.slice(0, -1), stored.authenticator.signature[65]),
+        stored.authenticator.publicKey,
+        Signature.decode(stored.authenticator.signature),
         DataHash.fromImprint(stored.authenticator.stateHash),
       );
 

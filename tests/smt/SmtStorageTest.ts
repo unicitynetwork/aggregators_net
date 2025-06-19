@@ -209,17 +209,17 @@ describe('SMT Storage Tests', () => {
   });
 
   it('Try adding the same leaf to SMT tree twice', async () => {
-    const smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
+    const smt = new SparseMerkleTree(HashAlgorithm.SHA256);
 
     const path = BigInt(12345);
     const value = new Uint8Array([1, 2, 3, 4, 5]);
 
-    await smt.addLeaf(path, value);
-    const rootHashAfterFirstAddition = smt.rootHash;
+    smt.addLeaf(path, value);
+    const rootHashAfterFirstAddition = await smt.root.calculateHash();
     logger.info(`Root hash after first addition: ${rootHashAfterFirstAddition.toString()}`);
 
     try {
-      await smt.addLeaf(path, value);
+      smt.addLeaf(path, value);
       expect(false).toBe(true);
     } catch (error) {
       logger.info('Got expected error when adding the same leaf twice:', error);
@@ -228,7 +228,7 @@ describe('SMT Storage Tests', () => {
 
     const differentPath = BigInt(54321);
     try {
-      await smt.addLeaf(differentPath, value);
+      smt.addLeaf(differentPath, value);
       logger.info('Successfully added leaf with same value but different path');
     } catch (error) {
       logger.error('Unexpected error when adding leaf with same value but different path:', error);

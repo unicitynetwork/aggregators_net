@@ -1,3 +1,4 @@
+import { LeafValue } from '@unicitylabs/commons/lib/api/LeafValue.js';
 import { Transaction } from '@unicitylabs/commons/lib/api/Transaction.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import mongoose from 'mongoose';
@@ -67,8 +68,8 @@ export class RoundManager {
         );
 
         const nodePath = commitment.requestId.toBigInt();
-        const transaction = await Transaction.create(commitment.authenticator, commitment.transactionHash);
-        smtLeaves.push(new SmtNode(nodePath, transaction.leafValue.imprint));
+        const leafValue = await LeafValue.create(commitment.authenticator, commitment.transactionHash);
+        smtLeaves.push(new SmtNode(nodePath, leafValue.bytes));
       }
     }
 
@@ -88,12 +89,7 @@ export class RoundManager {
 
     // Add leaves to the SMT tree
     if (smtLeaves.length > 0) {
-      const leaves = smtLeaves.map((leaf) => ({
-        path: leaf.path,
-        value: leaf.value,
-      }));
-
-      await this.smt.addLeaves(leaves);
+      await this.smt.addLeaves(smtLeaves);
     }
 
     try {
@@ -104,7 +100,7 @@ export class RoundManager {
     }
 
     let submitHashResponse;
-    const rootHash = this.smt.rootHash;
+    const rootHash = await this.smt.rootHash();
     try {
       loggerWithMetadata.info(`Submitting hash to Alphabill: ${rootHash.toString()}...`);
       submitHashResponse = await this.alphabillClient.submitHash(rootHash);

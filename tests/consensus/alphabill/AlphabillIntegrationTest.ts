@@ -18,6 +18,7 @@ import { MongoDBContainer, StartedMongoDBContainer } from '@testcontainers/mongo
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
+import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
@@ -27,8 +28,8 @@ import mongoose from 'mongoose';
 import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 'testcontainers';
 
 import { AggregatorGateway } from '../../../src/AggregatorGateway.js';
+import { MockValidationService } from '../../mocks/MockValidationService.js';
 import logger from '../../../src/logger.js';
-import { SubmitCommitmentStatus } from '../../../src/SubmitCommitmentResponse.js';
 
 describe('Alphabill Client Integration Tests', () => {
   const composeFilePath = 'tests';
@@ -149,6 +150,9 @@ describe('Alphabill Client Integration Tests', () => {
     logger.info(`Create NFT transaction status - ${TransactionStatus[createNftTxStatus]}.`);
 
     logger.info('Starting aggregator...');
+    
+    const mockValidationService = new MockValidationService();
+    
     aggregator = await AggregatorGateway.create({
       aggregatorConfig: {
         initialBlockHash: initialBlockHash,
@@ -163,6 +167,7 @@ describe('Alphabill Client Integration Tests', () => {
       storage: {
         uri: mongoContainer.getConnectionString() + '?directConnection=true',
       },
+      validationService: mockValidationService,
     });
     logger.info('Aggregator running.');
     stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2])).digest();
@@ -195,9 +200,9 @@ describe('Alphabill Client Integration Tests', () => {
         jsonrpc: '2.0',
         method: 'submit_commitment',
         params: {
-          requestId: requestId.toDto(),
-          transactionHash: transactionHash.toDto(),
-          authenticator: authenticator.toDto(),
+          requestId: requestId.toJSON(),
+          transactionHash: transactionHash.toJSON(),
+          authenticator: authenticator.toJSON(),
         },
         id: 1,
       }),
@@ -221,7 +226,7 @@ describe('Alphabill Client Integration Tests', () => {
         jsonrpc: '2.0',
         method: 'get_inclusion_proof',
         params: {
-          requestId: requestId.toDto(),
+          requestId: requestId.toJSON(),
         },
         id: 2,
       }),
@@ -233,7 +238,7 @@ describe('Alphabill Client Integration Tests', () => {
     expect(inclusionProofData).toHaveProperty('result');
     expect(inclusionProofData).toHaveProperty('id', 2);
 
-    const inclusionProof = InclusionProof.fromDto(inclusionProofData.result);
+    const inclusionProof = InclusionProof.fromJSON(inclusionProofData.result);
     const verificationResult = await inclusionProof.verify(requestId.toBigInt());
     expect(verificationResult).toBeTruthy();
   }, 60000);
@@ -252,9 +257,9 @@ describe('Alphabill Client Integration Tests', () => {
         jsonrpc: '2.0',
         method: 'submit_commitment',
         params: {
-          requestId: requestId.toDto(),
-          transactionHash: transactionHash.toDto(),
-          authenticator: authenticator.toDto(),
+          requestId: requestId.toJSON(),
+          transactionHash: transactionHash.toJSON(),
+          authenticator: authenticator.toJSON(),
         },
         id: 3,
       }),

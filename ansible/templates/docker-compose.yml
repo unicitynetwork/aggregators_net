@@ -1,16 +1,16 @@
 ---
 services:
   aggregator:
-    image: ghcr.io/unicitynetwork/aggregators_net:{{ aggregator_tag }}
+    image: {{aggregator_image}}
     restart: always
     ports:
       - 3000:3000
     environment:
       - MONGODB_URI={{ aggregator_mongodb_uri }}
       - PORT=3000
-      - ALPHABILL_NETWORK_ID=1
-      - ALPHABILL_TOKEN_PARTITION_ID=102
-      - ALPHABILL_TOKEN_PARTITION_URL=https://putp.mainnet.alphabill.org/rpc
+      - ALPHABILL_NETWORK_ID={{ alphabill_network_id }}
+      - ALPHABILL_TOKEN_PARTITION_ID={{ alphabill_token_partition_id }}
+      - ALPHABILL_TOKEN_PARTITION_URL={{ alphabill_token_partition_url }}
       - ALPHABILL_PRIVATE_KEY={{ aggregator_private_key }}
       - ENABLE_HIGH_AVAILABILITY=false
       - INITIAL_BLOCK_HASH={{ aggregator_initial_block_hash }}

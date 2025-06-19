@@ -1,39 +1,45 @@
-import { Authenticator, IAuthenticatorDto } from '@unicitylabs/commons/lib/api/Authenticator.js';
+import { Authenticator, IAuthenticatorJson } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import axios from 'axios';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 
 import { AggregatorGateway } from '../../src/AggregatorGateway.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
 import logger from '../../src/logger.js';
+import { IReplicaSet, setupReplicaSet } from '../TestUtils.js';
+import { MockValidationService } from '../mocks/MockValidationService.js';
 
-const testLog = (message: string) => process.stdout.write(`[TEST] ${message}\n`);
+const testLog = (message: string): boolean => process.stdout.write(`[TEST] ${message}\n`);
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 const MAX_CONCURRENT_REQUESTS = 5;
 
-interface ApiResponse {
+interface IApiResponse {
   status: number;
-  data: any;
+  data: {
+    error?: {
+      code: number;
+      message: string;
+    };
+  } & Record<string, unknown>;
 }
 
-interface RequestData {
+interface IRequestData {
   requestId: string;
   transactionHash: string;
-  authenticator: IAuthenticatorDto;
+  authenticator: IAuthenticatorJson;
 }
 
 describe('Concurrency Limiter Tests', () => {
   let gateway: AggregatorGateway;
   let port: number;
-  let mongoServer: MongoMemoryServer;
+  let replicaSet: IReplicaSet;
   let mongoUri: string;
   let originalSubmitCommitment: (commitment: Commitment) => Promise<boolean>;
   let unicitySigningService: SigningService;
@@ -46,10 +52,13 @@ describe('Concurrency Limiter Tests', () => {
     // Set log level to WARN for setup to reduce noise
     logger.level = 'warn';
 
-    mongoServer = await MongoMemoryServer.create();
-    mongoUri = mongoServer.getUri();
+    replicaSet = await setupReplicaSet('concurrency-test-');
+    mongoUri = replicaSet.uri;
+    logger.info(`Connecting to MongoDB replica set at ${mongoUri}`);
 
     port = 3000 + Math.floor(Math.random() * 1000);
+
+    const mockValidationService = new MockValidationService();
 
     gateway = await AggregatorGateway.create({
       aggregatorConfig: {
@@ -58,6 +67,7 @@ describe('Concurrency Limiter Tests', () => {
       },
       alphabill: {
         useMock: true,
+        privateKey: HexConverter.encode(SigningService.generatePrivateKey()),
       },
       highAvailability: {
         enabled: false,
@@ -65,6 +75,7 @@ describe('Concurrency Limiter Tests', () => {
       storage: {
         uri: mongoUri,
       },
+      validationService: mockValidationService,
     });
 
     unicitySigningService = new SigningService(
@@ -73,11 +84,10 @@ describe('Concurrency Limiter Tests', () => {
 
     // Monkey patch the submitCommitment method to add artificial delay
     originalSubmitCommitment = gateway.getRoundManager().submitCommitment.bind(gateway.getRoundManager());
-    gateway.getRoundManager().submitCommitment = async (commitment: Commitment): Promise<boolean> => {
+    gateway.getRoundManager().submitCommitment = async (commitment: Commitment): Promise<void> => {
       await delay(500);
-      const result = await originalSubmitCommitment(commitment);
-      testLog(`Submitted ${commitment.requestId.toDto()}`);
-      return result;
+      await originalSubmitCommitment(commitment);
+      testLog(`Submitted ${commitment.requestId.toJSON()}`);
     };
   }, 30000);
 
@@ -88,16 +98,20 @@ describe('Concurrency Limiter Tests', () => {
     await gateway.stop();
 
     if (mongoose.connection.readyState !== 0) {
+      logger.info('Closing mongoose connection...');
       await mongoose.connection.close();
     }
 
-    if (mongoServer) {
-      await mongoServer.stop();
+    if (replicaSet?.containers) {
+      logger.info('Stopping replica set containers...');
+      for (const container of replicaSet.containers) {
+        await container.stop();
+      }
     }
   }, 20000);
 
-  async function generateRequestData(count: number): Promise<RequestData[]> {
-    const requestData: RequestData[] = [];
+  async function generateRequestData(count: number): Promise<IRequestData[]> {
+    const requestData: IRequestData[] = [];
 
     for (let i = 0; i < count; i++) {
       const randomId = uuidv4();
@@ -111,16 +125,16 @@ describe('Concurrency Limiter Tests', () => {
       const authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
 
       requestData.push({
-        requestId: requestId.toDto(),
-        transactionHash: transactionHash.toDto(),
-        authenticator: authenticator.toDto(),
+        requestId: requestId.toJSON(),
+        transactionHash: transactionHash.toJSON(),
+        authenticator: authenticator.toJSON(),
       });
     }
 
     return requestData;
   }
 
-  async function sendRequest(params: any): Promise<ApiResponse> {
+  async function sendRequest(params: unknown): Promise<IApiResponse> {
     try {
       const response = await axios.post(
         `http://localhost:${port}`,
@@ -252,7 +266,7 @@ describe('Concurrency Limiter Tests', () => {
 
     // We'll run 3 waves of requests with delays between them
     const waveSizes = [4, 7, 3]; // Mix of under, over, and under capacity
-    const allWaveResults: ApiResponse[][] = [];
+    const allWaveResults: IApiResponse[][] = [];
 
     for (let waveIndex = 0; waveIndex < waveSizes.length; waveIndex++) {
       const waveSize = waveSizes[waveIndex];

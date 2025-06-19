@@ -4,8 +4,11 @@ import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { BigintConverter } from '@unicitylabs/commons/lib/util/BigintConverter.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
+import { Binary } from 'mongodb';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 
@@ -256,5 +259,106 @@ describe('Aggregator Record Storage Tests', () => {
     const nonExistentRequestId = await RequestId.create(signingService.publicKey, nonExistentStateHash);
     const nonExistentResult = await storage.getByRequestIds([nonExistentRequestId]);
     expect(nonExistentResult.length).toBe(0);
+  });
+
+  it('Should preserve signature recovery byte when storing and retrieving', async () => {
+    await mongoose.connection.collection('aggregatorrecords').deleteMany({});
+
+    // Create a signature with a specific recovery byte
+    const sigBytes = new Uint8Array(64).fill(1);
+    const recoveryByte = 27; // Non-zero recovery value
+    const originalSignature = new Signature(sigBytes, recoveryByte);
+    const encodedOriginal = originalSignature.encode();
+
+    const storage = new AggregatorRecordStorage();
+    const signingService = await SigningService.createFromSecret(SigningService.generatePrivateKey());
+    const stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2, 3])).digest();
+    const transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([4, 5, 6])).digest();
+    const requestId = await RequestId.create(signingService.publicKey, stateHash);
+
+    const authenticator = new Authenticator('secp256k1', signingService.publicKey, originalSignature, stateHash);
+    const record = new AggregatorRecord(requestId, transactionHash, authenticator);
+
+    await storage.put(record);
+    const retrieved = await storage.get(requestId);
+
+    expect(retrieved).not.toBeNull();
+    assert(retrieved);
+
+    // Verify the signature bytes are preserved
+    expect(HexConverter.encode(retrieved.authenticator.signature.bytes)).toEqual(
+      HexConverter.encode(originalSignature.bytes),
+    );
+
+    // Verify the recovery byte is preserved by comparing the encoded signatures
+    const encodedRetrieved = retrieved.authenticator.signature.encode();
+    expect(encodedRetrieved[encodedRetrieved.length - 1]).toEqual(recoveryByte);
+    expect(HexConverter.encode(encodedRetrieved)).toEqual(HexConverter.encode(encodedOriginal));
+  });
+
+  it('Should deserialize records with binary-encoded data from MongoDB', async () => {
+    await mongoose.connection.collection('aggregatorrecords').deleteMany({});
+
+    const requestIdFromJson = RequestId.fromJSON(
+      '000042500f62a4efc41ad1fd1ce44cd42c0824e2128d37a53ac422fa51cb72488b30',
+    );
+    const testData = {
+      _id: new mongoose.Types.ObjectId('6826fe3ea9ca86eff83fef56'),
+      requestId: new Binary(Buffer.from(BigintConverter.encode(requestIdFromJson.toBigInt()))),
+      transactionHash: new Binary(Buffer.from('AACzHOIylRlYHOOXctUBFHB1KLEpacoapZ8Z98+85DrH2Q==', 'base64')),
+      authenticator: {
+        algorithm: 'secp256k1',
+        publicKey: new Binary(Buffer.from('Aicfou2gts+5lbH431qyvato70L9yU1vu7Sy7a6tuBA/', 'base64')),
+        signature: new Binary(
+          Buffer.from(
+            '3oW/7TSW8XtFqzGoyNIAWkwIiGqSmEDPEllnu5elos4tVvit/kbrXtFq2AYKW9GldUb1lHzAaFdYC6H36Ia5wwA=',
+            'base64',
+          ),
+        ),
+        stateHash: new Binary(Buffer.from('AAD6KSDG8uqIVZi2fmPil8q3+oI4sAUlh+PqnRDf5b7JGA==', 'base64')),
+      },
+      sequenceId: 1,
+      __v: 0,
+    };
+
+    logger.info('Inserting test data directly into MongoDB...');
+    await mongoose.connection.collection('aggregatorrecords').insertOne(testData);
+
+    const storage = new AggregatorRecordStorage();
+
+    logger.info('Retrieving record from MongoDB...');
+    const retrieved = await storage.get(requestIdFromJson);
+
+    expect(retrieved).not.toBeNull();
+    assert(retrieved);
+
+    logger.info('Verifying binary data deserialization...');
+
+    expect(retrieved.requestId.toJSON()).toEqual(
+      '000042500f62a4efc41ad1fd1ce44cd42c0824e2128d37a53ac422fa51cb72488b30',
+    );
+
+    const expectedTransactionHash = Buffer.from('AACzHOIylRlYHOOXctUBFHB1KLEpacoapZ8Z98+85DrH2Q==', 'base64');
+    expect(new Uint8Array(retrieved.transactionHash.imprint)).toEqual(new Uint8Array(expectedTransactionHash));
+
+    expect(retrieved.authenticator.algorithm).toEqual('secp256k1');
+    const expectedPublicKey = Buffer.from('Aicfou2gts+5lbH431qyvato70L9yU1vu7Sy7a6tuBA/', 'base64');
+    expect(retrieved.authenticator.publicKey).toEqual(new Uint8Array(expectedPublicKey));
+    const expectedSignature = Buffer.from(
+      '3oW/7TSW8XtFqzGoyNIAWkwIiGqSmEDPEllnu5elos4tVvit/kbrXtFq2AYKW9GldUb1lHzAaFdYC6H36Ia5wwA=',
+      'base64',
+    );
+    expect(retrieved.authenticator.signature.encode()).toEqual(new Uint8Array(expectedSignature));
+    const expectedStateHash = Buffer.from('AAD6KSDG8uqIVZi2fmPil8q3+oI4sAUlh+PqnRDf5b7JGA==', 'base64');
+    expect(new Uint8Array(retrieved.authenticator.stateHash.imprint)).toEqual(new Uint8Array(expectedStateHash));
+
+    logger.info('Binary data successfully deserialized with commons library');
+
+    // Verify we can also retrieve using getByRequestIds
+    const batchRetrieved = await storage.getByRequestIds([requestIdFromJson]);
+    expect(batchRetrieved.length).toBe(1);
+    expect(batchRetrieved[0].requestId.toJSON()).toEqual(
+      '000042500f62a4efc41ad1fd1ce44cd42c0824e2128d37a53ac422fa51cb72488b30',
+    );
   });
 });

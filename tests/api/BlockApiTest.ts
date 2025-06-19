@@ -3,6 +3,7 @@ import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import mongoose from 'mongoose';
 import request from 'supertest';
 
@@ -10,6 +11,7 @@ import { AggregatorGateway } from '../../src/AggregatorGateway.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
 import logger from '../../src/logger.js';
 import { MockAlphabillClient } from '../../tests/consensus/alphabill/MockAlphabillClient.js';
+import { MockValidationService } from '../mocks/MockValidationService.js';
 import { IReplicaSet, setupReplicaSet } from '../TestUtils.js';
 
 describe('Block API Endpoints', () => {
@@ -32,6 +34,8 @@ describe('Block API Endpoints', () => {
 
     mockAlphabillClient = new MockAlphabillClient();
 
+    const mockValidationService = new MockValidationService();
+
     gateway = await AggregatorGateway.create({
       aggregatorConfig: {
         port: port,
@@ -39,6 +43,7 @@ describe('Block API Endpoints', () => {
       },
       alphabill: {
         useMock: true,
+        privateKey: HexConverter.encode(SigningService.generatePrivateKey()),
       },
       storage: {
         uri: mongoUri,
@@ -46,6 +51,7 @@ describe('Block API Endpoints', () => {
       highAvailability: {
         enabled: false,
       },
+      validationService: mockValidationService,
     });
 
     // Disable the block creation waiting period for tests

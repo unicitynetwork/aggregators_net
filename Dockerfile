@@ -4,5 +4,5 @@ COPY package.json package.json
 COPY package-lock.json package-lock.json
 RUN npm install
 COPY . .
-RUN npm run build
+RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
 CMD [ "node", "-r", "dotenv/config", "dist/index.cjs" ]

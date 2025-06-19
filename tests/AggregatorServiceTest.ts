@@ -1,8 +1,12 @@
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
+import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
+import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
+import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
@@ -16,7 +20,9 @@ import { BlockStorage } from '../src/hashchain/BlockStorage.js';
 import { AggregatorRecordStorage } from '../src/records/AggregatorRecordStorage.js';
 import { BlockRecordsStorage } from '../src/records/BlockRecordsStorage.js';
 import { RoundManager } from '../src/RoundManager.js';
-import { SubmitCommitmentStatus } from '../src/SubmitCommitmentResponse.js';
+import { Smt } from '../src/smt/Smt.js';
+import { MockValidationService } from './mocks/MockValidationService.js';
+import { IValidationService } from '../src/ValidationService.js';
 
 describe('AggregatorService Tests', () => {
   jest.setTimeout(30000);
@@ -31,7 +37,8 @@ describe('AggregatorService Tests', () => {
   let blockRecordsStorage: BlockRecordsStorage;
   let smt: SparseMerkleTree;
   let alphabillClient: MockAlphabillClient;
-
+  let signingService: SigningService;
+  let validationService: IValidationService;
   const createTestCommitment = async (id: number): Promise<Commitment> => {
     const stateHashBytes = new TextEncoder().encode(`state-${id}-test`);
     const stateHash = new DataHash(HashAlgorithm.SHA256, stateHashBytes);
@@ -46,14 +53,14 @@ describe('AggregatorService Tests', () => {
     sigBytes[64] = 0;
     const signature = new Signature(sigBytes.slice(0, 64), sigBytes[64]);
 
-    const authenticator = new Authenticator(publicKey, 'mock-algo', signature, stateHash);
+    const authenticator = new Authenticator('mock-algo', publicKey, signature, stateHash);
 
     jest.spyOn(authenticator, 'verify').mockResolvedValue(true);
 
     return new Commitment(requestId, transactionHash, authenticator);
   };
 
-  const createDifferentTxHashCommitment = async (originalCommitment: Commitment): Promise<Commitment> => {
+  const createDifferentTxHashCommitment = (originalCommitment: Commitment): Commitment => {
     const requestId = originalCommitment.requestId;
     const authenticator = originalCommitment.authenticator;
 
@@ -89,7 +96,7 @@ describe('AggregatorService Tests', () => {
     blockStorage = new BlockStorage();
     blockRecordsStorage = new BlockRecordsStorage();
 
-    smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
+    smt = new SparseMerkleTree(HashAlgorithm.SHA256);
 
     roundManager = new RoundManager(
       {
@@ -100,15 +107,29 @@ describe('AggregatorService Tests', () => {
         initialBlockHash: '185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969',
       },
       alphabillClient,
-      smt,
-      {} as any,
+      new Smt(smt),
+      {} as never,
       recordStorage,
-      {} as any,
+      {} as never,
       commitmentStorage,
-      {} as any,
+      {} as never,
     );
 
-    aggregatorService = new AggregatorService(roundManager, smt, recordStorage, blockStorage, blockRecordsStorage);
+    const privateKey = SigningService.generatePrivateKey();
+    signingService = await SigningService.createFromSecret(privateKey);
+
+    validationService = new MockValidationService();
+    await validationService.initialize(mongoUri);
+    
+    aggregatorService = new AggregatorService(
+      roundManager,
+      new Smt(smt),
+      recordStorage,
+      blockStorage,
+      blockRecordsStorage,
+      signingService,
+      validationService,
+    );
   });
 
   it('should handle submitting a new commitment correctly', async () => {
@@ -116,10 +137,21 @@ describe('AggregatorService Tests', () => {
 
     const commitment = await createTestCommitment(1);
 
-    const result = await aggregatorService.submitCommitment(commitment);
+    const result = await aggregatorService.submitCommitment(commitment, true);
 
     expect(result.status).toBe(SubmitCommitmentStatus.SUCCESS);
-    expect(result.exists).toBe(false);
+    expect(result.receipt).toBeDefined();
+
+    const receipt = result.receipt!;
+    expect(receipt.signature).toBeDefined();
+    expect(receipt.request).toBeDefined();
+    
+    const requestHash = receipt.request.hash;
+    const signatureValid = await signingService.verify(requestHash.data, receipt.signature);
+    expect(signatureValid).toBe(true);
+    
+    expect(receipt.publicKey).toBe(HexConverter.encode(signingService.publicKey));
+    expect(receipt.algorithm).toBe(signingService.algorithm);
 
     expect(submitCommitmentSpy).toHaveBeenCalledTimes(1);
     expect(submitCommitmentSpy).toHaveBeenCalledWith(commitment);
@@ -132,17 +164,13 @@ describe('AggregatorService Tests', () => {
 
     const result1 = await aggregatorService.submitCommitment(commitment);
     expect(result1.status).toBe(SubmitCommitmentStatus.SUCCESS);
-    expect(result1.exists).toBe(false);
     expect(submitCommitmentSpy).toHaveBeenCalledTimes(1);
 
-    // since round manager is not running, we add the record manually
     await recordStorage.put(commitment);
-
     submitCommitmentSpy.mockClear();
 
     const result2 = await aggregatorService.submitCommitment(commitment);
     expect(result2.status).toBe(SubmitCommitmentStatus.SUCCESS);
-    expect(result2.exists).toBe(true);
 
     expect(submitCommitmentSpy).not.toHaveBeenCalled();
   });
@@ -152,14 +180,12 @@ describe('AggregatorService Tests', () => {
     const result1 = await aggregatorService.submitCommitment(commitment1);
     expect(result1.status).toBe(SubmitCommitmentStatus.SUCCESS);
 
-    // since round manager is not running, we add the record manually
     await recordStorage.put(commitment1);
 
-    const commitment2 = await createDifferentTxHashCommitment(commitment1);
+    const commitment2 = createDifferentTxHashCommitment(commitment1);
 
     const result2 = await aggregatorService.submitCommitment(commitment2);
     expect(result2.status).toBe(SubmitCommitmentStatus.REQUEST_ID_EXISTS);
-    expect(result2.exists).toBe(false);
   });
 
   it('should retrieve commitments for a block number', async () => {
@@ -204,5 +230,43 @@ describe('AggregatorService Tests', () => {
 
     expect(blockRecordsStorage.get).toHaveBeenCalledWith(999n);
     expect(result).toBeNull();
+  });
+
+  it('should return inclusion proof with PATH_NOT_INCLUDED status for non-existent requestId', async () => {
+    const existingCommitment = await createTestCommitment(1);
+    await recordStorage.put(existingCommitment);
+    smt.addLeaf(existingCommitment.requestId.toBigInt(), existingCommitment.transactionHash.imprint);
+
+    const nonExistentStateHash = new DataHash(HashAlgorithm.SHA256, new TextEncoder().encode('non-existent-state'));
+    const nonExistentRequestId = await RequestId.create(new Uint8Array(32), nonExistentStateHash);
+
+    const inclusionProof = await aggregatorService.getInclusionProof(nonExistentRequestId);
+
+    expect(inclusionProof).not.toBeNull();
+    expect(inclusionProof).toBeInstanceOf(InclusionProof);
+    expect(inclusionProof.authenticator).toBeNull();
+    expect(inclusionProof.transactionHash).toBeNull();
+    expect(inclusionProof.merkleTreePath).toBeDefined();
+
+    const verificationResult = await inclusionProof.verify(nonExistentRequestId.toBigInt());
+    expect(verificationResult).toBe('PATH_NOT_INCLUDED');
+  });
+
+  it('should return inclusion proof with PATH_NOT_INCLUDED status when record exists but path not in SMT', async () => {
+    const commitment = await createTestCommitment(1);
+    await recordStorage.put(commitment);
+
+    const inclusionProof = await aggregatorService.getInclusionProof(commitment.requestId);
+
+    expect(inclusionProof).not.toBeNull();
+    expect(inclusionProof).toBeInstanceOf(InclusionProof);
+    expect(inclusionProof.transactionHash).not.toBeNull();
+    expect(inclusionProof.transactionHash!.equals(commitment.transactionHash)).toBeTruthy();
+    expect(inclusionProof.merkleTreePath).toBeDefined();
+
+    jest.spyOn(inclusionProof.authenticator!, 'verify').mockResolvedValue(true);
+
+    const verificationResult = await inclusionProof.verify(commitment.requestId.toBigInt());
+    expect(verificationResult).toBe('PATH_NOT_INCLUDED');
   });
 });

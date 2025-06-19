@@ -1,8 +1,11 @@
 import { MongoDBContainer, StartedMongoDBContainer } from '@testcontainers/mongodb';
+import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import axios, { type AxiosResponse } from 'axios';
 import mongoose from 'mongoose';
 
 import { AggregatorGateway } from '../../src/AggregatorGateway.js';
+import { MockValidationService } from '../mocks/MockValidationService.js';
 import logger from '../../src/logger.js';
 
 describe('High Availability Tests', () => {
@@ -49,6 +52,11 @@ describe('High Availability Tests', () => {
 
   it('Should elect a single leader among multiple server instances', async () => {
     logger.info('----- TEST 1: Leader Election -----');
+    
+    const mockValidationService1 = new MockValidationService();
+    const mockValidationService2 = new MockValidationService();
+    const mockValidationService3 = new MockValidationService();
+    
     const gatewayConfiguration = {
       highAvailability: {
         enabled: true,
@@ -58,6 +66,7 @@ describe('High Availability Tests', () => {
       },
       alphabill: {
         useMock: true,
+        privateKey: HexConverter.encode(SigningService.generatePrivateKey()),
       },
       storage: {
         uri: mongoUri,
@@ -70,6 +79,7 @@ describe('High Availability Tests', () => {
         serverId: 'test-server-1',
       },
       ...gatewayConfiguration,
+      validationService: mockValidationService1,
     });
     const gateway2 = await AggregatorGateway.create({
       aggregatorConfig: {
@@ -77,6 +87,7 @@ describe('High Availability Tests', () => {
         serverId: 'test-server-2',
       },
       ...gatewayConfiguration,
+      validationService: mockValidationService2,
     });
     const gateway3 = await AggregatorGateway.create({
       aggregatorConfig: {
@@ -84,6 +95,7 @@ describe('High Availability Tests', () => {
         serverId: 'test-server-3',
       },
       ...gatewayConfiguration,
+      validationService: mockValidationService3,
     });
 
     gateways.push(gateway1, gateway2, gateway3);

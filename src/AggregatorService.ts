@@ -1,5 +1,8 @@
 import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
+import { SubmitCommitmentResponse, SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
+import { type ISigningService } from '@unicitylabs/commons/lib/signing/ISigningService.js';
+import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
 
 import { Commitment } from './commitment/Commitment.js';
 import { Block } from './hashchain/Block.js';
@@ -9,7 +12,8 @@ import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js'
 import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { RoundManager } from './RoundManager.js';
 import { Smt } from './smt/Smt.js';
-import { SubmitCommitmentResponse, SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
+import { IValidationService } from './ValidationService.js';
+
 export class AggregatorService {
   public constructor(
     public readonly roundManager: RoundManager,
@@ -17,27 +21,37 @@ export class AggregatorService {
     public readonly recordStorage: IAggregatorRecordStorage,
     public readonly blockStorage: IBlockStorage,
     public readonly blockRecordsStorage: IBlockRecordsStorage,
+    public readonly signingService: ISigningService<Signature>,
+    private readonly validationService: IValidationService,
   ) {}
 
-  public async submitCommitment(commitment: Commitment): Promise<SubmitCommitmentResponse> {
-    const validationResult = await this.validateCommitment(commitment);
+  public async submitCommitment(commitment: Commitment, receipt: boolean = false): Promise<SubmitCommitmentResponse> {
+    const validationResult = await this.validationService.validateCommitment(commitment);
+    
     if (validationResult.status === SubmitCommitmentStatus.SUCCESS && !validationResult.exists) {
       await this.roundManager.submitCommitment(commitment);
     }
-    return validationResult;
+    
+    if (validationResult.status === SubmitCommitmentStatus.SUCCESS && receipt) {
+      const response = new SubmitCommitmentResponse(validationResult.status);
+      await response.addSignedReceipt(commitment.requestId, commitment.authenticator.stateHash, commitment.transactionHash, this.signingService);
+      return response;
+    }
+    return new SubmitCommitmentResponse(validationResult.status);
   }
 
-  public async getInclusionProof(requestId: RequestId): Promise<InclusionProof | null> {
+  public async getInclusionProof(requestId: RequestId): Promise<InclusionProof> {
     const record = await this.recordStorage.get(requestId);
+    const merkleTreePath = await this.smt.getPath(requestId.toBigInt());
+
     if (!record) {
-      return null;
+      return new InclusionProof(merkleTreePath, null, null);
     }
 
-    const merkleTreePath = await this.smt.getPath(requestId.toBigInt());
     return new InclusionProof(merkleTreePath, record.authenticator, record.transactionHash);
   }
 
-  public getNodeletionProof(): Promise<void> {
+  public getNoDeletionProof(): Promise<void> {
     throw new Error('Not implemented.');
   }
 
@@ -78,27 +92,5 @@ export class AggregatorService {
     }
 
     return await this.recordStorage.getByRequestIds(blockRecords.requestIds);
-  }
-
-  private async validateCommitment(commitment: Commitment): Promise<SubmitCommitmentResponse> {
-    const { authenticator, requestId, transactionHash } = commitment;
-    const expectedRequestId = await RequestId.create(authenticator.publicKey, authenticator.stateHash);
-    if (!expectedRequestId.hash.equals(requestId.hash)) {
-      return new SubmitCommitmentResponse(SubmitCommitmentStatus.REQUEST_ID_MISMATCH);
-    }
-    if (!(await authenticator.verify(transactionHash))) {
-      return new SubmitCommitmentResponse(SubmitCommitmentStatus.AUTHENTICATOR_VERIFICATION_FAILED);
-    }
-    const existingRecord = await this.recordStorage.get(requestId);
-    if (existingRecord) {
-      if (!existingRecord.transactionHash.equals(transactionHash)) {
-        return new SubmitCommitmentResponse(SubmitCommitmentStatus.REQUEST_ID_EXISTS);
-      } else {
-        const response = new SubmitCommitmentResponse(SubmitCommitmentStatus.SUCCESS);
-        response.exists = true;
-        return response;
-      }
-    }
-    return new SubmitCommitmentResponse(SubmitCommitmentStatus.SUCCESS);
   }
 }

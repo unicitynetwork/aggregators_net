@@ -1,32 +1,40 @@
 ---
 - name: aggregator
-  remote_user: alpha
   become: false
   gather_facts: true
-  hosts: all
+  hosts: "{{env}}"
+
+  vars_files:
+    - "vars/{{env}}.yml"
+
+  vars:
+    service_path: "/home/{{service_user}}/aggregator"
+    aggregator_repo: "ghcr.io/unicitynetwork/aggregators_net"
+    aggregator_image: "{{aggregator_repo}}:{{aggregator_tag}}"
 
   tasks:
+
     - name: Create dir
       ansible.builtin.file:
-        path: "/home/alpha/aggregator"
-        owner: "alpha"
-        group: "alpha"
+        path: "{{service_path}}"
+        owner: "{{service_user}}"
+        group: "{{service_user}}"
         mode: "755"
         state: directory
 
     - name: Upload docker-compose.yml
       ansible.builtin.template:
         src: "{{item}}"
-        dest: "/home/alpha/aggregator/{{item}}"
-        owner: alpha
-        group: alpha
+        dest: "{{service_path}}/{{item}}"
+        owner: "{{service_user}}"
+        group: "{{service_user}}"
         mode: "0644"
       with_items:
         - docker-compose.yml
 
     - name: Pull the image
       community.docker.docker_image_pull:
-        name: "ghcr.io/unicitynetwork/aggregators_net:{{aggregator_tag}}"
+        name: "{{aggregator_image}}"
 
     - name: Stop aggregator
       community.docker.docker_compose_v2:
@@ -34,6 +42,10 @@
         files:
           - docker-compose.yml
         state: absent
+      tags:
+#       - never
+        - restart
+        - stop
 
     - name: Start aggregator
       community.docker.docker_compose_v2:
@@ -41,4 +53,7 @@
         files:
           - docker-compose.yml
         state: present
-
+      tags:
+#       - never
+        - restart
+        - start

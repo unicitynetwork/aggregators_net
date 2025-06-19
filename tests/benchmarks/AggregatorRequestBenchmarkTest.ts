@@ -1,12 +1,15 @@
 import { performance } from 'perf_hooks';
 
+import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
+import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import axios, { AxiosError } from 'axios';
 import mongoose from 'mongoose';
 
 import { AggregatorGateway, IGatewayConfig } from '../../src/AggregatorGateway.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
+import { MockValidationService } from '../mocks/MockValidationService.js';
 import logger from '../../src/logger.js';
-import { SubmitCommitmentStatus } from '../../src/SubmitCommitmentResponse.js';
 import { delay, generateTestCommitments, setupReplicaSet } from '../TestUtils.js';
 import type { IReplicaSet } from '../TestUtils.js';
 
@@ -48,7 +51,7 @@ let originalLogLevel: string;
 
 // Helper function to submit a commitment
 async function submitCommitment(commitment: Commitment, index: number, context: SubmissionContext): Promise<boolean> {
-  const requestId = commitment.requestId.toDto();
+  const requestId = commitment.requestId.toJSON();
 
   context.attemptedCount++; // Increment attempted count
 
@@ -67,8 +70,8 @@ async function submitCommitment(commitment: Commitment, index: number, context: 
       method: 'submit_commitment',
       params: {
         requestId: requestId,
-        transactionHash: commitment.transactionHash.toDto(),
-        authenticator: commitment.authenticator.toDto(),
+        transactionHash: commitment.transactionHash.toJSON(),
+        authenticator: commitment.authenticator.toJSON(),
       },
       id: index + 1,
     });
@@ -155,7 +158,7 @@ async function verifyBlockRecords(gateway: AggregatorGateway, expectedCount: num
 
       // Add each request ID to the set
       for (const requestId of blockRecords.requestIds) {
-        uniqueRequestIds.add(requestId.toDto());
+        uniqueRequestIds.add(requestId.toJSON());
       }
 
       logger.info(`Block ${blockNumber}: ${requestIdCount} request IDs, cumulative unique: ${uniqueRequestIds.size}`);
@@ -200,6 +203,8 @@ describe('Aggregator Request Performance Benchmark', () => {
     mongoUri = replicaSet.uri;
     logger.info(`Connecting to MongoDB replica set, using connection URI: ${mongoUri}`);
 
+    const mockValidationService = new MockValidationService();
+
     const testConfig: IGatewayConfig = {
       aggregatorConfig: {
         chainId: 1,
@@ -210,6 +215,7 @@ describe('Aggregator Request Performance Benchmark', () => {
       },
       alphabill: {
         useMock: true,
+        privateKey: HexConverter.encode(SigningService.generatePrivateKey()),
       },
       highAvailability: {
         enabled: false,
@@ -217,6 +223,7 @@ describe('Aggregator Request Performance Benchmark', () => {
       storage: {
         uri: mongoUri,
       },
+      validationService: mockValidationService,
     };
 
     logger.info('Starting AggregatorGateway...');
