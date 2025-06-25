@@ -23,6 +23,7 @@ import { RoundManager } from '../src/RoundManager.js';
 import { Smt } from '../src/smt/Smt.js';
 import { MockValidationService } from './mocks/MockValidationService.js';
 import { IValidationService } from '../src/ValidationService.js';
+import { createTestCommitment as createTestAggregatorRecord } from './TestUtils.js';
 
 describe('AggregatorService Tests', () => {
   jest.setTimeout(30000);
@@ -39,25 +40,10 @@ describe('AggregatorService Tests', () => {
   let alphabillClient: MockAlphabillClient;
   let signingService: SigningService;
   let validationService: IValidationService;
+
   const createTestCommitment = async (id: number): Promise<Commitment> => {
-    const stateHashBytes = new TextEncoder().encode(`state-${id}-test`);
-    const stateHash = new DataHash(HashAlgorithm.SHA256, stateHashBytes);
-
-    const publicKey = new Uint8Array(32);
-    const requestId = await RequestId.create(publicKey, stateHash);
-
-    const txHashBytes = new TextEncoder().encode(`tx-${id}-test`);
-    const transactionHash = new DataHash(HashAlgorithm.SHA256, txHashBytes);
-
-    const sigBytes = new Uint8Array(65);
-    sigBytes[64] = 0;
-    const signature = new Signature(sigBytes.slice(0, 64), sigBytes[64]);
-
-    const authenticator = new Authenticator('mock-algo', publicKey, signature, stateHash);
-
-    jest.spyOn(authenticator, 'verify').mockResolvedValue(true);
-
-    return new Commitment(requestId, transactionHash, authenticator);
+    const aggregatorRecord = await createTestAggregatorRecord(id);
+    return new Commitment(aggregatorRecord.requestId, aggregatorRecord.transactionHash, aggregatorRecord.authenticator);
   };
 
   const createDifferentTxHashCommitment = (originalCommitment: Commitment): Commitment => {
@@ -94,7 +80,7 @@ describe('AggregatorService Tests', () => {
     recordStorage = new AggregatorRecordStorage();
     commitmentStorage = new CommitmentStorage();
     blockStorage = new BlockStorage();
-    blockRecordsStorage = new BlockRecordsStorage();
+    blockRecordsStorage = await BlockRecordsStorage.create('test-server');
 
     smt = new SparseMerkleTree(HashAlgorithm.SHA256);
 
@@ -130,6 +116,12 @@ describe('AggregatorService Tests', () => {
       signingService,
       validationService,
     );
+  });
+
+  afterEach(async () => {
+    if (blockRecordsStorage) {
+      await blockRecordsStorage.cleanup();
+    }
   });
 
   it('should handle submitting a new commitment correctly', async () => {

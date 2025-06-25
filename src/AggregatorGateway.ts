@@ -24,9 +24,9 @@ import { setupRouter } from './router/AggregatorRouter.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { Smt } from './smt/Smt.js';
 import { SmtNode } from './smt/SmtNode.js';
-import { SubmitCommitmentStatus } from './SubmitCommitmentResponse.js';
 import { MockAlphabillClient } from '../tests/consensus/alphabill/MockAlphabillClient.js';
 import { ValidationService, IValidationService } from './ValidationService.js';
+import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 
 export interface IGatewayConfig {
   aggregatorConfig?: IAggregatorConfig;
@@ -69,8 +69,8 @@ export interface IStorageConfig {
 }
 
 export class AggregatorGateway {
-  private static blockCreationActive = false;
-  private static blockCreationTimer: NodeJS.Timeout | null = null;
+  private blockCreationActive = false;
+  private blockCreationTimer: NodeJS.Timeout | null = null;
   private serverId: string;
   private server: Server;
   private leaderElection: LeaderElection | null;
@@ -140,7 +140,7 @@ export class AggregatorGateway {
     };
 
     const serverId = config.aggregatorConfig!.serverId || `${os.hostname()}-${process.pid}`;
-    const storage = await AggregatorStorage.init(config.storage!.uri!);
+    const storage = await AggregatorStorage.init(config.storage!.uri!, serverId);
 
     if (!config.alphabill?.privateKey) {
       throw new Error('Alphabill private key must be defined in hex encoding.');
@@ -162,7 +162,7 @@ export class AggregatorGateway {
     const signingService = new SigningService(HexConverter.decode(config.alphabill.privateKey));
 
     const validationService = config.validationService || new ValidationService();
-    await validationService.initialize(mongoUri);
+    await validationService.initialize(config.storage!.uri!);
 
     const aggregatorService = new AggregatorService(
       roundManager,
@@ -184,18 +184,10 @@ export class AggregatorGateway {
         electionPollingInterval: leaderElectionPollingInterval!,
         lockTtlSeconds: lockTtlSeconds!,
         lockId: 'aggregator_leader_lock',
-        onBecomeLeader(): void {
-          return AggregatorGateway.onBecomeLeader(serverId, roundManager);
-        },
-        onLoseLeadership(): void {
-          return AggregatorGateway.onLoseLeadership(serverId);
-        },
         serverId: serverId,
       });
     } else {
       logger.info('High availability mode is disabled.');
-      AggregatorGateway.blockCreationActive = true;
-      AggregatorGateway.startNextBlock(roundManager);
     }
 
     const app = setupRouter(
@@ -222,12 +214,7 @@ export class AggregatorGateway {
       logger.info(`Unicity Aggregator (${protocol}) listening on port ${port} with server ID ${serverId}`);
     });
 
-    if (config.highAvailability?.enabled && leaderElection) {
-      await leaderElection.start();
-      logger.info(`Leader election process started for server ${serverId}.`);
-    }
-
-    return new AggregatorGateway(
+    const gateway = new AggregatorGateway(
       serverId,
       server,
       leaderElection,
@@ -237,20 +224,32 @@ export class AggregatorGateway {
       smt,
       validationService
     );
+
+    if (config.highAvailability?.enabled && leaderElection) {
+      leaderElection.setOnBecomeLeader(() => gateway.onBecomeLeader());
+      leaderElection.setOnLoseLeadership(() => gateway.onLoseLeadership());
+      await leaderElection.start();
+      logger.info(`Leader election process started for server ${serverId}.`);
+    } else {
+      gateway.blockCreationActive = true;
+      gateway.startNextBlock();
+    }
+
+    return gateway;
   }
 
-  private static onBecomeLeader(aggregatorServerId: string, roundManager: RoundManager): void {
-    logger.info(`Server ${aggregatorServerId} became the leader.`);
-    AggregatorGateway.blockCreationActive = true;
-    AggregatorGateway.startNextBlock(roundManager);
+  private onBecomeLeader(): void {
+    logger.info(`Server ${this.serverId} became the leader.`);
+    this.blockCreationActive = true;
+    this.startNextBlock();
   }
 
-  private static onLoseLeadership(aggregatorServerId: string): void {
-    logger.info(`Server ${aggregatorServerId} lost leadership.`);
-    AggregatorGateway.blockCreationActive = false;
-    if (AggregatorGateway.blockCreationTimer) {
-      clearTimeout(AggregatorGateway.blockCreationTimer);
-      AggregatorGateway.blockCreationTimer = null;
+  private onLoseLeadership(): void {
+    logger.info(`Server ${this.serverId} lost leadership.`);
+    this.blockCreationActive = false;
+    if (this.blockCreationTimer) {
+      clearTimeout(this.blockCreationTimer);
+      this.blockCreationTimer = null;
     }
   }
 
@@ -310,36 +309,36 @@ export class AggregatorGateway {
     return smtWrapper;
   }
 
-  private static startNextBlock(roundManager: RoundManager): void {
-    if (!AggregatorGateway.blockCreationActive) {
+  private startNextBlock(): void {
+    if (!this.blockCreationActive) {
       return;
     }
 
     // Clear any existing timer to prevent concurrent block creation
-    if (AggregatorGateway.blockCreationTimer) {
-      clearTimeout(AggregatorGateway.blockCreationTimer);
-      AggregatorGateway.blockCreationTimer = null;
+    if (this.blockCreationTimer) {
+      clearTimeout(this.blockCreationTimer);
+      this.blockCreationTimer = null;
     }
 
     const time = Date.now();
-    AggregatorGateway.blockCreationTimer = setTimeout(
+    this.blockCreationTimer = setTimeout(
       async () => {
         try {
-          if (AggregatorGateway.blockCreationActive) {
-            await roundManager.createBlock();
+          if (this.blockCreationActive) {
+            await this.roundManager.createBlock();
 
             // Only start next block if we're still active
-            if (AggregatorGateway.blockCreationActive) {
-              AggregatorGateway.startNextBlock(roundManager);
+            if (this.blockCreationActive) {
+              this.startNextBlock();
             }
           }
         } catch (error) {
           logger.error('Failed to create block:', error);
 
-          if (AggregatorGateway.blockCreationActive) {
-            AggregatorGateway.blockCreationTimer = setTimeout(() => {
-              if (AggregatorGateway.blockCreationActive) {
-                AggregatorGateway.startNextBlock(roundManager);
+          if (this.blockCreationActive) {
+            this.blockCreationTimer = setTimeout(() => {
+              if (this.blockCreationActive) {
+                this.startNextBlock();
               }
             }, 1000); // 1 second delay before retrying
           }
@@ -353,10 +352,10 @@ export class AggregatorGateway {
    * Stop the services started by aggregator.
    */
   public async stop(): Promise<void> {
-    logger.info('Stopping aggregator gateway...');
+    logger.info(`Stopping aggregator gateway for server ${this.serverId}...`);
 
-    const isBlockCreationInProgress = AggregatorGateway.blockCreationActive && AggregatorGateway.blockCreationTimer;
-    AggregatorGateway.blockCreationActive = false;
+    const isBlockCreationInProgress = this.blockCreationActive && this.blockCreationTimer;
+    this.blockCreationActive = false;
 
     // Wait for any in-progress block creation to complete
     if (isBlockCreationInProgress) {
@@ -370,16 +369,16 @@ export class AggregatorGateway {
     await this.leaderElection?.shutdown();
     this.server?.close();
 
-    if (AggregatorGateway.blockCreationTimer) {
-      clearTimeout(AggregatorGateway.blockCreationTimer);
-      AggregatorGateway.blockCreationTimer = null;
+    if (this.blockCreationTimer) {
+      clearTimeout(this.blockCreationTimer);
+      this.blockCreationTimer = null;
     }
 
     if (this.validationService) {
       await this.validationService.terminate();
     }
 
-    logger.info('Aggregator gateway stopped successfully');
+    logger.info(`Aggregator gateway stopped successfully for server ${this.serverId}`);
   }
 
   /**

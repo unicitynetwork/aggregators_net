@@ -35,7 +35,14 @@ export function setupRouter(
     res.send(generateDocsHtml());
   });
 
-  app.get('/health', (req: Request, res: Response) => {
+  app.get('/health', async (req: Request, res: Response) => {
+    let smtRootHash: string | null = null;
+    try {
+      smtRootHash = aggregatorService ? (await aggregatorService.getSmt().rootHash()).toString() : null;
+    } catch (error) {
+      logger.error('Error getting SMT root hash in health endpoint:', error);
+    }
+
     res.status(200).json({
       status: 'ok',
       role:
@@ -45,8 +52,9 @@ export function setupRouter(
             : 'follower'
           : 'standalone',
       serverId: serverId,
-      activeRequests: activeRequests,
       maxConcurrentRequests: maxConcurrentRequests,
+      activeRequests: activeRequests,
+      smtRootHash: smtRootHash,
     });
   });
 

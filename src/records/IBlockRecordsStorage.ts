@@ -14,4 +14,10 @@ export interface IBlockRecordsStorage {
   addChangeListener(listener: BlockRecordsChangeListener): void;
   removeChangeListener(listener: BlockRecordsChangeListener): void;
   cleanup(): Promise<void>;
+
+  /**
+   * Captures the current cluster time and sets it as startAtOperationTime.
+   * This ensures followers receive events that occur during SMT loading.
+   */
+  captureCurrentClusterTime(): Promise<void>;
 }

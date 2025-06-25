@@ -1,15 +1,10 @@
 import { performance } from 'perf_hooks';
 
-import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
-import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
-import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
-import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import mongoose, { model } from 'mongoose';
 import { GenericContainer, StartedTestContainer, Wait } from 'testcontainers';
-import { v4 as uuidv4 } from 'uuid';
 
 import { AggregatorStorage } from '../../src/AggregatorStorage.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
@@ -19,6 +14,8 @@ import { AggregatorRecord } from '../../src/records/AggregatorRecord.js';
 import { RoundManager } from '../../src/RoundManager.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
 import { MockAlphabillClient } from '../consensus/alphabill/MockAlphabillClient.js';
+import { Smt } from '../../src/smt/Smt.js';
+import { generateTestCommitments } from '../TestUtils.js';
 
 interface BenchmarkResult {
   numCommitments: number;
@@ -152,7 +149,7 @@ describe('Block Creation Performance Benchmarks', () => {
   let storage: AggregatorStorage;
   let metrics: TimingMetricsCollector;
   let mockAlphabillClient: MockAlphabillClient;
-  let smt: SparseMerkleTree;
+  let smt: Smt;
 
   jest.setTimeout(300000);
 
@@ -160,7 +157,7 @@ describe('Block Creation Performance Benchmarks', () => {
     const replicaSet = await setupSingleNodeReplicaSet();
     mongoContainer = replicaSet.container;
     mongoUri = replicaSet.uri;
-    storage = await AggregatorStorage.init(mongoUri);
+    storage = await AggregatorStorage.init(mongoUri, 'test-server-benchmark');
     metrics = new TimingMetricsCollector();
   });
 
@@ -179,7 +176,7 @@ describe('Block Creation Performance Benchmarks', () => {
   });
 
   beforeEach(async () => {
-    smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
+    smt = new Smt(new SparseMerkleTree(HashAlgorithm.SHA256));
     mockAlphabillClient = new MockAlphabillClient();
 
     const originalSubmitHash = mockAlphabillClient.submitHash;
@@ -203,31 +200,7 @@ describe('Block Creation Performance Benchmarks', () => {
     }
   });
 
-  async function generateCommitments(count: number): Promise<Commitment[]> {
-    const commitments: Commitment[] = [];
 
-    for (let i = 0; i < count; i++) {
-      const idStr = `state-${i}-${uuidv4()}`;
-      const stateHashBytes = new TextEncoder().encode(idStr);
-      const stateHash = new DataHash(HashAlgorithm.SHA256, stateHashBytes);
-
-      const requestId = await RequestId.create(new Uint8Array(32), stateHash);
-
-      const txStr = `tx-${i}-${uuidv4()}`;
-      const txHashBytes = new TextEncoder().encode(txStr);
-      const transactionHash = new DataHash(HashAlgorithm.SHA256, txHashBytes);
-
-      const publicKey = new Uint8Array(32);
-      const sigBytes = new Uint8Array(64);
-      const signature = new Signature(sigBytes.slice(0, 63), sigBytes[63]);
-
-      const authenticator = new Authenticator(publicKey, 'mock-algo', signature, stateHash);
-
-      commitments.push(new Commitment(requestId, transactionHash, authenticator));
-    }
-
-    return commitments;
-  }
 
   function createInstrumentedRoundManager(): RoundManager {
     const roundManager = new RoundManager(
@@ -329,7 +302,7 @@ describe('Block Creation Performance Benchmarks', () => {
 
   async function runBenchmark(commitmentCount: number): Promise<BenchmarkResult> {
     const roundManager = createInstrumentedRoundManager();
-    const commitments = await generateCommitments(commitmentCount);
+    const commitments = await generateTestCommitments(commitmentCount);
 
     for (const commitment of commitments) {
       await roundManager.submitCommitment(commitment);

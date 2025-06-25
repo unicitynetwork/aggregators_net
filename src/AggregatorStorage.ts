@@ -19,15 +19,21 @@ export class AggregatorStorage {
   public readonly blockRecordsStorage: IBlockRecordsStorage;
   public readonly commitmentStorage: ICommitmentStorage;
 
-  private constructor() {
-    this.smtStorage = new SmtStorage();
-    this.blockStorage = new BlockStorage();
-    this.recordStorage = new AggregatorRecordStorage();
-    this.blockRecordsStorage = new BlockRecordsStorage();
-    this.commitmentStorage = new CommitmentStorage();
+  private constructor(
+    smtStorage: ISmtStorage,
+    blockStorage: IBlockStorage,
+    recordStorage: IAggregatorRecordStorage,
+    blockRecordsStorage: IBlockRecordsStorage,
+    commitmentStorage: ICommitmentStorage
+  ) {
+    this.smtStorage = smtStorage;
+    this.blockStorage = blockStorage;
+    this.recordStorage = recordStorage;
+    this.blockRecordsStorage = blockRecordsStorage;
+    this.commitmentStorage = commitmentStorage;
   }
 
-  public static async init(uri: string): Promise<AggregatorStorage> {
+  public static async init(uri: string, serverId: string): Promise<AggregatorStorage> {
     try {
       logger.info('Connecting to MongoDB...');
       const mongooseOptions: ConnectOptions = {
@@ -64,7 +70,21 @@ export class AggregatorStorage {
         logger.info('MongoDB reconnected successfully.');
       });
 
-      return new AggregatorStorage();
+      const smtStorage = new SmtStorage();
+      const blockStorage = new BlockStorage();
+      const recordStorage = new AggregatorRecordStorage();
+      const blockRecordsStorage = await BlockRecordsStorage.create(serverId);
+      const commitmentStorage = new CommitmentStorage();
+
+      const storage = new AggregatorStorage(
+        smtStorage,
+        blockStorage,
+        recordStorage,
+        blockRecordsStorage,
+        commitmentStorage
+      );
+
+      return storage;
     } catch (error) {
       logger.error('Failed to connect to MongoDB: ', error);
       throw error;

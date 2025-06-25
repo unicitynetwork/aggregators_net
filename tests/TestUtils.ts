@@ -6,8 +6,12 @@ import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { GenericContainer, StartedTestContainer, Wait } from 'testcontainers';
 import { v4 as uuidv4 } from 'uuid';
+import mongoose from 'mongoose';
 
+import { AggregatorGateway, IGatewayConfig } from '../src/AggregatorGateway.js';
+import { AggregatorRecord } from '../src/records/AggregatorRecord.js';
 import { Commitment } from '../src/commitment/Commitment.js';
+import { MockValidationService } from './mocks/MockValidationService.js';
 import logger from '../src/logger.js';
 
 export interface IReplicaSetMember {
@@ -173,3 +177,300 @@ export async function generateTestCommitments(count: number, signingService?: Si
  * @returns Promise that resolves after the delay
  */
 export const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Sends a commitment to a specific port via JSON-RPC.
+ *
+ * @param port The port to send the commitment to
+ * @param commitment The commitment to send
+ * @returns Promise<boolean> indicating success
+ */
+export async function sendCommitment(port: number, commitment: AggregatorRecord): Promise<boolean> {
+  try {
+    const response = await fetch(`http://localhost:${port}/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'submit_commitment',
+        params: {
+          requestId: commitment.requestId.toJSON(),
+          transactionHash: commitment.transactionHash.toJSON(),
+          authenticator: commitment.authenticator.toJSON(),
+        },
+        id: 1,
+      }),
+    });
+
+    if (response.status !== 200) {
+      return false;
+    }
+
+    const responseData = await response.json();
+    if (responseData.error || !responseData.result || responseData.result.status !== 'SUCCESS') {
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Gets the SMT root hash from a gateway's health endpoint.
+ *
+ * @param port The port to query
+ * @returns Promise<string | null> The root hash or null if unavailable
+ */
+export async function getRootHash(port: number): Promise<string | null> {
+  try {
+    const response = await fetch(`http://localhost:${port}/health`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (response.status === 200) {
+      const data = await response.json();
+      return data.smtRootHash || null;
+    }
+  } catch (error) {
+    // Ignore errors during root hash retrieval
+  }
+  return null;
+}
+
+/**
+ * Gets health information from a gateway.
+ *
+ * @param port The port to query
+ * @returns Promise<any> The health data or null if unavailable
+ */
+export async function getHealth(port: number): Promise<any> {
+  try {
+    const response = await fetch(`http://localhost:${port}/health`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (response.status === 200) {
+      return await response.json();
+    }
+  } catch (error) {
+    // Ignore errors during health check
+  }
+  return null;
+}
+
+/**
+ * Waits for all target ports to converge to the same SMT root hash.
+ *
+ * @param targetPorts Array of ports to check
+ * @param maxAttempts Maximum number of attempts (default: 30)
+ * @param delayMs Delay between attempts in milliseconds (default: 1000)
+ * @returns Promise with convergence result
+ */
+export async function waitForRootHashConvergence(
+  targetPorts: number[], 
+  maxAttempts: number = 30, 
+  delayMs: number = 1000
+): Promise<{ success: boolean; rootHash: string | null }> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const rootHashes = await Promise.all(targetPorts.map(port => getRootHash(port)));
+    const validHashes = rootHashes.filter(hash => hash !== null);
+    
+    if (validHashes.length === targetPorts.length) {
+      const uniqueHashes = new Set(validHashes);
+      if (uniqueHashes.size === 1) {
+        return { success: true, rootHash: validHashes[0] };
+      }
+    }
+
+    await delay(delayMs);
+  }
+
+  return { success: false, rootHash: null };
+}
+
+/**
+ * Finds the leader gateway from an array of gateways.
+ *
+ * @param gateways Array of AggregatorGateway instances
+ * @returns The leader gateway or null if none found
+ */
+export function findLeader(gateways: AggregatorGateway[]): AggregatorGateway | null {
+  return gateways.find(gateway => gateway && gateway.isLeader()) || null;
+}
+
+/**
+ * Gets all follower gateways from an array of gateways.
+ *
+ * @param gateways Array of AggregatorGateway instances
+ * @returns Array of follower gateways
+ */
+export function getFollowers(gateways: AggregatorGateway[]): AggregatorGateway[] {
+  return gateways.filter(gateway => gateway && !gateway.isLeader());
+}
+
+/**
+ * Waits for leader election to complete among the provided gateways.
+ *
+ * @param gateways Array of AggregatorGateway instances
+ * @param maxAttempts Maximum number of polling attempts (default: 30)
+ * @param delayMs Delay between attempts in milliseconds (default: 1000)
+ * @returns Promise that resolves when a leader is elected
+ */
+export async function waitForLeaderElection(
+  gateways: AggregatorGateway[], 
+  maxAttempts: number = 30, 
+  delayMs: number = 1000
+): Promise<void> {
+  let hasLeader = false;
+  let attempts = 0;
+
+  while (!hasLeader && attempts < maxAttempts) {
+    attempts++;
+    await delay(delayMs);
+
+    if (gateways.some(gateway => gateway && gateway.isLeader())) {
+      hasLeader = true;
+      logger.info(`Leader detected after ${attempts} polling attempts`);
+    }
+  }
+
+  if (!hasLeader) {
+    throw new Error('Failed to elect a leader within timeout');
+  }
+}
+
+/**
+ * Creates a test commitment (AggregatorRecord) for testing.
+ *
+ * @param index Optional index for unique data generation
+ * @param signingService Optional signing service (uses default if not provided)
+ * @returns Promise<AggregatorRecord> A test commitment
+ */
+export async function createTestCommitment(index: number = 0, signingService?: SigningService): Promise<AggregatorRecord> {
+  const commitments = await generateTestCommitments(1, signingService);
+  const commitment = commitments[0];
+  return new AggregatorRecord(commitment.requestId, commitment.transactionHash, commitment.authenticator);
+}
+
+/**
+ * Creates a test RequestId for testing.
+ *
+ * @param signingService Optional signing service (uses default if not provided)
+ * @returns Promise<RequestId> A test request ID
+ */
+export async function createTestRequestId(signingService?: SigningService): Promise<RequestId> {
+  const signer = signingService || getTestSigningService();
+  const randomData = new TextEncoder().encode(`test-${Date.now()}-${Math.random()}`);
+  const stateHash = await new DataHasher(HashAlgorithm.SHA256).update(randomData).digest();
+  return await RequestId.create(signer.publicKey, stateHash);
+}
+
+/**
+ * Creates a standard gateway configuration for testing.
+ *
+ * @param port The port for the gateway
+ * @param serverId The server ID
+ * @param mongoUri The MongoDB connection URI
+ * @param options Optional configuration overrides
+ * @returns IGatewayConfig A gateway configuration
+ */
+export function createGatewayConfig(
+  port: number, 
+  serverId: string, 
+  mongoUri: string,
+  options: Partial<IGatewayConfig> = {}
+): IGatewayConfig {
+  return {
+    aggregatorConfig: {
+      port,
+      serverId,
+      blockCreationWaitTime: 2000,
+      ...options.aggregatorConfig,
+    },
+    highAvailability: {
+      enabled: true,
+      lockTtlSeconds: 10,
+      leaderHeartbeatInterval: 2000,
+      leaderElectionPollingInterval: 1000,
+      ...options.highAvailability,
+    },
+    alphabill: {
+      useMock: true,
+      privateKey: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+      ...options.alphabill,
+    },
+    storage: {
+      uri: mongoUri,
+      ...options.storage,
+    },
+    validationService: options.validationService || new MockValidationService(),
+    ...options,
+  };
+}
+
+/**
+ * Clears all collections in the current MongoDB database.
+ *
+ * @returns Promise<void>
+ */
+export async function clearDatabase(): Promise<void> {
+  if (!mongoose.connection.db) {
+    logger.warn('No database connection available, skipping database clear');
+    return;
+  }
+
+  await mongoose.connection.db.dropDatabase();
+  logger.info('Database cleared');
+}
+
+/**
+ * Sets up a cluster of gateways for testing.
+ *
+ * @param ports Array of ports for the gateways
+ * @param mongoUri MongoDB connection URI
+ * @param serverIdPrefix Prefix for server IDs (default: 'server')
+ * @returns Promise with gateways and ports
+ */
+export async function setupCluster(
+  ports: number[], 
+  mongoUri: string,
+  serverIdPrefix: string = 'server'
+): Promise<{ gateways: AggregatorGateway[], ports: number[] }> {
+  const gateways: AggregatorGateway[] = [];
+
+  // Clear database
+  await clearDatabase();
+  
+  // Create gateways
+  for (let i = 0; i < ports.length; i++) {
+    const config = createGatewayConfig(ports[i], `${serverIdPrefix}-${i + 1}`, mongoUri);
+    const gateway = await AggregatorGateway.create(config);
+    gateways.push(gateway);
+  }
+
+  // Wait for leader election
+  await waitForLeaderElection(gateways);
+
+  // Additional settling time
+  await delay(2000);
+
+  return { gateways, ports };
+}
+
+/**
+ * Cleans up a cluster of gateways.
+ *
+ * @param gateways Array of gateways to stop
+ * @returns Promise<void>
+ */
+export async function cleanupCluster(gateways: AggregatorGateway[]): Promise<void> {
+  for (const gateway of gateways) {
+    if (gateway) {
+      await gateway.stop();
+    }
+  }
+}
