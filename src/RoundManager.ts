@@ -1,5 +1,4 @@
 import { LeafValue } from '@unicitylabs/commons/lib/api/LeafValue.js';
-import { Transaction } from '@unicitylabs/commons/lib/api/Transaction.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import mongoose from 'mongoose';
 

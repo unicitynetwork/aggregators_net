@@ -459,7 +459,7 @@ export class AggregatorGateway {
 
       await this.smt.addLeaves(leavesToAdd);
 
-      logger.info(`Updated in-memory SMT for follower node, new root hash: ${this.smt.rootHash.toString()}`);
+      logger.info(`Updated in-memory SMT for follower node, new root hash: ${(await this.smt.rootHash()).toString()}`);
     });
 
     logger.info(`BlockRecords change listener initialized for server ${this.serverId}`);
