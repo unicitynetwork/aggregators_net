@@ -442,10 +442,15 @@ export class AggregatorGateway {
       }
 
       if (leaves.length !== paths.length) {
+        const missingPaths = paths.filter((path) => !leaves.some((leaf) => leaf.path === path));
         const errorMessage =
-          `Failed to retrieve all SMT leaves after ${maxRetries} retries. ` +
-          `Got ${leaves.length}/${paths.length} leaves for block ${blockRecords.blockNumber}. `;
-        throw new Error(errorMessage);
+          `FATAL: Failed to retrieve all SMT leaves after ${maxRetries} retries. ` +
+          `Got ${leaves.length}/${paths.length} leaves for block ${blockRecords.blockNumber}. ` +
+          `Missing paths: ${missingPaths.map((p) => p.toString()).join(', ')}. ` +
+          `SMT synchronization is broken - process will exit to force restart and full SMT reload.`;
+        
+        logger.error(errorMessage);
+        process.exit(1);
       }
 
       logger.info(

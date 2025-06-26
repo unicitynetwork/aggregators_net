@@ -119,14 +119,20 @@ export class BlockRecordsStorage implements IBlockRecordsStorage {
         const { blockNumber, requestIds } = change.fullDocument;
 
         // Mongoose does not automatically convert the blockNumber to a bigint when using the change stream, so we need to do it manually
-        const binary = blockNumber as unknown as Binary;
-        const uint8Array = new Uint8Array(binary.buffer);
-        const blockNumberBigInt = BigintConverter.decode(uint8Array);
+        let blockRecords: BlockRecords;
+        try {
+          const binary = blockNumber as unknown as Binary;
+          const uint8Array = new Uint8Array(binary.buffer);
+          const blockNumberBigInt = BigintConverter.decode(uint8Array);
 
-        const blockRecords = new BlockRecords(
-          blockNumberBigInt,
-          requestIds.map((requestId: string) => RequestId.fromJSON(requestId)),
-        );
+          blockRecords = new BlockRecords(
+            blockNumberBigInt,
+            requestIds.map((requestId: string) => RequestId.fromJSON(requestId)),
+          );
+        } catch (error) {
+          logger.error('Failed to decode blockNumber from MongoDB Binary:', error);
+          return;
+        }
 
         for (const listener of this.changeListeners) {
           try {
