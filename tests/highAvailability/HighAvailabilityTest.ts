@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import { AggregatorGateway } from '../../src/AggregatorGateway.js';
 import { MockValidationService } from '../mocks/MockValidationService.js';
 import logger from '../../src/logger.js';
+import { getHealth } from '../TestUtils.js';
 
 describe('High Availability Tests', () => {
   const gateways: AggregatorGateway[] = [];
@@ -121,29 +122,29 @@ describe('High Availability Tests', () => {
     expect(hasLeader).toBe(true);
 
     const [response1, response2, response3] = await Promise.all([
-      axios.get('http://localhost:3001/health').catch((e) => e.response || { status: 0, data: null }),
-      axios.get('http://localhost:3002/health').catch((e) => e.response || { status: 0, data: null }),
-      axios.get('http://localhost:3003/health').catch((e) => e.response || { status: 0, data: null }),
+      getHealth(3001).catch(() => null),
+      getHealth(3002).catch(() => null),
+      getHealth(3003).catch(() => null),
     ]);
 
-    logger.info(response1.data);
-    logger.info(response2.data);
-    logger.info(response3.data);
+    logger.info(response1);
+    logger.info(response2);
+    logger.info(response3);
 
-    // All servers should return 200 OK
-    expect(response1.status).toBe(200);
-    expect(response2.status).toBe(200);
-    expect(response3.status).toBe(200);
+    // All servers should return valid data
+    expect(response1).not.toBeNull();
+    expect(response2).not.toBeNull();
+    expect(response3).not.toBeNull();
 
     const leaders = [response1, response2, response3].filter(
-      (response) => response && response.status === 200 && response.data?.role === 'leader',
+      (response) => response && response.role === 'leader',
     );
 
     expect(leaders.length).toBe(1);
-    logger.info('Leader elected:', leaders[0].data.serverId);
+    logger.info('Leader elected:', leaders[0].serverId);
 
     const followers = [response1, response2, response3].filter(
-      (response) => response && response.status === 200 && response.data?.role === 'follower',
+      (response) => response && response.role === 'follower',
     );
 
     expect(followers.length).toBe(2);
@@ -153,13 +154,13 @@ describe('High Availability Tests', () => {
   it('Should elect a new leader when current leader goes down', async () => {
     logger.info('----- TEST 2: Leader Failover -----');
     const responses = await Promise.all([
-      axios.get('http://localhost:3001/health').catch((e) => e.response || { status: 0, data: null }),
-      axios.get('http://localhost:3002/health').catch((e) => e.response || { status: 0, data: null }),
-      axios.get('http://localhost:3003/health').catch((e) => e.response || { status: 0, data: null }),
+      getHealth(3001).catch(() => null),
+      getHealth(3002).catch(() => null),
+      getHealth(3003).catch(() => null),
     ]);
 
     const leaderIndex = responses.findIndex(
-      (response) => response && response.status === 200 && response.data?.role === 'leader',
+      (response) => response && response.role === 'leader',
     );
 
     expect(leaderIndex).not.toBe(-1);
@@ -194,35 +195,29 @@ describe('High Availability Tests', () => {
 
     const remainingResponses = await Promise.all(
       [
-        gateways[0] !== currentLeader
-          ? axios.get('http://localhost:3001/health').catch((e) => e.response || { status: 0, data: null })
-          : null,
-        gateways[1] !== currentLeader
-          ? axios.get('http://localhost:3002/health').catch((e) => e.response || { status: 0, data: null })
-          : null,
-        gateways[2] !== currentLeader
-          ? axios.get('http://localhost:3003/health').catch((e) => e.response || { status: 0, data: null })
-          : null,
-      ].filter(Boolean) as Promise<AxiosResponse>[],
+        gateways[0] !== currentLeader ? getHealth(3001).catch(() => null) : null,
+        gateways[1] !== currentLeader ? getHealth(3002).catch(() => null) : null,
+        gateways[2] !== currentLeader ? getHealth(3003).catch(() => null) : null,
+      ].filter(Boolean) as Promise<any>[],
     );
 
-    // All remaining servers should return 200 OK
+    // All remaining servers should return valid data
     remainingResponses.forEach((response) => {
-      expect(response.status).toBe(200);
+      expect(response).not.toBeNull();
     });
 
     const newLeaders = remainingResponses.filter(
-      (response) => response && response.status === 200 && response.data?.role === 'leader',
+      (response) => response && response.role === 'leader',
     );
 
     expect(newLeaders.length).toBe(1);
-    const newLeaderId = newLeaders[0].data.serverId;
+    const newLeaderId = newLeaders[0].serverId;
     logger.info('New leader elected:', newLeaderId);
 
     expect(newLeaderId).not.toBe(currentLeaderId);
 
     const newFollowers = remainingResponses.filter(
-      (response) => response && response.status === 200 && response.data?.role === 'follower',
+      (response) => response && response.role === 'follower',
     );
 
     expect(newFollowers.length).toBe(1);

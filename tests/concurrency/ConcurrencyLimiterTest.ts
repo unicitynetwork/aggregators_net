@@ -11,12 +11,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { AggregatorGateway } from '../../src/AggregatorGateway.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
 import logger from '../../src/logger.js';
-import { IReplicaSet, setupReplicaSet } from '../TestUtils.js';
+import { IReplicaSet, setupReplicaSet, delay, getHealth } from '../TestUtils.js';
 import { MockValidationService } from '../mocks/MockValidationService.js';
 
 const testLog = (message: string): boolean => process.stdout.write(`[TEST] ${message}\n`);
-
-const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 const MAX_CONCURRENT_REQUESTS = 5;
 
@@ -157,10 +155,7 @@ describe('Concurrency Limiter Tests', () => {
     }
   }
 
-  async function getHealth(): Promise<any> {
-    const response = await axios.get(`http://localhost:${port}/health`);
-    return response.data;
-  }
+
 
   it('should reject requests when concurrency limit is reached', async () => {
     // Set log level to ERROR for this test
@@ -222,7 +217,7 @@ describe('Concurrency Limiter Tests', () => {
 
     // Check server load immediately before awaiting results
     await delay(100); // Small delay to ensure requests have started processing
-    const healthDuringLoad = await getHealth();
+    const healthDuringLoad = await getHealth(port);
     testLog(`Current server load: ${healthDuringLoad.activeRequests}/${healthDuringLoad.maxConcurrentRequests}`);
     expect(healthDuringLoad.activeRequests).toBeGreaterThan(0);
 
@@ -247,7 +242,7 @@ describe('Concurrency Limiter Tests', () => {
     testLog('New request was accepted after capacity became available');
 
     // Double check server load is reasonable again
-    const healthAfterRecovery = await getHealth();
+    const healthAfterRecovery = await getHealth(port);
     testLog(
       `Server load after recovery: ${healthAfterRecovery.activeRequests}/${healthAfterRecovery.maxConcurrentRequests}`,
     );
@@ -281,7 +276,7 @@ describe('Concurrency Limiter Tests', () => {
       // Check the health endpoint during processing to see current count
       // Short delay to ensure requests start processing
       await delay(100);
-      const healthDuringWave = await getHealth();
+      const healthDuringWave = await getHealth(port);
       testLog(`During wave ${waveIndex + 1}, active requests: ${healthDuringWave.activeRequests}`);
 
       // For waves larger than capacity, expect active requests to be at or near capacity
@@ -298,7 +293,7 @@ describe('Concurrency Limiter Tests', () => {
       await delay(500);
 
       // Verify counter goes back down after wave completes
-      const healthAfterWave = await getHealth();
+      const healthAfterWave = await getHealth(port);
       testLog(`After wave ${waveIndex + 1}, active requests: ${healthAfterWave.activeRequests}`);
 
       // Server should process all requests and return to 0 or close to 0 active requests

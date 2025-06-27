@@ -52,7 +52,7 @@ describe('Mongo Replica Set Tests', () => {
     if (!process.env.MONGODB_URI) {
       throw new Error('MongoDB URI not set in environment');
     }
-    const storage = await AggregatorStorage.init(process.env.MONGODB_URI);
+    const storage = await AggregatorStorage.init(process.env.MONGODB_URI, 'test-server-mongo-replica');
 
     logger.info('Storing test data...');
     const testLeaf = new SmtNode(BigInt(1), new Uint8Array([1, 2, 3]));

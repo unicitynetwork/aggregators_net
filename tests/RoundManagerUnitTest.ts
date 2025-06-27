@@ -13,6 +13,7 @@ import { BlockRecordsStorage } from '../src/records/BlockRecordsStorage.js';
 import { RoundManager } from '../src/RoundManager.js';
 import { Smt } from '../src/smt/Smt.js';
 import { SmtStorage } from '../src/smt/SmtStorage.js';
+import { TransactionManager } from '../src/transaction/TransactionManager.js';
 
 describe('Round Manager Tests', () => {
   jest.setTimeout(120000);
@@ -27,6 +28,7 @@ describe('Round Manager Tests', () => {
   let smt: SparseMerkleTree;
   let alphabillClient: MockAlphabillClient;
   let blockRecordsStorage: BlockRecordsStorage;
+  let transactionManager: TransactionManager;
 
   beforeAll(async () => {
     replicaSet = await setupReplicaSet('rm-test-');
@@ -74,6 +76,7 @@ describe('Round Manager Tests', () => {
     smtStorage = new SmtStorage();
     smt = new SparseMerkleTree(HashAlgorithm.SHA256);
     const smtWrapper = new Smt(smt);
+    transactionManager = new TransactionManager();
 
     roundManager = new RoundManager(
       config,
@@ -113,5 +116,70 @@ describe('Round Manager Tests', () => {
 
     const afterProcessCount = await mongoose.connection.collection('commitments').countDocuments();
     expect(afterProcessCount).toBe(5);
+  });
+
+  it('should process block creation in a single transaction', async () => {
+    const commitments = await generateTestCommitments(3);
+
+    for (const commitment of commitments) {
+      await commitmentStorage.put(commitment);
+    }
+
+    const withTransactionSpy = jest.spyOn(TransactionManager.prototype, 'withTransaction');
+
+    const block = await roundManager.createBlock();
+
+    expect(block).toBeDefined();
+    expect(block.index).toBe(1n);
+
+    expect(withTransactionSpy).toHaveBeenCalledTimes(1);
+
+    const storedBlock = await blockStorage.get(1n);
+    expect(storedBlock).toBeDefined();
+
+    const blockRecords = await blockRecordsStorage.get(1n);
+    expect(blockRecords).toBeDefined();
+    expect(blockRecords?.requestIds.length).toBe(3);
+
+    expect(roundManager.getCommitmentCount()).toBe(3);
+
+    withTransactionSpy.mockRestore();
+  });
+
+  it('should roll back all changes when transaction fails', async () => {
+    const commitments = await generateTestCommitments(3);
+
+    for (const commitment of commitments) {
+      await commitmentStorage.put(commitment);
+    }
+
+    // Allow blockStorage.put to succeed but make blockRecordsStorage.put fail
+    // This tests that even successful operations are rolled back when the transaction fails
+    jest.spyOn(blockRecordsStorage, 'put').mockImplementationOnce(() => {
+      throw new Error('Simulated block records storage failure');
+    });
+
+    const blockStorageSpy = jest.spyOn(blockStorage, 'put');
+    const commitmentConfirmSpy = jest.spyOn(commitmentStorage, 'confirmBlockProcessed');
+
+    // Try to create a block - should fail
+    await expect(roundManager.createBlock()).rejects.toThrow('Simulated block records storage failure');
+
+    // Verify operations were attempted in correct order
+    expect(blockStorageSpy).toHaveBeenCalled(); // First operation should succeed
+    expect(blockRecordsStorage.put).toHaveBeenCalled(); // Second operation should fail
+    expect(commitmentConfirmSpy).not.toHaveBeenCalled(); // Third operation shouldn't be called after failure
+
+    // Check database to confirm transaction was rolled back
+    const blockCount = await mongoose.connection.collection('blocks').countDocuments();
+    expect(blockCount).toBe(0);
+
+    const blockRecordsCount = await mongoose.connection.collection('blockrecords').countDocuments();
+    expect(blockRecordsCount).toBe(0);
+
+    // Verify commitment counter wasn't incremented
+    expect(roundManager.getCommitmentCount()).toBe(0);
+
+    jest.restoreAllMocks();
   });
 });

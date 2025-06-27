@@ -1,5 +1,6 @@
 import { LeafValue } from '@unicitylabs/commons/lib/api/LeafValue.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
+import mongoose from 'mongoose';
 
 import { IAggregatorConfig } from './AggregatorGateway.js';
 import { Commitment } from './commitment/Commitment.js';
@@ -9,15 +10,19 @@ import { Block } from './hashchain/Block.js';
 import { IBlockStorage } from './hashchain/IBlockStorage.js';
 import logger from './logger.js';
 import { AggregatorRecord } from './records/AggregatorRecord.js';
+import { BlockRecords } from './records/BlockRecords.js';
 import { IAggregatorRecordStorage } from './records/IAggregatorRecordStorage.js';
 import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { Smt } from './smt/Smt.js';
 import { SmtNode } from './smt/SmtNode.js';
+import { ITransactionManager } from './transaction/ITransactionManager.js';
+import { TransactionManager } from './transaction/TransactionManager.js';
 
 export class RoundManager {
   private commitmentCounter: number = 0;
   private submitCounter: number = 0;
+  private readonly transactionManager: ITransactionManager<mongoose.ClientSession>;
 
   public constructor(
     public readonly config: IAggregatorConfig,
@@ -28,7 +33,10 @@ export class RoundManager {
     public readonly blockRecordsStorage: IBlockRecordsStorage,
     public readonly commitmentStorage: ICommitmentStorage,
     public readonly smtStorage: ISmtStorage,
-  ) {}
+    transactionManager?: ITransactionManager<mongoose.ClientSession>,
+  ) {
+    this.transactionManager = transactionManager || new TransactionManager();
+  }
 
   public async submitCommitment(commitment: Commitment): Promise<void> {
     const loggerWithMetadata = logger.child({ requestId: commitment.requestId.toString() });
@@ -116,22 +124,30 @@ export class RoundManager {
         rootHash,
         null, // TODO add noDeletionProof
       );
-      // TODO use single transaction
-      await this.blockStorage.put(block);
-      await this.blockRecordsStorage.put({
-        blockNumber: blockNumber,
-        requestIds: commitments.map((commitment) => commitment.requestId),
+
+      await this.transactionManager.withTransaction(async (session) => {
+        await this.blockStorage.put(block, session);
+
+        await this.blockRecordsStorage.put(
+          new BlockRecords(
+            blockNumber,
+            commitments.map((commitment) => commitment.requestId),
+          ),
+          session,
+        );
+
+        if (commitments && commitments.length > 0) {
+          await this.commitmentStorage.confirmBlockProcessed(session);
+        }
       });
 
+      // Only increment the counter if we successfully processed the block
       if (commitments && commitments.length > 0) {
-        await this.commitmentStorage.confirmBlockProcessed();
-
-        // Only increment the counter if we successfully processed the block
         this.commitmentCounter += commitmentCount;
       }
 
       loggerWithMetadata.info(
-        `Block ${blockNumber} created successfully with ${commitmentCount} commitments (${this.commitmentCounter}/${this.submitCounter} total commitments processed)`,
+        `Block ${blockNumber} created successfully with ${commitmentCount} commitments (${this.commitmentCounter} commitments processed by this node)`,
       );
 
       return block;
@@ -149,17 +165,17 @@ export class RoundManager {
   }
 
   /**
-   * Exposes the Block Records Storage.
-   */
-  public getBlockRecordsStorage(): IBlockRecordsStorage {
-    return this.blockRecordsStorage;
-  }
-
-  /**
    * Exposes the Block Storage.
    */
   public getBlockStorage(): IBlockStorage {
     return this.blockStorage;
+  }
+
+  /**
+   * Exposes the Block Records Storage.
+   */
+  public getBlockRecordsStorage(): IBlockRecordsStorage {
+    return this.blockRecordsStorage;
   }
 
   /**

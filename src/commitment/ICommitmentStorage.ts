@@ -1,3 +1,5 @@
+import mongoose from 'mongoose';
+
 import { Commitment } from './Commitment.js';
 
 export interface ICommitmentStorage {
@@ -15,6 +17,9 @@ export interface ICommitmentStorage {
   /**
    * Confirms that the current batch of commitments has been successfully processed.
    * Uses the currentBatchEndId already stored in the cursor document
+   *
+   * @param session Optional MongoDB session for transaction support
+   * @returns Promise resolving to true if successful
    */
-  confirmBlockProcessed(): Promise<boolean>;
+  confirmBlockProcessed(session?: mongoose.ClientSession): Promise<boolean>;
 }

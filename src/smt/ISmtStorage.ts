@@ -14,8 +14,16 @@ export interface ISmtStorage {
   getAll(): Promise<SmtNode[]>;
 
   /**
+   * Retrieves SMT nodes that match the specified paths.
+   *
+   * @param paths Array of paths (requestIds as BigInt) to look up
+   * @returns Promise resolving to an array of matching SMT nodes
+   */
+  getByPaths(paths: bigint[]): Promise<SmtNode[]>;
+
+  /**
    * Gets SMT nodes in chunks
-   * 
+   *
    * @param chunkSize The maximum number of nodes to return per chunk
    * @param callback Function called for each chunk of nodes
    * @returns Promise that resolves when all chunks have been processed

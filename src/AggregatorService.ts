@@ -64,6 +64,14 @@ export class AggregatorService {
   }
 
   /**
+   * Get the SMT instance
+   * @returns The Smt instance
+   */
+  public getSmt(): Smt {
+    return this.smt;
+  }
+
+  /**
    * Get block information by block number
    * @param blockNumber The block number to retrieve
    * @returns Block or null if not found

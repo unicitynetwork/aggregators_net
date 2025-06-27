@@ -13,14 +13,13 @@ import { MockValidationService } from './mocks/MockValidationService.js';
 import logger from '../src/logger.js';
 
 describe('Round Manager Integration Tests', () => {
-  jest.setTimeout(120000); // Increased timeout for replica set setup
+  jest.setTimeout(120000);
 
   let replicaSet: IReplicaSet;
   let mongoUri: string;
   let aggregator: AggregatorGateway;
 
   beforeAll(async () => {
-    // Set up MongoDB replica set for transaction support
     replicaSet = await setupReplicaSet('rm-integration-');
     mongoUri = replicaSet.uri;
     logger.info(`Connecting to MongoDB replica set at ${mongoUri}`);

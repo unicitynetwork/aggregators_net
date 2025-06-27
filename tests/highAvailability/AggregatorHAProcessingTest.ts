@@ -1,54 +1,12 @@
 import { MongoDBContainer, StartedMongoDBContainer } from '@testcontainers/mongodb';
-import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
-import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
-import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
-import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
-import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
-import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import axios from 'axios';
 import mongoose from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
 
 import { AggregatorGateway, IGatewayConfig } from '../../src/AggregatorGateway.js';
-import { Commitment } from '../../src/commitment/Commitment.js';
 import { MockValidationService } from '../mocks/MockValidationService.js';
 import logger from '../../src/logger.js';
-
-async function generateTestCommitments(count: number): Promise<Commitment[]> {
-  const commitments: Commitment[] = [];
-
-  for (let i = 0; i < count; i++) {
-    const idStr = `request-${i}-${uuidv4()}`;
-    const stateHashBytes = new TextEncoder().encode(idStr);
-    const stateHash = new DataHash(HashAlgorithm.SHA256, stateHashBytes);
-    const requestId = await RequestId.create(new Uint8Array(32), stateHash);
-
-    const txStr = `tx-${i}-${uuidv4()}`;
-    const txHashBytes = new TextEncoder().encode(txStr);
-    const transactionHash = new DataHash(HashAlgorithm.SHA256, txHashBytes);
-
-    const publicKey = new Uint8Array(32);
-
-    const sigBytes = new Uint8Array(65);
-    for (let j = 0; j < 64; j++) {
-      sigBytes[j] = Math.floor(Math.random() * 256);
-    }
-    sigBytes[64] = 0;
-    const signature = new Signature(sigBytes.slice(0, 64), sigBytes[64]);
-
-    const authenticator = new Authenticator('mock-algo', publicKey, signature, stateHash);
-
-    commitments.push(new Commitment(requestId, transactionHash, authenticator));
-  }
-
-  return commitments;
-}
-
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+import { generateTestCommitments, delay, sendCommitment, getHealth } from '../TestUtils.js';
 
 // TODO fix test
 describe.skip('Aggregator HA Mode Processing Test', () => {
@@ -107,10 +65,10 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
     const maxRetries = 10;
 
     while (!isLeader && retryCount < maxRetries) {
-      await wait(500);
+      await delay(500);
       try {
-        const healthResponse = await axios.get('http://localhost:9876/health');
-        if (healthResponse.data.role === 'leader') {
+        const healthResponse = await getHealth(9876);
+        if (healthResponse.role === 'leader') {
           isLeader = true;
           logger.info(`First gateway confirmed as leader after ${retryCount + 1} attempts`);
         } else {
@@ -148,19 +106,19 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
     retryCount = 0;
 
     while (!setupVerified && retryCount < maxRetries) {
-      await wait(500);
+      await delay(500);
       try {
         const [leaderHealth, followerHealth] = await Promise.all([
-          axios.get('http://localhost:9876/health'),
-          axios.get('http://localhost:9877/health'),
+          getHealth(9876),
+          getHealth(9877),
         ]);
 
         // Check if we have one leader and one follower
-        const roles = [leaderHealth.data.role, followerHealth.data.role];
+        const roles = [leaderHealth.role, followerHealth.role];
         if (roles.includes('leader') && roles.includes('follower')) {
           setupVerified = true;
-          logger.info('Leader gateway health check:', leaderHealth.data);
-          logger.info('Follower gateway health check:', followerHealth.data);
+          logger.info('Leader gateway health check:', leaderHealth);
+          logger.info('Follower gateway health check:', followerHealth);
           logger.info('Leader/follower setup verified successfully');
         } else {
           logger.info(`Leader/follower setup not yet verified (attempt ${retryCount + 1}/${maxRetries})`);
@@ -198,7 +156,7 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
       await mongoose.connection.close();
     }
 
-    await wait(1000);
+    await delay(1000);
 
     if (mongoContainer) {
       logger.info('Stopping MongoDB container...');
@@ -216,9 +174,6 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
     const commitments = await generateTestCommitments(requestCount);
     logger.info(`Generated ${commitments.length} commitments`);
 
-    const leaderUrl = `http://localhost:9876`;
-    const followerUrl = `http://localhost:9877`;
-
     let leaderSuccessCount = 0;
     let followerSuccessCount = 0;
     let failCount = 0;
@@ -229,71 +184,45 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
     for (let i = 0; i < commitments.length; i += batchSize * 2) {
       // Submit a batch to the leader
       const leaderBatch = commitments.slice(i, i + batchSize);
-      const leaderPromises = leaderBatch.map((commitment, index) => {
-        const requestId = commitment.requestId.toJSON();
-
-        return axios
-          .post(leaderUrl, {
-            jsonrpc: '2.0',
-            method: 'submit_commitment',
-            params: {
-              requestId: requestId,
-              transactionHash: commitment.transactionHash.toJSON(),
-              authenticator: commitment.authenticator.toJSON(),
-            },
-            id: i + index + 1,
-          })
-          .then((response) => {
-            if (response.data && response.data.status === SubmitCommitmentStatus.SUCCESS) {
-              leaderSuccessCount++;
-              submittedRequestIds.add(requestId);
-              return true;
-            } else {
-              logger.error(`Failed response for commitment (leader) ${i + index}:`, response.data);
-              failCount++;
-              return false;
-            }
-          })
-          .catch((error) => {
-            logger.error(`Exception submitting commitment (leader) ${i + index}:`, error.message);
-            failCount++;
-            return false;
-          });
+      const leaderPromises = leaderBatch.map(async (commitment, index) => {
+        const aggregatorRecord = {
+          requestId: commitment.requestId,
+          transactionHash: commitment.transactionHash,
+          authenticator: commitment.authenticator
+        };
+        
+        const success = await sendCommitment(9876, aggregatorRecord);
+        if (success) {
+          leaderSuccessCount++;
+          submittedRequestIds.add(commitment.requestId.toJSON());
+          return true;
+        } else {
+          logger.error(`Failed to send commitment (leader) ${i + index}`);
+          failCount++;
+          return false;
+        }
       });
 
       // Submit a batch to the follower
       const followerBatch = commitments.slice(i + batchSize, i + batchSize * 2);
       if (followerBatch.length > 0) {
-        const followerPromises = followerBatch.map((commitment, index) => {
-          const requestId = commitment.requestId.toJSON();
-
-          return axios
-            .post(followerUrl, {
-              jsonrpc: '2.0',
-              method: 'submit_commitment',
-              params: {
-                requestId: requestId,
-                transactionHash: commitment.transactionHash.toJSON(),
-                authenticator: commitment.authenticator.toJSON(),
-              },
-              id: i + batchSize + index + 1,
-            })
-            .then((response) => {
-              if (response.data && response.data.status === SubmitCommitmentStatus.SUCCESS) {
-                followerSuccessCount++;
-                submittedRequestIds.add(requestId);
-                return true;
-              } else {
-                logger.error(`Failed response for commitment (follower) ${i + batchSize + index}:`, response.data);
-                failCount++;
-                return false;
-              }
-            })
-            .catch((error) => {
-              logger.error(`Exception submitting commitment (follower) ${i + batchSize + index}:`, error.message);
-              failCount++;
-              return false;
-            });
+        const followerPromises = followerBatch.map(async (commitment, index) => {
+          const aggregatorRecord = {
+            requestId: commitment.requestId,
+            transactionHash: commitment.transactionHash,
+            authenticator: commitment.authenticator
+          };
+          
+          const success = await sendCommitment(9877, aggregatorRecord);
+          if (success) {
+            followerSuccessCount++;
+            submittedRequestIds.add(commitment.requestId.toJSON());
+            return true;
+          } else {
+            logger.error(`Failed to send commitment (follower) ${i + batchSize + index}`);
+            failCount++;
+            return false;
+          }
         });
 
         // Wait for both batches to complete
@@ -310,15 +239,15 @@ describe.skip('Aggregator HA Mode Processing Test', () => {
 
     // Wait to ensure all blocks are processed
     logger.info('Waiting for block processing to complete...');
-    await wait(5000);
+    await delay(5000);
 
     // Get the leader gateway to check commitment count
-    const leaderHealth = await axios.get('http://localhost:9876/health');
-    const followerHealth = await axios.get('http://localhost:9877/health');
+    const leaderHealth = await getHealth(9876);
+    const followerHealth = await getHealth(9877);
 
     // Determine which gateway is the leader
-    const leaderRole = leaderHealth.data.role;
-    const followerRole = followerHealth.data.role;
+    const leaderRole = leaderHealth.role;
+    const followerRole = followerHealth.role;
     logger.info(`Current roles - Port 9876: ${leaderRole}, Port 9877: ${followerRole}`);
 
     const leader = leaderRole === 'leader' ? leaderGateway : followerGateway;

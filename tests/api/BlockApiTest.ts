@@ -54,8 +54,12 @@ describe('Block API Endpoints', () => {
       validationService: mockValidationService,
     });
 
-    // Disable the block creation waiting period for tests
-    (AggregatorGateway as any).blockCreationActive = false;
+    // Stop automatic block creation for controlled testing
+    (gateway as any).blockCreationActive = false;
+    if ((gateway as any).blockCreationTimer) {
+      clearTimeout((gateway as any).blockCreationTimer);
+      (gateway as any).blockCreationTimer = null;
+    }
 
     logger.info(`Test gateway started on port ${port}`);
   }, 40000); // Increased timeout for replica set and gateway setup
@@ -166,10 +170,10 @@ describe('Block API Endpoints', () => {
     const block = await roundManager.createBlock();
     logger.info(`Created test block with number ${block.index}`);
 
-    // Get block height - should be 1 now
+    // Get block height - should match the created block
     const heightResponse = await callJsonRpc('get_block_height');
     expect(heightResponse.status).toBe(200);
-    expect(heightResponse.body.result.blockNumber).toBe('1');
+    expect(heightResponse.body.result.blockNumber).toBe(block.index.toString());
 
     // Retrieve block by number
     const blockResponse = await callJsonRpc('get_block', { blockNumber: block.index.toString() });

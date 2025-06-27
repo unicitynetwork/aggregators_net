@@ -106,6 +106,20 @@ export class LeaderElection {
   }
 
   /**
+   * Set the callback to be called when this instance becomes the leader.
+   */
+  public setOnBecomeLeader(callback: () => void): void {
+    this.onBecomeLeaderCallback = callback;
+  }
+
+  /**
+   * Set the callback to be called when this instance loses leadership.
+   */
+  public setOnLoseLeadership(callback: () => void): void {
+    this.onLoseLeadershipCallback = callback;
+  }
+
+  /**
    * Try to acquire leadership.
    */
   private async tryAcquireLeadership(): Promise<boolean> {

@@ -125,7 +125,7 @@ describe('SMT Wrapper Tests', () => {
     await delay(50);
 
     try {
-      await smtWrapper.withSmtLock(async () => {
+      await smtWrapper.withSmtLock(() => {
         fail('Should not reach this point');
       });
       fail('Expected lock acquisition to timeout');
