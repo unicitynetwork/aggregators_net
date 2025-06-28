@@ -3,34 +3,24 @@ import mongoose from 'mongoose';
 
 import { BlockRecords } from '../../src/records/BlockRecords.js';
 import { BlockRecordsStorage } from '../../src/records/BlockRecordsStorage.js';
-import { setupReplicaSet, getTestSigningService, IReplicaSet, createTestRequestId, clearDatabase } from '../TestUtils.js';
+import { getTestSigningService, createTestRequestId, connectToSharedMongo, clearAllCollections, disconnectFromSharedMongo } from '../TestUtils.js';
 
 describe('BlockRecordsStorage Resume Token Tests', () => {
   jest.setTimeout(120000);
 
-  let replicaSet: IReplicaSet;
   let storage1: BlockRecordsStorage;
   let storage2: BlockRecordsStorage;
   const signingService = getTestSigningService();
 
   beforeAll(async () => {
-    replicaSet = await setupReplicaSet('test-resume');
-    await mongoose.connect(replicaSet.uri);
+    await connectToSharedMongo();
   });
 
   afterAll(async () => {
-    if (mongoose.connection.readyState !== 0) {
-      await mongoose.connection.close();
-    }
-    
-    if (replicaSet?.containers) {
-      await Promise.all(replicaSet.containers.map(container => container.stop()));
-    }
+    await disconnectFromSharedMongo();
   });
 
   beforeEach(async () => {
-    await clearDatabase();
-
     const testId = Date.now();
     storage1 = await BlockRecordsStorage.create(`server1_${testId}`);
     storage2 = await BlockRecordsStorage.create(`server2_${testId}`);
@@ -39,6 +29,7 @@ describe('BlockRecordsStorage Resume Token Tests', () => {
   afterEach(async () => {
     if (storage1) await storage1.cleanup();
     if (storage2) await storage2.cleanup();
+    await clearAllCollections();
   });
 
   describe('Resume Token Persistence', () => {

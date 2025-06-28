@@ -1,16 +1,13 @@
-import mongoose from 'mongoose';
-
 import logger from '../../src/logger.js';
 import { BlockRecords } from '../../src/records/BlockRecords.js';
 import { BlockRecordsStorage } from '../../src/records/BlockRecordsStorage.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
 import { SmtStorage } from '../../src/smt/SmtStorage.js';
-import { IReplicaSet, delay, generateTestCommitments, setupReplicaSet } from '../TestUtils.js';
+import { delay, generateTestCommitments, connectToSharedMongo, disconnectFromSharedMongo, clearAllCollections } from '../TestUtils.js';
 
 describe('BlockRecords Change Stream Test', () => {
   jest.setTimeout(120000);
 
-  let replicaSet: IReplicaSet;
   let blockRecordsStorage: BlockRecordsStorage;
   let smtStorage: SmtStorage;
 
@@ -23,13 +20,7 @@ describe('BlockRecords Change Stream Test', () => {
   };
 
   beforeAll(async () => {
-    replicaSet = await setupReplicaSet('block-records-test-');
-    logger.info(`Connecting to MongoDB replica set at ${replicaSet.uri}`);
-    await mongoose.connect(replicaSet.uri);
-
-    if (mongoose.connection.db) {
-      await mongoose.connection.db.dropDatabase();
-    }
+    await connectToSharedMongo();
   });
 
   afterAll(async () => {
@@ -38,25 +29,16 @@ describe('BlockRecords Change Stream Test', () => {
       await blockRecordsStorage.cleanup();
     }
 
-    if (mongoose.connection.readyState !== 0) {
-      logger.info('Closing mongoose connection...');
-      await mongoose.connection.close();
-    }
-
-    if (replicaSet?.containers) {
-      logger.info('Stopping replica set containers...');
-      for (const container of replicaSet.containers) {
-        await container.stop();
-      }
-    }
+    await disconnectFromSharedMongo();
   });
 
-  beforeEach(() => {
+  afterEach(async () => {
+    await clearAllCollections();
     receivedEvents.length = 0;
   });
 
   it('should detect new block records and allow retrieving corresponding SMT leaves', async () => {
-    blockRecordsStorage = new BlockRecordsStorage();
+    blockRecordsStorage = await BlockRecordsStorage.create('test-server');
     smtStorage = new SmtStorage();
 
     blockRecordsStorage.addChangeListener(changeListener);

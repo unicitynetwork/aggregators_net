@@ -5,7 +5,7 @@ import mongoose from 'mongoose';
 import { IAggregatorConfig } from '../src/AggregatorGateway.js';
 import { CommitmentStorage } from '../src/commitment/CommitmentStorage.js';
 import { MockAlphabillClient } from './consensus/alphabill/MockAlphabillClient.js';
-import { IReplicaSet, setupReplicaSet, generateTestCommitments } from './TestUtils.js';
+import { connectToSharedMongo, disconnectFromSharedMongo, generateTestCommitments, clearAllCollections } from './TestUtils.js';
 import { BlockStorage } from '../src/hashchain/BlockStorage.js';
 import logger from '../src/logger.js';
 import { AggregatorRecordStorage } from '../src/records/AggregatorRecordStorage.js';
@@ -13,12 +13,11 @@ import { BlockRecordsStorage } from '../src/records/BlockRecordsStorage.js';
 import { RoundManager } from '../src/RoundManager.js';
 import { Smt } from '../src/smt/Smt.js';
 import { SmtStorage } from '../src/smt/SmtStorage.js';
-import { TransactionManager } from '../src/transaction/TransactionManager.js';
+import * as TransactionUtils from '../src/transaction/TransactionUtils.js';
 
 describe('Round Manager Tests', () => {
   jest.setTimeout(120000);
 
-  let replicaSet: IReplicaSet;
   let mongoUri: string;
   let roundManager: RoundManager;
   let blockStorage: BlockStorage;
@@ -28,37 +27,19 @@ describe('Round Manager Tests', () => {
   let smt: SparseMerkleTree;
   let alphabillClient: MockAlphabillClient;
   let blockRecordsStorage: BlockRecordsStorage;
-  let transactionManager: TransactionManager;
 
   beforeAll(async () => {
-    replicaSet = await setupReplicaSet('rm-test-');
-    mongoUri = replicaSet.uri;
-    logger.info(`Connecting to MongoDB replica set at ${mongoUri}`);
-    await mongoose.connect(mongoUri);
+    mongoUri = await connectToSharedMongo(false);
+    logger.info(`Connected to shared in-memory MongoDB at ${mongoUri}`);
   });
 
   afterAll(async () => {
-    if (mongoose.connection.readyState !== 0) {
-      await mongoose.disconnect();
-    }
-
-    if (replicaSet?.containers) {
-      logger.info('Stopping replica set containers...');
-      for (const container of replicaSet.containers) {
-        await container.stop();
-      }
-    }
-
-    logger.info('Disconnected from MongoDB replica set');
+    await disconnectFromSharedMongo();
+    logger.info('Disconnected from shared in-memory MongoDB');
   });
 
   beforeEach(async () => {
-    if (mongoose.connection.readyState === 1) {
-      const collections = await mongoose.connection.db!.collections();
-      for (const collection of collections) {
-        await collection.deleteMany({});
-      }
-    }
+    await clearAllCollections();
 
     const config: IAggregatorConfig = {
       chainId: 1,
@@ -72,11 +53,10 @@ describe('Round Manager Tests', () => {
     blockStorage = new BlockStorage();
     recordStorage = new AggregatorRecordStorage();
     commitmentStorage = new CommitmentStorage();
-    blockRecordsStorage = new BlockRecordsStorage();
+    blockRecordsStorage = await BlockRecordsStorage.create('test-server');
     smtStorage = new SmtStorage();
     smt = new SparseMerkleTree(HashAlgorithm.SHA256);
     const smtWrapper = new Smt(smt);
-    transactionManager = new TransactionManager();
 
     roundManager = new RoundManager(
       config,
@@ -125,14 +105,15 @@ describe('Round Manager Tests', () => {
       await commitmentStorage.put(commitment);
     }
 
-    const withTransactionSpy = jest.spyOn(TransactionManager.prototype, 'withTransaction');
+    const withTransactionSpy = jest.spyOn(TransactionUtils, 'withTransaction');
 
     const block = await roundManager.createBlock();
 
     expect(block).toBeDefined();
     expect(block.index).toBe(1n);
 
-    expect(withTransactionSpy).toHaveBeenCalledTimes(1);
+    // 1 for storing leaves, 1 for storing block and block records
+    expect(withTransactionSpy).toHaveBeenCalledTimes(2);
 
     const storedBlock = await blockStorage.get(1n);
     expect(storedBlock).toBeDefined();

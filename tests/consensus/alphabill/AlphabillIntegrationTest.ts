@@ -14,7 +14,6 @@ import { AlwaysTrueProofFactory } from '@alphabill/alphabill-js-sdk/lib/transact
 import { PayToPublicKeyHashProofFactory } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/PayToPublicKeyHashProofFactory.js';
 import { TransactionStatus } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionStatus.js';
 import { Base16Converter } from '@alphabill/alphabill-js-sdk/lib/util/Base16Converter.js';
-import { MongoDBContainer, StartedMongoDBContainer } from '@testcontainers/mongodb';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
@@ -24,12 +23,12 @@ import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import mongoose from 'mongoose';
 import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 'testcontainers';
 
 import { AggregatorGateway } from '../../../src/AggregatorGateway.js';
-import { MockValidationService } from '../../mocks/MockValidationService.js';
 import logger from '../../../src/logger.js';
+import { connectToSharedMongo, clearAllCollections, sendCommitment, sendGetInclusionProof, disconnectFromSharedMongo, createGatewayConfig } from '../../TestUtils.js';
+import { Commitment } from '../../../src/commitment/Commitment.js';
 
 describe('Alphabill Client Integration Tests', () => {
   const composeFilePath = 'tests';
@@ -43,9 +42,7 @@ describe('Alphabill Client Integration Tests', () => {
   const tokenPartitionId = 5;
   const initialBlockHash = '185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969';
   const aggregatorPort = 3333;
-  const aggregatorUrl = 'http://localhost:' + aggregatorPort;
 
-  let mongoContainer: StartedMongoDBContainer;
   let stateHash: DataHash;
   let transactionHash: DataHash;
   let requestId: RequestId;
@@ -55,9 +52,12 @@ describe('Alphabill Client Integration Tests', () => {
 
   beforeAll(async () => {
     logger.info(
-      'Setting up test environment with Alphabill root node, permissioned token partition node and MongoDB...',
+      'Setting up test environment with Alphabill root node, permissioned token partition node and shared MongoDB...',
     );
-    mongoContainer = await new MongoDBContainer('mongo:7').start();
+    
+    // Connect to the global shared MongoDB replica set
+    const mongoUri = await connectToSharedMongo();
+    
     aggregatorEnvironment = await new DockerComposeEnvironment(composeFilePath, composeAlphabill)
       .withBuild()
       .withWaitStrategy('alphabill-permissioned-tokens-1', Wait.forHealthCheck())
@@ -150,10 +150,7 @@ describe('Alphabill Client Integration Tests', () => {
     logger.info(`Create NFT transaction status - ${TransactionStatus[createNftTxStatus]}.`);
 
     logger.info('Starting aggregator...');
-    
-    const mockValidationService = new MockValidationService();
-    
-    aggregator = await AggregatorGateway.create({
+    const gatewayConfig = createGatewayConfig(aggregatorPort, 'test-server', mongoUri, {
       aggregatorConfig: {
         initialBlockHash: initialBlockHash,
         port: aggregatorPort,
@@ -164,11 +161,9 @@ describe('Alphabill Client Integration Tests', () => {
         tokenPartitionUrl: tokenPartitionUrl,
         tokenPartitionId: tokenPartitionId,
       },
-      storage: {
-        uri: mongoContainer.getConnectionString() + '?directConnection=true',
-      },
-      validationService: mockValidationService,
     });
+    
+    aggregator = await AggregatorGateway.create(gatewayConfig);
     logger.info('Aggregator running.');
     stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2])).digest();
     transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2])).digest();
@@ -181,64 +176,29 @@ describe('Alphabill Client Integration Tests', () => {
     await aggregator.stop();
     logger.info('Stopping environment...');
     await aggregatorEnvironment.down();
-
-    if (mongoose.connection.readyState !== 0) {
-      logger.info('Closing mongoose connection...');
-      await mongoose.connection.close();
-    }
-
-    logger.info('Stopping mongo container...');
-    await mongoContainer.stop({ timeout: 10 });
+    await clearAllCollections();
+    await disconnectFromSharedMongo();
   }, 60000);
 
   it('Submit commitment to aggregator and wait for inclusion proof', async () => {
     const authenticator: Authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
-    const submitCommitmentResponse = await fetch(aggregatorUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'submit_commitment',
-        params: {
-          requestId: requestId.toJSON(),
-          transactionHash: transactionHash.toJSON(),
-          authenticator: authenticator.toJSON(),
-        },
-        id: 1,
-      }),
-    });
 
-    expect(submitCommitmentResponse.status).toEqual(200);
-    const responseData = await submitCommitmentResponse.json();
-    expect(responseData).not.toBeNull();
-    expect(responseData).toHaveProperty('jsonrpc', '2.0');
-    expect(responseData).toHaveProperty('result');
-    expect(responseData).toHaveProperty('id', 1);
-    expect(responseData.result).toHaveProperty('status', SubmitCommitmentStatus.SUCCESS);
-    logger.info('Submit commitment response: ' + JSON.stringify(responseData, null, 2));
+    const commitment = new Commitment(requestId, transactionHash, authenticator);
+    const response = await sendCommitment(aggregatorPort, commitment, 1);
+    expect(response.status).toEqual(200);
+    expect(response.data.jsonrpc).toEqual('2.0');
+    expect(response.data.id).toEqual(1);
+    expect(response.data.result).toHaveProperty('status', SubmitCommitmentStatus.SUCCESS);
+    logger.info('Submit commitment response: ' + JSON.stringify(response, null, 2));
 
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
-    const getInclusionProofResponse = await fetch(aggregatorUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'get_inclusion_proof',
-        params: {
-          requestId: requestId.toJSON(),
-        },
-        id: 2,
-      }),
-    });
-
+    const getInclusionProofResponse = await sendGetInclusionProof(aggregatorPort, requestId, 2);
     expect(getInclusionProofResponse.status).toEqual(200);
-    const inclusionProofData = await getInclusionProofResponse.json();
-    expect(inclusionProofData).toHaveProperty('jsonrpc', '2.0');
-    expect(inclusionProofData).toHaveProperty('result');
-    expect(inclusionProofData).toHaveProperty('id', 2);
-
-    const inclusionProof = InclusionProof.fromJSON(inclusionProofData.result);
+    expect(getInclusionProofResponse.data.jsonrpc).toEqual('2.0');
+    expect(getInclusionProofResponse.data.id).toEqual(2);
+    expect(getInclusionProofResponse.data).toHaveProperty('result');
+    const inclusionProof = InclusionProof.fromJSON(getInclusionProofResponse.data.result);
     const verificationResult = await inclusionProof.verify(requestId.toBigInt());
     expect(verificationResult).toBeTruthy();
   }, 60000);
@@ -250,32 +210,18 @@ describe('Alphabill Client Integration Tests', () => {
       transactionHash,
       newStateHash,
     );
-    const submitCommitmentResponse = await fetch(aggregatorUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'submit_commitment',
-        params: {
-          requestId: requestId.toJSON(),
-          transactionHash: transactionHash.toJSON(),
-          authenticator: authenticator.toJSON(),
-        },
-        id: 3,
-      }),
-    });
 
-    expect(submitCommitmentResponse.status).toEqual(400);
-    const errorResponse = await submitCommitmentResponse.json();
-    expect(errorResponse).not.toBeNull();
-    expect(errorResponse).toHaveProperty('jsonrpc', '2.0');
-    expect(errorResponse).toHaveProperty('error');
-    expect(errorResponse).toHaveProperty('id', 3);
-    expect(errorResponse.error).toHaveProperty('code', -32000);
-    expect(errorResponse.error).toHaveProperty('message', 'Failed to submit commitment');
-    expect(errorResponse.error).toHaveProperty('data');
-    expect(errorResponse.error.data).toHaveProperty('status', SubmitCommitmentStatus.REQUEST_ID_MISMATCH);
-    logger.info('Submit commitment error response: ' + JSON.stringify(errorResponse, null, 2));
+    const commitment = new Commitment(requestId, transactionHash, authenticator);
+    const response = await sendCommitment(aggregatorPort, commitment, 3);
+    expect(response.status).toEqual(400);
+    expect(response.data.jsonrpc).toEqual('2.0');
+    expect(response.data.id).toEqual(3);
+    expect(response.data.error).not.toBeNull();
+    expect(response.data.error!.code).toEqual(-32000);
+    expect(response.data.error!.message).toEqual('Failed to submit commitment');
+    expect(response.data.error!.data).not.toBeNull();
+    expect(response.data.error!.data).toHaveProperty('status', SubmitCommitmentStatus.REQUEST_ID_MISMATCH);
+    logger.info('Submit commitment error response: ' + JSON.stringify(response, null, 2));
   }, 60000);
 
   it('Validate first block hash is set to initial block hash', async () => {

@@ -1,36 +1,25 @@
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import mongoose from 'mongoose';
 
 import logger from '../../src/logger.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
 import { SmtStorage, LeafModel } from '../../src/smt/SmtStorage.js';
-import { IReplicaSet, setupReplicaSet } from '../TestUtils.js';
+import { connectToSharedMongo, disconnectFromSharedMongo, clearAllCollections } from '../TestUtils.js';
 
 describe('SMT Storage Tests', () => {
   jest.setTimeout(120000);
 
-  let replicaSet: IReplicaSet;
-
   beforeAll(async () => {
-    replicaSet = await setupReplicaSet('smt-test-');
-    logger.info(`Connecting to MongoDB replica set at ${replicaSet.uri}`);
-    await mongoose.connect(replicaSet.uri);
+    await connectToSharedMongo();
   });
 
   afterAll(async () => {
-    if (mongoose.connection.readyState !== 0) {
-      logger.info('Closing mongoose connection...');
-      await mongoose.connection.close();
-    }
+    await disconnectFromSharedMongo();
+  });
 
-    if (replicaSet?.containers) {
-      logger.info('Stopping replica set containers...');
-      for (const container of replicaSet.containers) {
-        await container.stop();
-      }
-    }
+  afterEach(async () => {
+    await clearAllCollections();
   });
 
   it('Store and retrieve nodes', async () => {

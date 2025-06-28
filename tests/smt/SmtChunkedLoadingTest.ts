@@ -1,74 +1,30 @@
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
-import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
-import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import axios from 'axios';
-import mongoose from 'mongoose';
 
 import { AggregatorGateway } from '../../src/AggregatorGateway.js';
 import logger from '../../src/logger.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
 import { SmtStorage } from '../../src/smt/SmtStorage.js';
-import { IReplicaSet, setupReplicaSet, delay } from '../TestUtils.js';
-import { MockValidationService } from '../mocks/MockValidationService.js';
+import { connectToSharedMongo, disconnectFromSharedMongo, delay, clearAllCollections, createGatewayConfig } from '../TestUtils.js';
 
 describe('SMT Chunked Loading Tests', () => {
   jest.setTimeout(300000);
 
-  let replicaSet: IReplicaSet;
   let mongoUri: string;
   let gateway: AggregatorGateway;
 
   beforeAll(async () => {
-    logger.info('=========== STARTING SMT CHUNKED LOADING TEST ===========');
-    
-    replicaSet = await setupReplicaSet('smt-chunked-test-');
-    mongoUri = replicaSet.uri;
-    logger.info(`Connecting to MongoDB replica set at ${mongoUri}`);
-    await mongoose.connect(mongoUri);
-    
-    try {
-      if (mongoose.connection.db) {
-        await mongoose.connection.db.dropDatabase();
-        logger.info('Cleaned up existing test database');
-      }
-    } catch (error) {
-      logger.info('No existing test database to clean up');
-    }
-  });
-
-  beforeEach(async () => {
-    try {
-      if (mongoose.connection.db) {
-        await mongoose.connection.db.dropDatabase();
-        logger.info('Cleaned database before test');
-      }
-    } catch (error) {
-      logger.debug('Error cleaning database before test:', error);
-    }
+    mongoUri = await connectToSharedMongo();
   });
 
   afterAll(async () => {
-    logger.info('=========== CLEANING UP SMT CHUNKED LOADING TEST ===========');
-
     if (gateway) {
-      logger.info('Stopping AggregatorGateway...');
       await gateway.stop();
     }
 
-    if (mongoose.connection.readyState !== 0) {
-      logger.info('Closing MongoDB connection...');
-      await mongoose.connection.close();
-    }
-
-    if (replicaSet?.containers) {
-      logger.info('Stopping replica set containers...');
-      for (const container of replicaSet.containers) {
-        await container.stop();
-      }
-    }
-
-    logger.info('=========== FINISHED SMT CHUNKED LOADING TEST ===========');
+    await clearAllCollections();
+    await disconnectFromSharedMongo();
   });
 
   it('should successfully load 10K leaves using chunked loading', async () => {
@@ -119,25 +75,13 @@ describe('SMT Chunked Loading Tests', () => {
     logger.info('Creating AggregatorGateway to test chunked SMT loading...');
     const startTime = Date.now();
     
-    const mockValidationService = new MockValidationService();
-    
-    gateway = await AggregatorGateway.create({
-      aggregatorConfig: {
-        port: port,
-        serverId: 'chunked-loading-test',
-      },
-      alphabill: {
-        useMock: true,
-        privateKey: HexConverter.encode(SigningService.generatePrivateKey()),
-      },
-      storage: {
-        uri: mongoUri,
-      },
+    const gatewayConfig = createGatewayConfig(port, 'chunked-loading-test', mongoUri, {
       highAvailability: {
         enabled: false,
       },
-      validationService: mockValidationService,
-    });
+    }); 
+    gateway = await AggregatorGateway.create(gatewayConfig);
+    
     
     const loadTime = Date.now() - startTime;
     logger.info(`AggregatorGateway created successfully in ${loadTime}ms`);

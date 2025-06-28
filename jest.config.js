@@ -1,5 +1,7 @@
 export default {
   testEnvironment: 'node',
+  globalSetup: '<rootDir>/tests/globalSetup.ts',
+  globalTeardown: '<rootDir>/tests/globalTeardown.ts',
   transform: {
     '^.+\\.[tj]sx?$': 'babel-jest'
   },
