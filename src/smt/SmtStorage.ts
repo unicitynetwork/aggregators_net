@@ -4,6 +4,7 @@ import { ISmtStorage } from './ISmtStorage.js';
 import { SmtNode } from './SmtNode.js';
 import logger from '../logger.js';
 import { SCHEMA_TYPES } from '../StorageSchemaTypes.js';
+import { withTransaction } from '../transaction/TransactionUtils.js';
 
 interface ISmtNode {
   path: bigint;
@@ -42,11 +43,7 @@ export class SmtStorage implements ISmtStorage {
       return true;
     }
 
-    const session = await mongoose.startSession();
-
-    try {
-      session.startTransaction();
-
+    return await withTransaction(async (session) => {
       // Use bulkWrite with updateOne operations that only insert new nodes
       const operations = leaves.map((node) => ({
         updateOne: {
@@ -57,22 +54,12 @@ export class SmtStorage implements ISmtStorage {
       }));
 
       await LeafModel.bulkWrite(operations, { session });
-
-      await session.commitTransaction();
-      logger.debug(`Successfully committed transaction for ${leaves.length} SMT nodes`);
+      logger.debug(`Successfully stored ${leaves.length} SMT nodes`);
       return true;
-    } catch (error) {
-      logger.error('Error in SmtStorage putBatch:', error);
-      try {
-        await session.abortTransaction();
-      } catch (abortError) {
-        logger.error('Error aborting transaction:', abortError);
-      }
-      throw error;
-    } finally {
-      await session.endSession();
-    }
+    });
   }
+
+
 
   /**
    * Retrieves SMT nodes that match the specified paths.

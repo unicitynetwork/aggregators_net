@@ -1,12 +1,13 @@
 import { Response } from 'express';
 
-export interface IJsonRpcError {
+export interface IJsonRpcResponse {
   jsonrpc: string;
-  error: {
+  result?: unknown;
+  error?: {
     code: number;
     message: string;
-    data?: unknown;
-  };
+    data?: unknown | null;
+  } | null;
   id: string | number | null;
 }
 
@@ -18,7 +19,7 @@ export function sendJsonRpcError(
   id: string | number | null,
   data?: unknown,
 ): void {
-  const errorResponse: IJsonRpcError = {
+  const errorResponse: IJsonRpcResponse = {
     jsonrpc: '2.0',
     error: {
       code: errorCode,
@@ -28,7 +29,7 @@ export function sendJsonRpcError(
   };
 
   if (data !== undefined) {
-    errorResponse.error.data = data;
+    errorResponse.error!.data = data;
   }
 
   res.status(httpStatus).json(errorResponse);

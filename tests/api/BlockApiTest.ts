@@ -3,56 +3,31 @@ import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
-import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import mongoose from 'mongoose';
-import request from 'supertest';
 
 import { AggregatorGateway } from '../../src/AggregatorGateway.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
 import logger from '../../src/logger.js';
-import { MockAlphabillClient } from '../../tests/consensus/alphabill/MockAlphabillClient.js';
-import { MockValidationService } from '../mocks/MockValidationService.js';
-import { IReplicaSet, setupReplicaSet } from '../TestUtils.js';
+import { clearAllCollections, connectToSharedMongo, createGatewayConfig, disconnectFromSharedMongo, getBlockHeight, getBlock, getBlockCommitments } from '../TestUtils.js';
 
 describe('Block API Endpoints', () => {
   let gateway: AggregatorGateway;
-  let replicaSet: IReplicaSet;
   let mongoUri: string;
   let port: number;
-  let mockAlphabillClient: MockAlphabillClient;
 
-  jest.setTimeout(120000); // Increased timeout for replica set setup
+  jest.setTimeout(120000);
 
   beforeAll(async () => {
-    // Set up MongoDB replica set for transaction support
-    replicaSet = await setupReplicaSet('block-api-test-');
-    mongoUri = replicaSet.uri;
-    logger.info(`Connecting to MongoDB replica set at ${mongoUri}`);
-    await mongoose.connect(mongoUri);
+    mongoUri = await connectToSharedMongo(false);
 
     port = 3100 + Math.floor(Math.random() * 900);
 
-    mockAlphabillClient = new MockAlphabillClient();
-
-    const mockValidationService = new MockValidationService();
-
-    gateway = await AggregatorGateway.create({
-      aggregatorConfig: {
-        port: port,
-        serverId: 'test-server-id',
-      },
-      alphabill: {
-        useMock: true,
-        privateKey: HexConverter.encode(SigningService.generatePrivateKey()),
-      },
-      storage: {
-        uri: mongoUri,
-      },
+    const gatewayConfig = createGatewayConfig(port, 'test-server', mongoUri, {
       highAvailability: {
         enabled: false,
       },
-      validationService: mockValidationService,
     });
+    gateway = await AggregatorGateway.create(gatewayConfig);
+    
 
     // Stop automatic block creation for controlled testing
     (gateway as any).blockCreationActive = false;
@@ -62,89 +37,52 @@ describe('Block API Endpoints', () => {
     }
 
     logger.info(`Test gateway started on port ${port}`);
-  }, 40000); // Increased timeout for replica set and gateway setup
+  }, 40000);
 
   afterAll(async () => {
-    logger.info('Shutting down test gateway and MongoDB');
-
     await gateway.stop();
-    logger.info('Gateway stopped');
-
-    if (mongoose.connection.readyState !== 0) {
-      logger.info('Closing mongoose connection...');
-      await mongoose.disconnect();
-      logger.info('Mongoose connection closed');
-    }
-
-    if (replicaSet?.containers) {
-      logger.info('Stopping replica set containers...');
-      for (const container of replicaSet.containers) {
-        await container.stop();
-      }
-      logger.info('Replica set containers stopped');
-    }
-  }, 30000); // Increased timeout for cleanup
+    await disconnectFromSharedMongo();
+  }, 30000);
 
   beforeEach(async () => {
-    // Clear all collections before each test
-    if (mongoose.connection.db) {
-      const collections = await mongoose.connection.db.collections();
-      for (const collection of collections) {
-        await collection.deleteMany({});
-      }
-    }
+    await clearAllCollections();
   });
 
-  async function callJsonRpc(method: string, params: any = {}) {
-    const response = await request(`http://localhost:${port}`)
-      .post('/')
-      .set('Content-Type', 'application/json')
-      .set('Accept', 'application/json')
-      .send({
-        jsonrpc: '2.0',
-        method,
-        params,
-        id: 1,
-      });
-
-    // Log response for debugging
-    logger.info(`Response for ${method}: ${JSON.stringify(response.body)}`);
-
-    return response;
-  }
-
   it('should return current block height 0 when no blocks exist', async () => {
-    const response = await callJsonRpc('get_block_height');
+    const response = await getBlockHeight(port, 1);
 
     expect(response.status).toBe(200);
-    expect(response.body).toHaveProperty('jsonrpc', '2.0');
-    expect(response.body.result).toHaveProperty('blockNumber', '0');
+    expect(response.data).toHaveProperty('jsonrpc', '2.0');
+    expect(response.data.result).toHaveProperty('blockNumber', '0');
   });
 
   it('should return 404 when requesting non-existent block', async () => {
-    const response = await callJsonRpc('get_block', { blockNumber: '999' });
+    const response = await getBlock(port, '999', 1);
 
     expect(response.status).toBe(404);
-    expect(response.body).toHaveProperty('jsonrpc', '2.0');
-    expect(response.body.error).toHaveProperty('code', -32001);
-    expect(response.body.error.message).toBe('Block 999 not found');
+    expect(response.data).toHaveProperty('jsonrpc', '2.0');
+    expect(response.data).toHaveProperty('error');
+    expect(response.data.error).toHaveProperty('code', -32001);
+    expect(response.data.error).toHaveProperty('message', 'Block 999 not found');
   });
 
   it('should return 400 when blockNumber is invalid', async () => {
-    const response = await callJsonRpc('get_block', { blockNumber: 'not-a-number' });
+    const response = await getBlock(port, 'not-a-number', 1);
 
     expect(response.status).toBe(400);
-    expect(response.body).toHaveProperty('jsonrpc', '2.0');
-    expect(response.body.error).toHaveProperty('code', -32602);
+    expect(response.data).toHaveProperty('jsonrpc', '2.0');
+    expect(response.data).toHaveProperty('error');
+    expect(response.data.error).toHaveProperty('code', -32602);
   });
 
   it('should return 404 when block commitments are not found', async () => {
-    const response = await callJsonRpc('get_block_commitments', { blockNumber: '999' });
+    const response = await getBlockCommitments(port, '999', 1);
 
     expect(response.status).toBe(404);
-    expect(response.body).toHaveProperty('jsonrpc', '2.0');
-    expect(response.body.error).toHaveProperty('code', -32001);
-    expect(response.body.error.message).toBe('Block 999 not found');
+    expect(response.data).toHaveProperty('jsonrpc', '2.0');
+    expect(response.data).toHaveProperty('error');
+    expect(response.data.error).toHaveProperty('code', -32001);
+    expect(response.data.error).toHaveProperty('message', 'Block 999 not found');
   });
 
   it('should create and retrieve a block and its commitments', async () => {
@@ -171,29 +109,33 @@ describe('Block API Endpoints', () => {
     logger.info(`Created test block with number ${block.index}`);
 
     // Get block height - should match the created block
-    const heightResponse = await callJsonRpc('get_block_height');
+    const heightResponse = await getBlockHeight(port, 1);
     expect(heightResponse.status).toBe(200);
-    expect(heightResponse.body.result.blockNumber).toBe(block.index.toString());
+    expect(heightResponse.data.result).toHaveProperty('blockNumber', block.index.toString());
 
     // Retrieve block by number
-    const blockResponse = await callJsonRpc('get_block', { blockNumber: block.index.toString() });
+    const blockResponse = await getBlock(port, block.index.toString(), 1);
     expect(blockResponse.status).toBe(200);
-    expect(blockResponse.body.result).toHaveProperty('index', block.index.toString());
-    expect(blockResponse.body.result).toHaveProperty('chainId', block.chainId);
-    expect(blockResponse.body.result).toHaveProperty('version', block.version);
-    expect(blockResponse.body.result).toHaveProperty('forkId', block.forkId);
+    expect(blockResponse.data.result).toHaveProperty('index', block.index.toString());
+    expect(blockResponse.data.result).toHaveProperty('chainId', block.chainId);
+    expect(blockResponse.data.result).toHaveProperty('version', block.version);
+    expect(blockResponse.data.result).toHaveProperty('forkId', block.forkId);
 
     // Retrieve commitments for the block
-    const commitmentsResponse = await callJsonRpc('get_block_commitments', { blockNumber: block.index.toString() });
+    const commitmentsResponse = await getBlockCommitments(port, block.index.toString(), 1);
     expect(commitmentsResponse.status).toBe(200);
-    expect(commitmentsResponse.body.result).toBeInstanceOf(Array);
-    expect(commitmentsResponse.body.result).toHaveLength(3);
+    
+    // Verify result is an array with expected length
+    expect(Array.isArray(commitmentsResponse.data.result)).toBe(true);
+    if (Array.isArray(commitmentsResponse.data.result)) {
+      expect(commitmentsResponse.data.result).toHaveLength(3);
 
-    // Verify the commitments have expected structure
-    for (const commitment of commitmentsResponse.body.result) {
-      expect(commitment).toHaveProperty('requestId');
-      expect(commitment).toHaveProperty('transactionHash');
-      expect(commitment).toHaveProperty('authenticator');
+      // Verify the commitments have expected structure
+      for (const commitment of commitmentsResponse.data.result) {
+        expect(commitment).toHaveProperty('requestId');
+        expect(commitment).toHaveProperty('transactionHash');
+        expect(commitment).toHaveProperty('authenticator');
+      }
     }
   });
 
@@ -217,19 +159,19 @@ describe('Block API Endpoints', () => {
       await roundManager.createBlock();
     }
 
-    const heightResponse = await callJsonRpc('get_block_height');
+    const heightResponse = await getBlockHeight(port, 1);
     expect(heightResponse.status).toBe(200);
-    expect(heightResponse.body.result.blockNumber).toBe('3');
+    expect(heightResponse.data.result).toHaveProperty('blockNumber', '3');
 
-    const latestBlockResponse = await callJsonRpc('get_block', { blockNumber: 'latest' });
+    const latestBlockResponse = await getBlock(port, 'latest', 1);
 
     expect(latestBlockResponse.status).toBe(200);
-    expect(latestBlockResponse.body).toHaveProperty('jsonrpc', '2.0');
+    expect(latestBlockResponse.data).toHaveProperty('jsonrpc', '2.0');
 
-    expect(latestBlockResponse.body.result).toHaveProperty('index', '3');
-    expect(latestBlockResponse.body.result).toHaveProperty('chainId');
-    expect(latestBlockResponse.body.result).toHaveProperty('version');
-    expect(latestBlockResponse.body.result).toHaveProperty('rootHash');
-    expect(latestBlockResponse.body.result).toHaveProperty('previousBlockHash');
+    expect(latestBlockResponse.data.result).toHaveProperty('index', '3');
+    expect(latestBlockResponse.data.result).toHaveProperty('chainId');
+    expect(latestBlockResponse.data.result).toHaveProperty('version');
+    expect(latestBlockResponse.data.result).toHaveProperty('rootHash');
+    expect(latestBlockResponse.data.result).toHaveProperty('previousBlockHash');
   });
 });

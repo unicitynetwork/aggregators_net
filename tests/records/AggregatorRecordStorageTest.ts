@@ -9,33 +9,26 @@ import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.
 import { BigintConverter } from '@unicitylabs/commons/lib/util/BigintConverter.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { Binary } from 'mongodb';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 
 import logger from '../../src/logger.js';
 import { AggregatorRecord } from '../../src/records/AggregatorRecord.js';
 import { AggregatorRecordStorage } from '../../src/records/AggregatorRecordStorage.js';
+import { connectToSharedMongo, disconnectFromSharedMongo, clearAllCollections } from '../TestUtils.js';
 
 describe('Aggregator Record Storage Tests', () => {
   jest.setTimeout(60000);
 
-  let mongoServer: MongoMemoryServer;
-
   beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
-    const mongoUri = mongoServer.getUri();
-    logger.info(`Connecting to in-memory MongoDB at ${mongoUri}`);
-    await mongoose.connect(mongoUri);
+    await connectToSharedMongo();
   });
 
   afterAll(async () => {
-    if (mongoose.connection.readyState !== 0) {
-      logger.info('Closing mongoose connection...');
-      await mongoose.connection.close();
-    }
-    if (mongoServer) {
-      await mongoServer.stop();
-    }
+    await disconnectFromSharedMongo();
+  });
+
+  afterEach(async () => {
+    await clearAllCollections();
   });
 
   it('Store and retrieve record', async () => {

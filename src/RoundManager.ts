@@ -1,6 +1,5 @@
 import { LeafValue } from '@unicitylabs/commons/lib/api/LeafValue.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import mongoose from 'mongoose';
 
 import { IAggregatorConfig } from './AggregatorGateway.js';
 import { Commitment } from './commitment/Commitment.js';
@@ -16,13 +15,11 @@ import { IBlockRecordsStorage } from './records/IBlockRecordsStorage.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { Smt } from './smt/Smt.js';
 import { SmtNode } from './smt/SmtNode.js';
-import { ITransactionManager } from './transaction/ITransactionManager.js';
-import { TransactionManager } from './transaction/TransactionManager.js';
+import { withTransaction } from './transaction/TransactionUtils.js';
 
 export class RoundManager {
   private commitmentCounter: number = 0;
   private submitCounter: number = 0;
-  private readonly transactionManager: ITransactionManager<mongoose.ClientSession>;
 
   public constructor(
     public readonly config: IAggregatorConfig,
@@ -33,10 +30,7 @@ export class RoundManager {
     public readonly blockRecordsStorage: IBlockRecordsStorage,
     public readonly commitmentStorage: ICommitmentStorage,
     public readonly smtStorage: ISmtStorage,
-    transactionManager?: ITransactionManager<mongoose.ClientSession>,
-  ) {
-    this.transactionManager = transactionManager || new TransactionManager();
-  }
+  ) {}
 
   public async submitCommitment(commitment: Commitment): Promise<void> {
     const loggerWithMetadata = logger.child({ requestId: commitment.requestId.toString() });
@@ -79,7 +73,6 @@ export class RoundManager {
     try {
       recordStoragePromise =
         aggregatorRecords.length > 0 ? this.recordStorage.putBatch(aggregatorRecords) : Promise.resolve(true);
-
       smtLeafStoragePromise = smtLeaves.length > 0 ? this.smtStorage.putBatch(smtLeaves) : Promise.resolve(true);
     } catch (error) {
       loggerWithMetadata.error('Failed to start storing records and SMT leaves:', error);
@@ -125,7 +118,7 @@ export class RoundManager {
         null, // TODO add noDeletionProof
       );
 
-      await this.transactionManager.withTransaction(async (session) => {
+      await withTransaction(async (session) => {
         await this.blockStorage.put(block, session);
 
         await this.blockRecordsStorage.put(

@@ -3,61 +3,36 @@ import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
-import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import mongoose from 'mongoose';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js'; 
 
-import { IReplicaSet, setupReplicaSet } from './TestUtils.js';
+import { connectToSharedMongo, disconnectFromSharedMongo, clearAllCollections, createGatewayConfig } from './TestUtils.js';
 import { AggregatorGateway } from '../src/AggregatorGateway.js';
 import { Commitment } from '../src/commitment/Commitment.js';
-import { MockValidationService } from './mocks/MockValidationService.js';
 import logger from '../src/logger.js';
 
 describe('Round Manager Integration Tests', () => {
   jest.setTimeout(120000);
 
-  let replicaSet: IReplicaSet;
   let mongoUri: string;
   let aggregator: AggregatorGateway;
 
   beforeAll(async () => {
-    replicaSet = await setupReplicaSet('rm-integration-');
-    mongoUri = replicaSet.uri;
-    logger.info(`Connecting to MongoDB replica set at ${mongoUri}`);
-    await mongoose.connect(mongoUri);
+    mongoUri = await connectToSharedMongo(false);
+    await clearAllCollections();
 
     logger.info('Starting aggregator...');
-    
-    const mockValidationService = new MockValidationService();
-    
-    aggregator = await AggregatorGateway.create({
+    const gatewayConfig = createGatewayConfig(1111, 'test-server', mongoUri, {
       aggregatorConfig: {
         port: 1111,
       },
-      alphabill: { useMock: true, privateKey: HexConverter.encode(SigningService.generatePrivateKey()) },
-      storage: {
-        uri: mongoUri,
-      },
-      validationService: mockValidationService,
     });
+    aggregator = await AggregatorGateway.create(gatewayConfig);
     logger.info('Aggregator running.');
   });
 
   afterAll(async () => {
     await aggregator.stop();
-
-    if (mongoose.connection.readyState !== 0) {
-      logger.info('Closing mongoose connection...');
-      await mongoose.connection.close();
-    }
-
-    if (replicaSet?.containers) {
-      logger.info('Stopping replica set containers...');
-      for (const container of replicaSet.containers) {
-        await container.stop();
-      }
-    }
-
-    logger.info('Disconnected from MongoDB replica set');
+    await disconnectFromSharedMongo();
   });
 
   it('Submit commitment and create block', async () => {

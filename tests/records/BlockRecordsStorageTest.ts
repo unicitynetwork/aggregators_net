@@ -4,37 +4,29 @@ import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import mongoose from 'mongoose';
 
 import logger from '../../src/logger.js';
 import { BlockRecords } from '../../src/records/BlockRecords.js';
 import { BlockRecordsStorage } from '../../src/records/BlockRecordsStorage.js';
+import { connectToSharedMongo, disconnectFromSharedMongo, clearAllCollections } from '../TestUtils.js';
 
 describe('Block Records Storage Tests', () => {
   jest.setTimeout(60000);
 
-  let mongoServer: MongoMemoryServer;
-
   beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
-    const mongoUri = mongoServer.getUri();
-    logger.info(`Connecting to in-memory MongoDB at ${mongoUri}`);
-    await mongoose.connect(mongoUri);
+    await connectToSharedMongo();
   });
 
   afterAll(async () => {
-    if (mongoose.connection.readyState !== 0) {
-      logger.info('Closing mongoose connection...');
-      await mongoose.connection.close();
-    }
-    if (mongoServer) {
-      await mongoServer.stop();
-    }
+    await disconnectFromSharedMongo();
+  });
+
+  afterEach(async () => {
+    await clearAllCollections();
   });
 
   it('Store and retrieve block records', async () => {
-    const storage = new BlockRecordsStorage();
+    const storage = await BlockRecordsStorage.create('test-server');
     const signingService = await SigningService.createFromSecret(SigningService.generatePrivateKey());
     const stateHash = await new DataHasher(HashAlgorithm.SHA256).update(new Uint8Array([1, 2, 3])).digest();
     const requestId = await RequestId.create(signingService.publicKey, stateHash);
@@ -64,10 +56,7 @@ describe('Block Records Storage Tests', () => {
   });
 
   it('Should get the latest block correctly', async () => {
-    await mongoose.connection.collection('blockrecords').deleteMany({});
-    logger.info('Cleared existing block records');
-
-    const storage = new BlockRecordsStorage();
+    const storage = await BlockRecordsStorage.create('test-server2');
     const signingService = await SigningService.createFromSecret(SigningService.generatePrivateKey());
 
     // Create multiple blocks with different block numbers

@@ -1,52 +1,31 @@
-import { MongoDBContainer, StartedMongoDBContainer } from '@testcontainers/mongodb';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import axios, { type AxiosResponse } from 'axios';
-import mongoose from 'mongoose';
+import axios from 'axios';
 
 import { AggregatorGateway } from '../../src/AggregatorGateway.js';
 import { MockValidationService } from '../mocks/MockValidationService.js';
 import logger from '../../src/logger.js';
-import { getHealth } from '../TestUtils.js';
+import { getHealth, connectToSharedMongo, clearAllCollections, disconnectFromSharedMongo } from '../TestUtils.js';
 
 describe('High Availability Tests', () => {
   const gateways: AggregatorGateway[] = [];
-  let mongoContainer: StartedMongoDBContainer;
   let mongoUri: string;
 
   jest.setTimeout(60000);
 
   beforeAll(async () => {
     logger.info('=========== STARTING HA TESTS ===========');
-
-    mongoContainer = await new MongoDBContainer('mongo:7').start();
-    mongoUri = mongoContainer.getConnectionString();
-    logger.info(`Connecting to MongoDB test container, using connection URI: ${mongoUri}.`);
-
-    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000, directConnection: true });
+    mongoUri = await connectToSharedMongo();
   });
 
   afterAll(async () => {
     logger.info('Stopping all gateways...');
     for (const gateway of gateways) {
-      gateway.stop();
+      await gateway.stop();
     }
 
-    // Wait a moment to ensure all connections are properly closed
-    logger.info('Waiting for connections to close...');
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // Close mongoose connection
-    logger.info('Closing MongoDB connection...');
-    await mongoose.connection.close();
-
-    // Wait again to ensure all connections have been closed
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    if (mongoContainer) {
-      logger.info('Stopping MongoDB container...');
-      mongoContainer.stop({ timeout: 10 });
-    }
+    await clearAllCollections();
+    await disconnectFromSharedMongo();
 
     logger.info('=========== FINISHED ALL HA TESTS ===========');
   });
@@ -78,6 +57,7 @@ describe('High Availability Tests', () => {
       aggregatorConfig: {
         port: 3001,
         serverId: 'test-server-1',
+        blockCreationWaitTime: 2000,
       },
       ...gatewayConfiguration,
       validationService: mockValidationService1,
@@ -86,6 +66,7 @@ describe('High Availability Tests', () => {
       aggregatorConfig: {
         port: 3002,
         serverId: 'test-server-2',
+        blockCreationWaitTime: 2000,
       },
       ...gatewayConfiguration,
       validationService: mockValidationService2,
@@ -94,6 +75,7 @@ describe('High Availability Tests', () => {
       aggregatorConfig: {
         port: 3003,
         serverId: 'test-server-3',
+        blockCreationWaitTime: 2000,
       },
       ...gatewayConfiguration,
       validationService: mockValidationService3,
@@ -127,10 +109,6 @@ describe('High Availability Tests', () => {
       getHealth(3003).catch(() => null),
     ]);
 
-    logger.info(response1);
-    logger.info(response2);
-    logger.info(response3);
-
     // All servers should return valid data
     expect(response1).not.toBeNull();
     expect(response2).not.toBeNull();
@@ -141,7 +119,7 @@ describe('High Availability Tests', () => {
     );
 
     expect(leaders.length).toBe(1);
-    logger.info('Leader elected:', leaders[0].serverId);
+    logger.info(`Leader elected: ${leaders[0].serverId}`);
 
     const followers = [response1, response2, response3].filter(
       (response) => response && response.role === 'follower',
@@ -166,7 +144,7 @@ describe('High Availability Tests', () => {
     expect(leaderIndex).not.toBe(-1);
     const currentLeader = gateways[leaderIndex];
     const currentLeaderId = currentLeader.getServerId();
-    logger.info('Current leader:', currentLeaderId);
+    logger.info(`Current leader: ${currentLeaderId}`);
 
     await currentLeader.stop();
     logger.info('Current leader stopped, waiting for new leader election...');
@@ -212,7 +190,7 @@ describe('High Availability Tests', () => {
 
     expect(newLeaders.length).toBe(1);
     const newLeaderId = newLeaders[0].serverId;
-    logger.info('New leader elected:', newLeaderId);
+    logger.info(`New leader elected: ${newLeaderId}`);
 
     expect(newLeaderId).not.toBe(currentLeaderId);
 

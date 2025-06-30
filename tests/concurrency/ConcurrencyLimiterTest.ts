@@ -1,43 +1,18 @@
-import { Authenticator, IAuthenticatorJson } from '@unicitylabs/commons/lib/api/Authenticator.js';
-import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
-import { DataHasher } from '@unicitylabs/commons/lib/hash/DataHasher.js';
-import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
-import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import axios from 'axios';
-import mongoose from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
 
 import { AggregatorGateway } from '../../src/AggregatorGateway.js';
 import { Commitment } from '../../src/commitment/Commitment.js';
 import logger from '../../src/logger.js';
-import { IReplicaSet, setupReplicaSet, delay, getHealth } from '../TestUtils.js';
-import { MockValidationService } from '../mocks/MockValidationService.js';
+import { connectToSharedMongo, disconnectFromSharedMongo, delay, getHealth, clearAllCollections, IApiResponse, sendCommitment, generateTestCommitments, getTestSigningService, createGatewayConfig } from '../TestUtils.js';
 
 const testLog = (message: string): boolean => process.stdout.write(`[TEST] ${message}\n`);
 
 const MAX_CONCURRENT_REQUESTS = 5;
 
-interface IApiResponse {
-  status: number;
-  data: {
-    error?: {
-      code: number;
-      message: string;
-    };
-  } & Record<string, unknown>;
-}
-
-interface IRequestData {
-  requestId: string;
-  transactionHash: string;
-  authenticator: IAuthenticatorJson;
-}
-
 describe('Concurrency Limiter Tests', () => {
   let gateway: AggregatorGateway;
   let port: number;
-  let replicaSet: IReplicaSet;
   let mongoUri: string;
   let originalSubmitCommitment: (commitment: Commitment) => Promise<boolean>;
   let unicitySigningService: SigningService;
@@ -50,35 +25,22 @@ describe('Concurrency Limiter Tests', () => {
     // Set log level to WARN for setup to reduce noise
     logger.level = 'warn';
 
-    replicaSet = await setupReplicaSet('concurrency-test-');
-    mongoUri = replicaSet.uri;
-    logger.info(`Connecting to MongoDB replica set at ${mongoUri}`);
+    mongoUri = await connectToSharedMongo();
 
     port = 3000 + Math.floor(Math.random() * 1000);
 
-    const mockValidationService = new MockValidationService();
-
-    gateway = await AggregatorGateway.create({
+    const gatewayConfig = createGatewayConfig(port, 'test-server', mongoUri, {
       aggregatorConfig: {
-        port: port,
         concurrencyLimit: MAX_CONCURRENT_REQUESTS,
-      },
-      alphabill: {
-        useMock: true,
-        privateKey: HexConverter.encode(SigningService.generatePrivateKey()),
       },
       highAvailability: {
         enabled: false,
       },
-      storage: {
-        uri: mongoUri,
-      },
-      validationService: mockValidationService,
     });
 
-    unicitySigningService = new SigningService(
-      HexConverter.decode('1DE87F189C3C9E42F93C90C95E2AC761BE9D0EB2FD1CA0FF3A9CE165C3DE96A9'),
-    );
+    gateway = await AggregatorGateway.create(gatewayConfig);
+
+    unicitySigningService = getTestSigningService();
 
     // Monkey patch the submitCommitment method to add artificial delay
     originalSubmitCommitment = gateway.getRoundManager().submitCommitment.bind(gateway.getRoundManager());
@@ -89,73 +51,16 @@ describe('Concurrency Limiter Tests', () => {
     };
   }, 30000);
 
+  afterEach(async () => {
+    await clearAllCollections();
+  });
+
   afterAll(async () => {
-    // Restore original log level
     logger.level = originalLogLevel;
 
     await gateway.stop();
-
-    if (mongoose.connection.readyState !== 0) {
-      logger.info('Closing mongoose connection...');
-      await mongoose.connection.close();
-    }
-
-    if (replicaSet?.containers) {
-      logger.info('Stopping replica set containers...');
-      for (const container of replicaSet.containers) {
-        await container.stop();
-      }
-    }
+    await disconnectFromSharedMongo();
   }, 20000);
-
-  async function generateRequestData(count: number): Promise<IRequestData[]> {
-    const requestData: IRequestData[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const randomId = uuidv4();
-      const randomBytes = new TextEncoder().encode(`random-state-${randomId}-${Date.now()}-${i}`);
-      const stateHash = await new DataHasher(HashAlgorithm.SHA256).update(randomBytes).digest();
-
-      const txRandomBytes = new TextEncoder().encode(`tx-${randomId}-${Date.now()}-${i}`);
-      const transactionHash = await new DataHasher(HashAlgorithm.SHA256).update(txRandomBytes).digest();
-
-      const requestId = await RequestId.create(unicitySigningService.publicKey, stateHash);
-      const authenticator = await Authenticator.create(unicitySigningService, transactionHash, stateHash);
-
-      requestData.push({
-        requestId: requestId.toJSON(),
-        transactionHash: transactionHash.toJSON(),
-        authenticator: authenticator.toJSON(),
-      });
-    }
-
-    return requestData;
-  }
-
-  async function sendRequest(params: unknown): Promise<IApiResponse> {
-    try {
-      const response = await axios.post(
-        `http://localhost:${port}`,
-        {
-          jsonrpc: '2.0',
-          method: 'submit_commitment',
-          params,
-          id: 1,
-        },
-        {
-          headers: { 'Content-Type': 'application/json' },
-        },
-      );
-      return { status: response.status, data: response.data };
-    } catch (error) {
-      if (error.response) {
-        return { status: error.response.status, data: error.response.data };
-      }
-      throw error;
-    }
-  }
-
-
 
   it('should reject requests when concurrency limit is reached', async () => {
     // Set log level to ERROR for this test
@@ -168,12 +73,12 @@ describe('Concurrency Limiter Tests', () => {
 
     // Prepare all request data first
     const totalRequests = MAX_CONCURRENT_REQUESTS * 4;
-    const requestData = await generateRequestData(totalRequests);
+    const requestData = await generateTestCommitments(totalRequests);
     testLog(`Prepared ${requestData.length} requests`);
 
     // Now send all requests simultaneously
     testLog('Sending all requests simultaneously...');
-    const requests = requestData.map((params) => sendRequest(params));
+    const requests = requestData.map((commitment) => sendCommitment(port, commitment, 1));
     const results = await Promise.all(requests);
 
     // Count successes and rejections
@@ -208,12 +113,12 @@ describe('Concurrency Limiter Tests', () => {
 
     // Step 1: Send enough requests to hit capacity (one more than the limit to ensure we hit it)
     const firstBatchSize = 6; // Slightly over our capacity of 5
-    const firstBatchData = await generateRequestData(firstBatchSize);
+    const firstBatchData = await generateTestCommitments(firstBatchSize);
 
     testLog(`Sending first batch of ${firstBatchSize} requests to reach capacity...`);
 
     // Start the requests without awaiting completion
-    const firstBatchPromises = firstBatchData.map((params) => sendRequest(params));
+    const firstBatchPromises = firstBatchData.map((commitment) => sendCommitment(port, commitment, 1));
 
     // Check server load immediately before awaiting results
     await delay(100); // Small delay to ensure requests have started processing
@@ -234,8 +139,8 @@ describe('Concurrency Limiter Tests', () => {
 
     // Step 3: Send a new request and verify it succeeds
     testLog('Sending new request after capacity should be available...');
-    const newRequestData = await generateRequestData(1);
-    const newResult = await sendRequest(newRequestData[0]);
+    const newRequestData = await generateTestCommitments(1);
+    const newResult = await sendCommitment(port, newRequestData[0], 1);
 
     // Verify the request was accepted
     expect(newResult.status).toBe(200);
@@ -268,10 +173,10 @@ describe('Concurrency Limiter Tests', () => {
       testLog(`Sending wave ${waveIndex + 1} with ${waveSize} requests...`);
 
       // Generate and send this wave
-      const waveData = await generateRequestData(waveSize);
+      const waveData = await generateTestCommitments(waveSize);
 
       // Start requests without awaiting
-      const wavePromises = waveData.map((params) => sendRequest(params));
+      const wavePromises = waveData.map((commitment) => sendCommitment(port, commitment, 1));
 
       // Check the health endpoint during processing to see current count
       // Short delay to ensure requests start processing
@@ -310,8 +215,8 @@ describe('Concurrency Limiter Tests', () => {
     }
 
     // Final verification - check that we can still process requests after all waves
-    const finalRequestData = await generateRequestData(1);
-    const finalResult = await sendRequest(finalRequestData[0]);
+    const finalRequestData = await generateTestCommitments(1);
+    const finalResult = await sendCommitment(port, finalRequestData[0], 1);
     expect(finalResult.status).toBe(200);
 
     testLog('Counter remained accurate across all request waves');
