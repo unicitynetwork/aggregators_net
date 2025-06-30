@@ -1,7 +1,3 @@
-require('ts-node').register({
-  transpileOnly: true,
-});
-
 import { StartedTestContainer } from 'testcontainers';
 
 interface IReplicaSet {
