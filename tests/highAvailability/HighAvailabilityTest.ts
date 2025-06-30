@@ -44,7 +44,7 @@ describe('High Availability Tests', () => {
         leaderHeartbeatInterval: 2000,
         leaderElectionPollingInterval: 3000,
       },
-      alphabill: {
+      bft: {
         useMock: true,
         privateKey: HexConverter.encode(SigningService.generatePrivateKey()),
       },

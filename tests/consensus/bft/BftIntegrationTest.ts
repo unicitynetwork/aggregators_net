@@ -14,7 +14,6 @@ import { AlwaysTrueProofFactory } from '@unicitylabs/bft-js-sdk/lib/transaction/
 import { PayToPublicKeyHashProofFactory } from '@unicitylabs/bft-js-sdk/lib/transaction/proofs/PayToPublicKeyHashProofFactory.js';
 import { TransactionStatus } from '@unicitylabs/bft-js-sdk/lib/transaction/record/TransactionStatus.js';
 import { Base16Converter } from '@unicitylabs/bft-js-sdk/lib/util/Base16Converter.js';
-import { MongoDBContainer, StartedMongoDBContainer } from '@testcontainers/mongodb';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
@@ -31,13 +30,13 @@ import logger from '../../../src/logger.js';
 import { connectToSharedMongo, clearAllCollections, sendCommitment, sendGetInclusionProof, disconnectFromSharedMongo, createGatewayConfig } from '../../TestUtils.js';
 import { Commitment } from '../../../src/commitment/Commitment.js';
 
-describe('Alphabill Client Integration Tests', () => {
+describe('BFT Client Integration Tests', () => {
   const composeFilePath = 'tests';
-  const composeAlphabill = 'consensus/alphabill/docker/alphabill-docker-compose.yml';
+  const composeBft = 'consensus/bft/docker/bft-docker-compose.yml';
 
   const privateKey = '1DE87F189C3C9E42F93C90C95E2AC761BE9D0EB2FD1CA0FF3A9CE165C3DE96A9';
-  const alphabillSigningService = new DefaultSigningService(Base16Converter.decode(privateKey));
-  const proofFactory = new PayToPublicKeyHashProofFactory(alphabillSigningService);
+  const bftSigningService = new DefaultSigningService(Base16Converter.decode(privateKey));
+  const proofFactory = new PayToPublicKeyHashProofFactory(bftSigningService);
   const tokenPartitionUrl = 'http://localhost:11003/rpc';
   const networkId = 3;
   const tokenPartitionId = 5;
@@ -53,26 +52,26 @@ describe('Alphabill Client Integration Tests', () => {
 
   beforeAll(async () => {
     logger.info(
-      'Setting up test environment with Alphabill root node, permissioned token partition node and shared MongoDB...',
+      'Setting up test environment with BFT root node, permissioned token partition node and shared MongoDB...',
     );
 
     // Connect to the global shared MongoDB replica set
     const mongoUri = await connectToSharedMongo();
 
-    aggregatorEnvironment = await new DockerComposeEnvironment(composeFilePath, composeAlphabill)
+    aggregatorEnvironment = await new DockerComposeEnvironment(composeFilePath, composeBft)
       .withBuild()
-      .withWaitStrategy('alphabill-permissioned-tokens-1', Wait.forHealthCheck())
+      .withWaitStrategy('bft-permissioned-tokens-1', Wait.forHealthCheck())
       .withStartupTimeout(15000)
       .up();
     logger.info('Setup successful.');
 
-    // Wait for Alphabill nodes to sync up
+    // Wait for nodes to sync up
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
     // Set fee credit
     logger.info('Setting fee credit...');
     const tokenClient = createTokenClient({ transport: http(tokenPartitionUrl) });
-    const ownerPredicate = PayToPublicKeyHashPredicate.create(alphabillSigningService.publicKey);
+    const ownerPredicate = PayToPublicKeyHashPredicate.create(bftSigningService.publicKey);
     let round = (await tokenClient.getRoundInfo()).roundNumber;
     const setFeeCreditTransactionOrder = await SetFeeCredit.create({
       targetPartitionIdentifier: tokenPartitionId,
@@ -139,8 +138,8 @@ describe('Alphabill Client Integration Tests', () => {
       typeId: tokenTypeUnitId,
       uri: 'https://github.com/unicitynetwork',
       version: 1n,
-      dataUpdatePredicate: PayToPublicKeyHashPredicate.create(alphabillSigningService.publicKey),
-      ownerPredicate: PayToPublicKeyHashPredicate.create(alphabillSigningService.publicKey),
+      dataUpdatePredicate: PayToPublicKeyHashPredicate.create(bftSigningService.publicKey),
+      ownerPredicate: PayToPublicKeyHashPredicate.create(bftSigningService.publicKey),
     }).sign(alwaysTrueProofFactory, proofFactory);
     const createNonFungibleTokenHash = await tokenClient.sendTransaction(createNonFungibleTokenTransactionOrder);
     const createNonFungibleTokenProof = await tokenClient.waitTransactionProof(
@@ -156,7 +155,7 @@ describe('Alphabill Client Integration Tests', () => {
         initialBlockHash: initialBlockHash,
         port: aggregatorPort,
       },
-      alphabill: {
+      bft: {
         privateKey: privateKey,
         networkId: networkId,
         tokenPartitionUrl: tokenPartitionUrl,

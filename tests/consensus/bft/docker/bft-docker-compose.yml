@@ -1,0 +1,83 @@
+services:
+  bft:
+    platform: linux/amd64
+    user: root
+    # https://github.com/unicitynetwork/bft-core/pkgs/container/bft-core
+    image: ghcr.io/unicitynetwork/bft-core:e1316ad51f4ecab1bc5406badec4c285fbdf14c7
+
+  bft-root:
+    extends:
+      service: bft
+    volumes:
+      - genesis-root:/genesis/root
+      - genesis:/genesis
+    healthcheck:
+      test: [ "CMD", "nc", "-zv", "bft-root", "8000" ]
+      interval: 5s
+    networks:
+      - default
+    entrypoint: ["/busybox/sh", "-c"]
+    command:
+      - |
+        echo "Creating root genesis..." &&
+        ubft root-node init --home /genesis/root -g &&
+        echo "Creating root trust base..." &&
+        ubft trust-base generate --home /genesis --network-id 3 --node-info /genesis/root/node-info.json && 
+        echo "Signing root trust base..." &&
+        ubft trust-base sign --home /genesis/root --trust-base /genesis/trust-base.json && 
+        echo "Starting root node..." &&
+        ubft root-node run --home /genesis/root --address "/ip4/$(hostname -i)/tcp/8000" --trust-base /genesis/trust-base.json --rpc-server-address "$(hostname -i):8002"
+
+  bft-permissioned-tokens:
+    extends:
+      service: bft
+    volumes:
+      - permissioned-tokens:/genesis/permissioned-tokens
+      - genesis-root:/genesis/root
+      - genesis:/genesis
+    depends_on:
+      bft-root:
+        condition: service_healthy
+    ports:
+      - "11003:11003"
+    healthcheck:
+      test: [ "CMD", "nc", "-zv", "bft-permissioned-tokens", "11001" ]
+      interval: 2s
+    networks:
+      - default
+    entrypoint: ["/busybox/sh", "-c"]
+    command:
+      - |
+        echo "Creating permissioned tokens genesis..." &&
+        ubft shard-node init --home /genesis/permissioned-tokens --generate && 
+        echo "Creating permissioned tokens partition configuration..." &&
+        ubft shard-conf generate --home /genesis --network-id 3 --partition-id 5 --partition-type-id 2 --epoch-start 10 --feeless-mode true --admin-owner-predicate 0x830041025820786C9F82FCD2CFB4190A690725E85734F2D25B86DBC35186D85D08F3CFC2B7CA --node-info=/genesis/permissioned-tokens/node-info.json &&
+        echo "Creating permissioned tokens partition state..." &&
+        ubft shard-conf genesis --home "/genesis/permissioned-tokens" --shard-conf /genesis/shard-conf-5_0.json &&
+        echo "Starting permissioned tokens partition..." &&
+        ubft shard-node run --home /genesis/permissioned-tokens --trust-base /genesis/trust-base.json --shard-conf /genesis/shard-conf-5_0.json --address "/ip4/$(hostname -i)/tcp/11001" --bootnodes "/dns/bft-root/tcp/8000/p2p/$(ubft node-id --home /genesis/root | tail -n1)" --rpc-server-address "$(hostname -i):11003"
+
+  upload-configurations:
+    image: curlimages/curl:8.13.0
+    user: root
+    depends_on:
+      bft-root:
+        condition: service_healthy
+      bft-permissioned-tokens:
+        condition: service_healthy
+    restart: on-failure
+    volumes:
+      - genesis:/genesis
+    command: |
+      /bin/sh -c "
+        echo Uploading permissioned tokens configuration &&
+        curl -X PUT -H 'Content-Type: application/json' -d @/genesis/shard-conf-5_0.json http://bft-root:8002/api/v1/configurations
+      "
+
+networks:
+  default:
+
+volumes:
+  genesis:
+  genesis-root:
+  permissioned-tokens:

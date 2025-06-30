@@ -4,7 +4,7 @@ import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { IAggregatorConfig } from './AggregatorGateway.js';
 import { Commitment } from './commitment/Commitment.js';
 import { ICommitmentStorage } from './commitment/ICommitmentStorage.js';
-import { IAlphabillClient } from './consensus/alphabill/IAlphabillClient.js';
+import { IBftClient } from './consensus/bft/IBftClient.js';
 import { Block } from './hashchain/Block.js';
 import { IBlockStorage } from './hashchain/IBlockStorage.js';
 import logger from './logger.js';
@@ -23,7 +23,7 @@ export class RoundManager {
 
   public constructor(
     public readonly config: IAggregatorConfig,
-    public readonly alphabillClient: IAlphabillClient,
+    public readonly bftClient: IBftClient,
     public readonly smt: Smt,
     public readonly blockStorage: IBlockStorage,
     public readonly recordStorage: IAggregatorRecordStorage,
@@ -94,11 +94,11 @@ export class RoundManager {
     let submitHashResponse;
     const rootHash = await this.smt.rootHash();
     try {
-      loggerWithMetadata.info(`Submitting hash to Alphabill: ${rootHash.toString()}...`);
-      submitHashResponse = await this.alphabillClient.submitHash(rootHash);
-      loggerWithMetadata.info(`Hash submitted to Alphabill: ${rootHash.toString()}`);
+      loggerWithMetadata.info(`Submitting hash to BFT: ${rootHash.toString()}...`);
+      submitHashResponse = await this.bftClient.submitHash(rootHash);
+      loggerWithMetadata.info(`Hash submitted to BFT: ${rootHash.toString()}`);
     } catch (error) {
-      loggerWithMetadata.error('Failed to submit hash to Alphabill:', error);
+      loggerWithMetadata.error('Failed to submit hash to BFT:', error);
       throw error;
     }
 

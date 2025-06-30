@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "networkId": 3,
+  "partitionId": 2,
+  "shardId": "0x80",
+  "partitionTypeId": 2,
+  "typeIdLength": 8,
+  "unitIdLength": 256,
+  "summaryTrustBase": "",
+  "t2timeout": 2500000000,
+  "feeCreditBill": null,
+  "partitionParams": {
+    "adminOwnerPredicate": "0x830041025820786C9F82FCD2CFB4190A690725E85734F2D25B86DBC35186D85D08F3CFC2B7CA",
+    "feeless-mode": "true"
+  },
+  "epoch": 0,
+  "epochStart": 10,
+  "validators": [
+    {
+      "nodeId": "16Uiu2HAm9Vc3ykKBj5wNHebtDiTLZ4jf9rnk86GYQ6aVtD6dcHif",
+      "sigKey": "0x03817921ff269a48940151c9198478f59b894ff6ef279cc13c91aa0dbf52a629fa",
+      "stake": 1
+    }
+  ]
+}

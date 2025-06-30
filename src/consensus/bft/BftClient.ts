@@ -20,11 +20,11 @@ import { PayToPublicKeyHashProofFactory } from '@unicitylabs/bft-js-sdk/lib/tran
 import { TransactionStatus } from '@unicitylabs/bft-js-sdk/lib/transaction/record/TransactionStatus.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 
-import { IAlphabillClient } from './IAlphabillClient.js';
+import { IBftClient } from './IBftClient.js';
 import { SubmitHashResponse } from './SubmitHashResponse.js';
 import logger from '../../logger.js';
 
-export class AlphabillClient implements IAlphabillClient {
+export class BftClient implements IBftClient {
   private constructor(
     private readonly tokenClient: TokenPartitionJsonRpcClient,
     private readonly networkId: number,
@@ -40,8 +40,8 @@ export class AlphabillClient implements IAlphabillClient {
     tokenPartitionUrl: string,
     tokenPartitionId: number,
     networkId: number,
-  ): Promise<AlphabillClient> {
-    logger.info('Initializing Alphabill client...');
+  ): Promise<BftClient> {
+    logger.info('Initializing BFT client...');
     const tokenClient = createTokenClient({ transport: http(tokenPartitionUrl) });
     const proofFactory = new PayToPublicKeyHashProofFactory(signingService);
     const alwaysTrueProofFactory = new AlwaysTrueProofFactory();
@@ -110,8 +110,8 @@ export class AlphabillClient implements IAlphabillClient {
     }
 
     if (nftID) {
-      logger.info(`NFT already exists (ID=${nftID}), skipping initial Alphabill setup.`);
-      return new AlphabillClient(
+      logger.info(`NFT already exists (ID=${nftID}), skipping initial BFT setup.`);
+      return new BftClient(
         tokenClient,
         networkId,
         tokenPartitionId,
@@ -147,11 +147,11 @@ export class AlphabillClient implements IAlphabillClient {
     const createNftTxStatus = createNonFungibleTokenProof.transactionRecord.serverMetadata.successIndicator;
     logger.info(`Create NFT transaction status - ${TransactionStatus[createNftTxStatus]}.`);
     if (createNftTxStatus !== TransactionStatus.Successful) {
-      throw new Error('Alphabill client setup failed.');
+      throw new Error('BFT client setup failed.');
     }
     nftID = createNonFungibleTokenProof.transactionRecord.transactionOrder.payload.unitId;
-    logger.info(`Alphabill client setup successful, NFT ID: ${nftID}.`);
-    return new AlphabillClient(
+    logger.info(`BFT client setup successful, NFT ID: ${nftID}.`);
+    return new BftClient(
       tokenClient,
       networkId,
       tokenPartitionId,

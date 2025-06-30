@@ -445,10 +445,10 @@ export function createGatewayConfig(
       leaderElectionPollingInterval: 1000,
       ...options.highAvailability,
     },
-    alphabill: {
+    bft: {
       useMock: true,
       privateKey: DEFAULT_SIGNING_KEY,
-      ...options.alphabill,
+      ...options.bft,
     },
     storage: {
       uri: mongoUri,

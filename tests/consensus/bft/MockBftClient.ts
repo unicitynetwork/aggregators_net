@@ -27,8 +27,8 @@ import { UnitId } from '@unicitylabs/bft-js-sdk/lib/UnitId.js';
 import { BitString } from '@unicitylabs/bft-js-sdk/lib/codec/cbor/BitString.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 
-import { IAlphabillClient } from '../../../src/consensus/alphabill/IAlphabillClient.js';
-import { SubmitHashResponse } from '../../../src/consensus/alphabill/SubmitHashResponse.js';
+import { IBftClient } from '../../../src/consensus/bft/IBftClient.js';
+import { SubmitHashResponse } from '../../../src/consensus/bft/SubmitHashResponse.js';
 import logger from '../../../src/logger.js';
 
 class MockSigningService implements ISigningService {
@@ -39,7 +39,7 @@ class MockSigningService implements ISigningService {
   }
 }
 
-export class MockAlphabillClient implements IAlphabillClient {
+export class MockBftClient implements IBftClient {
   public readonly signingService: ISigningService;
   public readonly tokenClient: TokenPartitionJsonRpcClient;
   public readonly networkId: number;
@@ -63,7 +63,7 @@ export class MockAlphabillClient implements IAlphabillClient {
 
     const txProof = this.createMockTransactionProof(transactionHash.data);
 
-    logger.info('Mock Alphabill client: submitting hash successfully');
+    logger.info('Mock BFT client: submitting hash successfully');
     return new SubmitHashResponse(previousData, txProof);
   }
 
