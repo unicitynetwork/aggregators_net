@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { Server } from 'node:http';
 import os from 'node:os';
 
-import { DefaultSigningService } from '@alphabill/alphabill-js-sdk/lib/signing/DefaultSigningService.js';
+import { DefaultSigningService } from '@unicitynetwork/bft-js-sdk/lib/signing/DefaultSigningService.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';

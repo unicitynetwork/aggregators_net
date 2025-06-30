@@ -1,4 +1,4 @@
-import { dedent } from '@alphabill/alphabill-js-sdk/lib/util/StringUtils.js';
+import { dedent } from '@unicitynetwork/bft-js-sdk/lib/util/StringUtils.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
 export class SmtNode {
