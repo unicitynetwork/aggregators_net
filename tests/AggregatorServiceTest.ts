@@ -111,6 +111,7 @@ describe('AggregatorService Tests', () => {
         await blockRecordsStorage.cleanup();
       } catch (error) {
         logger.warn('Error during blockRecordsStorage cleanup:', error);
+        throw error; // Re-throw the error to fail the test
       }
     }
   });

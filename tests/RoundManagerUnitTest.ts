@@ -30,12 +30,10 @@ describe('Round Manager Tests', () => {
 
   beforeAll(async () => {
     mongoUri = await connectToSharedMongo(false);
-    logger.info(`Connected to shared in-memory MongoDB at ${mongoUri}`);
   });
 
   afterAll(async () => {
     await disconnectFromSharedMongo();
-    logger.info('Disconnected from shared in-memory MongoDB');
   });
 
   beforeEach(async () => {

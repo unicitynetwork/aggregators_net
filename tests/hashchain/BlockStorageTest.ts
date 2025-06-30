@@ -36,12 +36,10 @@ describe('Block Storage Tests', () => {
 
   beforeAll(async () => {
     const mongoUri = await connectToSharedMongo();
-    logger.info(`Connected to shared in-memory MongoDB at ${mongoUri}`);
   });
 
   afterAll(async () => {
     await disconnectFromSharedMongo();
-    logger.info('Disconnected from shared in-memory MongoDB');
   });
 
   afterEach(async () => {
