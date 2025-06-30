@@ -1,15 +1,11 @@
-import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
-import { Signature } from '@unicitylabs/commons/lib/signing/Signature.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import mongoose from 'mongoose';
 
 import { AggregatorService } from '../src/AggregatorService.js';
 import { Commitment } from '../src/commitment/Commitment.js';
@@ -23,12 +19,11 @@ import { RoundManager } from '../src/RoundManager.js';
 import { Smt } from '../src/smt/Smt.js';
 import { MockValidationService } from './mocks/MockValidationService.js';
 import { IValidationService } from '../src/ValidationService.js';
-import { createTestCommitment as createTestAggregatorRecord } from './TestUtils.js';
+import { createTestCommitment as createTestAggregatorRecord, connectToSharedMongo, disconnectFromSharedMongo, clearAllCollections } from './TestUtils.js';
 
 describe('AggregatorService Tests', () => {
   jest.setTimeout(30000);
 
-  let mongoServer: MongoMemoryServer;
   let mongoUri: string;
   let aggregatorService: AggregatorService;
   let roundManager: RoundManager;
@@ -57,25 +52,14 @@ describe('AggregatorService Tests', () => {
   };
 
   beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
-    mongoUri = mongoServer.getUri();
-    await mongoose.connect(mongoUri);
-    logger.info(`Connected to in-memory MongoDB at ${mongoUri}`);
+    mongoUri = await connectToSharedMongo();
   });
 
   afterAll(async () => {
-    if (mongoose.connection.readyState !== 0) {
-      await mongoose.disconnect();
-    }
-    if (mongoServer) {
-      await mongoServer.stop();
-    }
-    logger.info('Disconnected from in-memory MongoDB');
+    await disconnectFromSharedMongo();
   });
 
   beforeEach(async () => {
-    await mongoose.connection.dropDatabase();
-
     alphabillClient = new MockAlphabillClient();
     recordStorage = new AggregatorRecordStorage();
     commitmentStorage = new CommitmentStorage();
@@ -119,8 +103,16 @@ describe('AggregatorService Tests', () => {
   });
 
   afterEach(async () => {
+    await clearAllCollections();
+
+    // Ensure proper cleanup of change streams and other resources
     if (blockRecordsStorage) {
-      await blockRecordsStorage.cleanup();
+      try {
+        await blockRecordsStorage.cleanup();
+      } catch (error) {
+        logger.warn('Error during blockRecordsStorage cleanup:', error);
+        throw error; // Re-throw the error to fail the test
+      }
     }
   });
 

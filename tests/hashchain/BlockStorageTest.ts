@@ -24,33 +24,26 @@ import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { Binary } from 'mongodb';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 
 import { Block } from '../../src/hashchain/Block.js';
 import { BlockStorage } from '../../src/hashchain/BlockStorage.js';
+import { connectToSharedMongo, disconnectFromSharedMongo, clearAllCollections } from '../TestUtils.js';
 import logger from '../../src/logger.js';
 
 describe('Block Storage Tests', () => {
   jest.setTimeout(60000);
 
-  let mongoServer: MongoMemoryServer;
-
   beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
-    const mongoUri = mongoServer.getUri();
-    logger.info(`Connecting to in-memory MongoDB at ${mongoUri}`);
-    await mongoose.connect(mongoUri);
+    const mongoUri = await connectToSharedMongo();
   });
 
   afterAll(async () => {
-    if (mongoose.connection.readyState !== 0) {
-      logger.info('Closing mongoose connection...');
-      await mongoose.connection.close();
-    }
-    if (mongoServer) {
-      await mongoServer.stop();
-    }
+    await disconnectFromSharedMongo();
+  });
+
+  afterEach(async () => {
+    await clearAllCollections();
   });
 
   it('Store and retrieve block', async () => {

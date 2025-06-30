@@ -1,13 +1,9 @@
 import { describe, it, beforeAll, afterAll, expect } from '@jest/globals';
 import mongoose from 'mongoose';
 
-import { AggregatorGateway, IGatewayConfig } from '../../src/AggregatorGateway.js';
-import { AggregatorRecord } from '../../src/records/AggregatorRecord.js';
+import { AggregatorGateway } from '../../src/AggregatorGateway.js';
 import { 
-  setupReplicaSet, 
-  getTestSigningService, 
-  generateTestCommitments, 
-  IReplicaSet, 
+  connectToSharedMongo,
   sendCommitment,
   getRootHash,
   waitForRootHashConvergence,
@@ -16,37 +12,34 @@ import {
   waitForLeaderElection,
   createTestCommitment,
   createGatewayConfig,
-  clearDatabase,
   setupCluster,
   cleanupCluster,
-  delay
+  delay,
+  disconnectFromSharedMongo,
+  clearAllCollections
 } from '../TestUtils.js';
-import { MockValidationService } from '../mocks/MockValidationService.js';
+import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
 
 describe('Resume Token End-to-End Integration Tests', () => {
   jest.setTimeout(300000);
 
-  let replicaSet: IReplicaSet;
-  const signingService = getTestSigningService();
+  let mongoUri: string;
 
   beforeAll(async () => {
-    replicaSet = await setupReplicaSet('test-resume-e2e');
-    await mongoose.connect(replicaSet.uri);
+    mongoUri = await connectToSharedMongo();
   });
 
   afterAll(async () => {
-    if (mongoose.connection.readyState !== 0) {
-      await mongoose.connection.close();
-    }
-    
-    if (replicaSet?.containers) {
-      await Promise.all(replicaSet.containers.map(container => container.stop()));
-    }
+    await disconnectFromSharedMongo();
+  });
+
+  afterEach(async () => {
+    await clearAllCollections();
   });
 
   async function setupTestCluster(): Promise<{ gateways: AggregatorGateway[], ports: number[] }> {
     const ports = [8001, 8002, 8003];
-    return await setupCluster(ports, replicaSet.uri);
+    return await setupCluster(ports, mongoUri);
   }
 
   describe('Multi-Node Resume Token Scenarios', () => {
@@ -63,12 +56,10 @@ describe('Resume Token End-to-End Integration Tests', () => {
         );
 
         const leaderPort = ports[gateways.indexOf(leader)];
-        for (const commitment of initialCommitments) {
-          const success = await sendCommitment(leaderPort, commitment);
-          expect(success).toBe(true);
+        for (let i = 0; i < initialCommitments.length; i++) {
+          const response = await sendCommitment(leaderPort, initialCommitments[i], i + 1);
+          expect(response.data.result).toHaveProperty('status', SubmitCommitmentStatus.SUCCESS);
         }
-
-        await delay(5000);
 
         const initialConvergence = await waitForRootHashConvergence(ports);
         expect(initialConvergence.success).toBe(true);
@@ -112,9 +103,9 @@ describe('Resume Token End-to-End Integration Tests', () => {
           Array.from({ length: 3 }, (_, i) => createTestCommitment(i + 10))
         );
 
-        for (const commitment of offlineCommitments) {
-          const success = await sendCommitment(leaderPort, commitment);
-          expect(success).toBe(true);
+        for (let i = 0; i < offlineCommitments.length; i++) {
+          const response = await sendCommitment(leaderPort, offlineCommitments[i], i + 1);
+          expect(response.data.result).toHaveProperty('status', SubmitCommitmentStatus.SUCCESS);
         }
 
         await delay(3000);
@@ -123,7 +114,7 @@ describe('Resume Token End-to-End Integration Tests', () => {
         expect(rootHashBeforeRestart).toBeTruthy();
         expect(rootHashBeforeRestart).not.toBe(initialRootHash);
 
-        const restartConfig = createGatewayConfig(followerPort, followerServerId, replicaSet.uri);
+        const restartConfig = createGatewayConfig(followerPort, followerServerId, mongoUri);
         const restartedGateway = await AggregatorGateway.create(restartConfig);
         gateways[followerIndex] = restartedGateway;
 
@@ -136,12 +127,11 @@ describe('Resume Token End-to-End Integration Tests', () => {
           Array.from({ length: 2 }, (_, i) => createTestCommitment(i + 20))
         );
 
-        for (const commitment of finalCommitments) {
-          const success = await sendCommitment(leaderPort, commitment);
-          expect(success).toBe(true);
+        for (let i = 0; i < finalCommitments.length; i++) {
+          const response = await sendCommitment(leaderPort, finalCommitments[i], i + 1);
+          expect(response.data.result).toHaveProperty('status', SubmitCommitmentStatus.SUCCESS);
         }
 
-        await delay(3000);
         const finalConvergence = await waitForRootHashConvergence(ports);
         expect(finalConvergence.success).toBe(true);
       } finally {
@@ -176,19 +166,19 @@ describe('Resume Token End-to-End Integration Tests', () => {
           Array.from({ length: 3 }, (_, i) => createTestCommitment(i + 30))
         );
 
-        for (const commitment of failoverCommitments) {
-          const success = await sendCommitment(newLeaderPort, commitment);
-          expect(success).toBe(true);
+        for (let i = 0; i < failoverCommitments.length; i++) {
+          const response = await sendCommitment(newLeaderPort, failoverCommitments[i], i + 1);
+          expect(response.data.result).toHaveProperty('status', SubmitCommitmentStatus.SUCCESS);
         }
 
-        await delay(5000);
-        
+        await delay(3000);
+
         const activePortsAfterFailover = ports.filter((_, index) => gateways[index] !== null);
         const failoverConvergence = await waitForRootHashConvergence(activePortsAfterFailover);
         expect(failoverConvergence.success).toBe(true);
         expect(failoverConvergence.rootHash).not.toBe(initialRootHash);
         
-        const followerConfig = createGatewayConfig(leaderPort, leaderServerId, replicaSet.uri);
+        const followerConfig = createGatewayConfig(leaderPort, leaderServerId, mongoUri);
         const restartedAsFollower = await AggregatorGateway.create(followerConfig);
         gateways[leaderIndex] = restartedAsFollower;
         
@@ -224,9 +214,9 @@ describe('Resume Token End-to-End Integration Tests', () => {
           Array.from({ length: 4 }, (_, i) => createTestCommitment(i + 40))
         );
 
-        for (const commitment of restartCommitments) {
-          const success = await sendCommitment(leaderPort, commitment);
-          expect(success).toBe(true);
+        for (let i = 0; i < restartCommitments.length; i++) {
+          const response = await sendCommitment(leaderPort, restartCommitments[i], i + 1);
+          expect(response.data.result).toHaveProperty('status', SubmitCommitmentStatus.SUCCESS);
         }
 
         await delay(6000);
@@ -234,15 +224,13 @@ describe('Resume Token End-to-End Integration Tests', () => {
         expect(leaderRootHashAfterCommitments).not.toBe(initialRootHash);
         
         const restartPromises = followerConfigs.map(async (config, i) => {
-          const restartConfig = createGatewayConfig(config.port, config.serverId, replicaSet.uri);
+          const restartConfig = createGatewayConfig(config.port, config.serverId, mongoUri);
           const restartedGateway = await AggregatorGateway.create(restartConfig);
           gateways[followerIndices[i]] = restartedGateway;
           return restartedGateway;
         });
         
         await Promise.all(restartPromises);
-        
-        await delay(8000);
         
         const finalConvergence = await waitForRootHashConvergence(ports);
         expect(finalConvergence.success).toBe(true);

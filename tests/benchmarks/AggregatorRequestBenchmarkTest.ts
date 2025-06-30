@@ -10,8 +10,7 @@ import { AggregatorGateway, IGatewayConfig } from '../../src/AggregatorGateway.j
 import { Commitment } from '../../src/commitment/Commitment.js';
 import { MockValidationService } from '../mocks/MockValidationService.js';
 import logger from '../../src/logger.js';
-import { delay, generateTestCommitments, setupReplicaSet } from '../TestUtils.js';
-import type { IReplicaSet } from '../TestUtils.js';
+import { delay, generateTestCommitments, connectToSharedMongo } from '../TestUtils.js';
 
 // Test configuration constants
 const TEST_REQUEST_COUNT = 1000;
@@ -189,7 +188,6 @@ describe('Aggregator Request Performance Benchmark', () => {
   jest.setTimeout(300000); // 5 minutes max for the test
 
   let gateway: AggregatorGateway;
-  let replicaSet: IReplicaSet;
   let mongoUri: string;
 
   beforeAll(async () => {
@@ -199,9 +197,7 @@ describe('Aggregator Request Performance Benchmark', () => {
     originalLogLevel = logger.level;
     logger.level = 'info'; // Keep info for benchmark metrics
 
-    replicaSet = await setupReplicaSet('mongo-benchmark');
-    mongoUri = replicaSet.uri;
-    logger.info(`Connecting to MongoDB replica set, using connection URI: ${mongoUri}`);
+    mongoUri = await connectToSharedMongo();
 
     const mockValidationService = new MockValidationService();
 
@@ -261,16 +257,7 @@ describe('Aggregator Request Performance Benchmark', () => {
 
     await delay(1000);
 
-    if (replicaSet) {
-      logger.info('Stopping MongoDB replica set containers...');
-      for (const container of replicaSet.containers) {
-        try {
-          await container.stop();
-        } catch (e) {
-          logger.error('Error stopping container:', e);
-        }
-      }
-    }
+    // No need to stop replica set - using shared instance
 
     logger.info('=========== FINISHED PERFORMANCE BENCHMARK ===========');
   });

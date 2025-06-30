@@ -4,17 +4,16 @@ import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { Binary } from 'mongodb';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 
 import { Commitment } from '../../src/commitment/Commitment.js';
 import { CommitmentStorage } from '../../src/commitment/CommitmentStorage.js';
+import { connectToSharedMongo, disconnectFromSharedMongo, clearAllCollections } from '../TestUtils.js';
 
 describe('CommitmentStorage Tests', () => {
   jest.setTimeout(30000);
 
-  let mongoServer: MongoMemoryServer;
   let storage: CommitmentStorage;
 
   async function generateTestCommitment(): Promise<Commitment> {
@@ -33,26 +32,16 @@ describe('CommitmentStorage Tests', () => {
   }
 
   beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
-    const uri = mongoServer.getUri();
-    await mongoose.connect(uri);
-
+    await connectToSharedMongo();
     storage = new CommitmentStorage();
   });
 
   afterAll(async () => {
-    if (mongoose.connection) {
-      await mongoose.connection.close();
-    }
-    if (mongoServer) {
-      await mongoServer.stop();
-    }
+    await disconnectFromSharedMongo();
   });
 
-  beforeEach(async () => {
-    if (mongoose.connection && mongoose.connection.db) {
-      await mongoose.connection.db.dropDatabase();
-    }
+  afterEach(async () => {
+    await clearAllCollections();
   });
 
   it('should store and retrieve commitment with correct hash imprints', async () => {
