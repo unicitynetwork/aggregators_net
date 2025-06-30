@@ -16,7 +16,15 @@ import { TransactionStatus } from '@unicitylabs/bft-js-sdk/lib/transaction/recor
 import { StateLock } from '@unicitylabs/bft-js-sdk/lib/transaction/StateLock.js';
 import { TransactionOrder } from '@unicitylabs/bft-js-sdk/lib/transaction/TransactionOrder.js';
 import { TransactionPayload } from '@unicitylabs/bft-js-sdk/lib/transaction/TransactionPayload.js';
+import {
+  UnicityCertificate,
+  InputRecord,
+  ShardTreeCertificate,
+  UnicityTreeCertificate,
+  UnicitySeal,
+} from '@unicitylabs/bft-js-sdk/lib/unit/UnicityCertificate.js';
 import { UnitId } from '@unicitylabs/bft-js-sdk/lib/UnitId.js';
+import { BitString } from '@unicitylabs/bft-js-sdk/lib/codec/cbor/BitString.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 
 import { IAlphabillClient } from '../../../src/consensus/alphabill/IAlphabillClient.js';
@@ -93,9 +101,21 @@ export class MockAlphabillClient implements IAlphabillClient {
 
     const transactionRecord = new TransactionRecord<typeof transactionOrder>(1n, transactionOrder, serverMetadata);
 
-    // Simplified mock proof - create minimal proof for testing
-    const mockProof = new TransactionProof(1n, new Uint8Array([1]), [], {} as any);
+    const inputRecord = new InputRecord(1n, 1n, 1n, null, null, new Uint8Array([1]), 1n, null, 1n, null);
+    const shardTreeCertificate = new ShardTreeCertificate(BitString.create(new Uint8Array([1])), [new Uint8Array([1])]);
+    const unicityTreeCertificate = new UnicityTreeCertificate(1n, 1n, []);
+    const unicitySeal = new UnicitySeal(1n, 1n, 1n, 1n, BigInt(Date.now()), null, new Uint8Array([1]), new Map());
+    const unicityCertificate = new UnicityCertificate(
+      1n,
+      inputRecord,
+      null,
+      new Uint8Array([1]),
+      shardTreeCertificate,
+      unicityTreeCertificate,
+      unicitySeal,
+    );
+    const transactionProof = new TransactionProof(1n, new Uint8Array([1]), [], unicityCertificate);
 
-    return new TransactionRecordWithProof(transactionRecord, mockProof);
+    return new TransactionRecordWithProof(transactionRecord, transactionProof);
   }
 }
