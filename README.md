@@ -138,7 +138,7 @@ For token operations and state transitions, use the [Unicity State Transition SD
 
 ```javascript
 // Create aggregator client
-const aggregatorClient = new AggregatorClient('https://gateway-test1.unicity.network:443');
+const aggregatorClient = new AggregatorClient('https://gateway-test.unicity.network');
 const client = new StateTransitionClient(aggregatorClient);
 
 // Get inclusion proof and create transaction
@@ -148,62 +148,8 @@ const transaction = await client.createTransaction(commitment, inclusionProof);
 
 For complete documentation, examples, and API reference, visit the [State Transition SDK repository](https://github.com/unicitynetwork/state-transition-sdk).
 
-## Example
+## Command Line Interface (CLI)
 You can submit and query the status of transaction requests via command-line tools from the separate [Unicity CLI repository](https://github.com/unicitynetwork/cli).
-
-### Installation
-
-```bash
-# Clone the CLI repository
-git clone https://github.com/unicitynetwork/cli.git
-cd cli
-
-# Install dependencies
-npm install
-
-# Build the project
-npm run build
-```
-
-### Register Request
-Register a new state transition request
-
-**Usage:** 
-```bash
-npm run register-request -- -e <endpoint_url> <secret> <state> <transition>
-```
-
-**Parameters:**
-- `-e, --endpoint <url>` - Aggregator endpoint URL
-- `<secret>` - Secret key for signing the request
-- `<state>` - Source state data (will be hashed)
-- `<transition>` - Transition data (will be hashed)
-
-**Example:**
-```bash
-npm run register-request -- -e https://gateway-test1.unicity.network:443 mySecretKey "initial state" "new transition"
-```
-
-**Output:** Result of the request submission. Note, successful submission does not guarantee that the state transition request has been registered within the unicity aggregation layer. It only means that the aggregator gateway has received and validated the submission. To get the proof of the request submission, use the get-request command.
-
-### Get Request
-Retrieve an inclusion proof for a specific request ID
-
-**Usage:**
-```bash
-npm run get-request -- -e <endpoint_url> <request_id>
-```
-
-**Parameters:**
-- `-e, --endpoint <url>` - Aggregator endpoint URL (default: https://gateway.unicity.network)
-- `<request_id>` - The request ID
-
-**Example:**
-```bash
-npm run get-request -- -e https://gateway-test1.unicity.network:443 7c8a9b0f1d2e3f4a5b6c7d8e9f0a1b2c
-```
-
-**Output:** The inclusion proofs
 
 ## Integration with your project
 
@@ -216,21 +162,20 @@ To integrate token operations and state transitions into your project:
 
 2. **For direct API access**, make HTTP POST requests to the aggregator gateway using JSON-RPC 2.0 format:
    ```javascript
-   const response = await fetch('https://gateway-test1.unicity.network:443/', {
+   const response = await fetch('https://gateway-test.unicity.network/', {
      method: 'POST',
      headers: { 'Content-Type': 'application/json' },
      body: JSON.stringify({
        jsonrpc: '2.0',
        method: 'submit_commitment',
        params: {
-         requestId: '<64-digit hex request ID>',
-         transactionHash: '<64-digit hex transaction hash>',
+         requestId: '<34-byte hex request ID>',
+         transactionHash: '<34-byte hex transaction hash>',
          authenticator: {
-           stateHash: '<64-digit hex state hash>',
-           publicKey: '<hex public key>',
-           signature: '<hex signature>',
-           signAlg: 'ed25519',
-           hashAlg: 'SHA256'
+           stateHash: '<34-byte hex state hash>',
+           publicKey: '<33-byte hex public key (compressed)>',
+           signature: '<65-byte hex signature [R || S || V]>',
+           algorithm: 'secp256k1',
          }
        },
        id: 1
