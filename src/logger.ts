@@ -61,7 +61,6 @@ const productionFormat = format.combine(
 const logger: Logger = createLogger({
   level: isTestEnvironment ? 'info' : (process.env.LOG_LEVEL ?? 'info'),
   transports: [
-    // Use custom transport for tests to avoid Jest console capturing
     isTestEnvironment 
       ? new DirectConsoleTransport({ format: testFormat })
       : new transports.Console({ format: productionFormat }),
