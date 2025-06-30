@@ -1,4 +1,4 @@
-import { dedent } from '@unicitynetwork/bft-js-sdk/lib/util/StringUtils.js';
+import { dedent } from '@unicitylabs/bft-js-sdk/lib/util/StringUtils.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 
 export class BlockRecords {

@@ -1,4 +1,4 @@
-import { dedent } from '@unicitynetwork/bft-js-sdk/lib/util/StringUtils.js';
+import { dedent } from '@unicitylabs/bft-js-sdk/lib/util/StringUtils.js';
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';

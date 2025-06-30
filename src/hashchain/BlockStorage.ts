@@ -1,7 +1,7 @@
-import { UpdateNonFungibleTokenAttributes } from '@unicitynetwork/bft-js-sdk/lib/tokens/attributes/UpdateNonFungibleTokenAttributes.js';
-import { type UpdateNonFungibleTokenTransactionOrder } from '@unicitynetwork/bft-js-sdk/lib/tokens/transactions/UpdateNonFungibleToken.js';
-import { TypeDataUpdateProofsAuthProof } from '@unicitynetwork/bft-js-sdk/lib/transaction/proofs/TypeDataUpdateProofsAuthProof.js';
-import { TransactionRecordWithProof } from '@unicitynetwork/bft-js-sdk/lib/transaction/record/TransactionRecordWithProof.js';
+import { UpdateNonFungibleTokenAttributes } from '@unicitylabs/bft-js-sdk/lib/tokens/attributes/UpdateNonFungibleTokenAttributes.js';
+import { type UpdateNonFungibleTokenTransactionOrder } from '@unicitylabs/bft-js-sdk/lib/tokens/transactions/UpdateNonFungibleToken.js';
+import { TypeDataUpdateProofsAuthProof } from '@unicitylabs/bft-js-sdk/lib/transaction/proofs/TypeDataUpdateProofsAuthProof.js';
+import { TransactionRecordWithProof } from '@unicitylabs/bft-js-sdk/lib/transaction/record/TransactionRecordWithProof.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import mongoose, { model } from 'mongoose';
 

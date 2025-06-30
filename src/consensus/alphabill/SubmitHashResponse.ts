@@ -1,6 +1,6 @@
-import type { UpdateNonFungibleTokenTransactionOrder } from '@unicitynetwork/bft-js-sdk/lib/tokens/transactions/UpdateNonFungibleToken.js';
-import { TransactionRecordWithProof } from '@unicitynetwork/bft-js-sdk/lib/transaction/record/TransactionRecordWithProof.js';
-import { dedent } from '@unicitynetwork/bft-js-sdk/lib/util/StringUtils.js';
+import type { UpdateNonFungibleTokenTransactionOrder } from '@unicitylabs/bft-js-sdk/lib/tokens/transactions/UpdateNonFungibleToken.js';
+import { TransactionRecordWithProof } from '@unicitylabs/bft-js-sdk/lib/transaction/record/TransactionRecordWithProof.js';
+import { dedent } from '@unicitylabs/bft-js-sdk/lib/util/StringUtils.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
 export class SubmitHashResponse {
