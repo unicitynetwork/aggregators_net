@@ -138,4 +138,4 @@ records.json
 .DS_Store
 
 # BFT Docker genesis files
-tests/consensus/btf/docker/genesis
+tests/consensus/bft/docker/genesis
