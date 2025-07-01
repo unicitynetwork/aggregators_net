@@ -3,6 +3,7 @@
   become: false
   gather_facts: true
   hosts: "{{env}}"
+  serial: 1 # one at a time
 
   vars_files:
     - "vars/{{env}}.yml"
@@ -57,3 +58,19 @@
 #       - never
         - restart
         - start
+
+    - name: Wait for node to recover
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:3000/health"
+        method: GET
+        status_code: 200 # We expect a 200 for success
+      register: health_check
+      until: health_check.status == 200
+      retries: 99 # Number of retries
+      delay: 2 # Delay in seconds between retries
+      delegate_to: "{{ inventory_hostname }}" # Ensure this runs on the remote host
+      tags:
+#       - never
+        - restart
+        - start
+
