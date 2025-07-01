@@ -59,15 +59,19 @@
         - restart
         - start
 
-    - name: Wait for node to recover
+    - name: Pause allow service to start up
+      ansible.builtin.pause:
+        seconds: 10
+
+    - name: Wait for service to recover
       ansible.builtin.uri:
         url: "http://127.0.0.1:3000/health"
         method: GET
         status_code: 200 # We expect a 200 for success
       register: health_check
       until: health_check.status == 200
-      retries: 99 # Number of retries
-      delay: 2 # Delay in seconds between retries
+      retries: 20 # Number of retries
+      delay: 3 # Delay in seconds between retries
       delegate_to: "{{ inventory_hostname }}" # Ensure this runs on the remote host
       tags:
 #       - never
