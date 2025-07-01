@@ -209,7 +209,7 @@ describe('Aggregator Request Performance Benchmark', () => {
         port: SERVER_PORT,
         concurrencyLimit: CONCURRENCY_LIMIT,
       },
-      alphabill: {
+      bft: {
         useMock: true,
         privateKey: HexConverter.encode(SigningService.generatePrivateKey()),
       },

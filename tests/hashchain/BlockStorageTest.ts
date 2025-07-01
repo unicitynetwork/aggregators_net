@@ -1,25 +1,25 @@
 import assert from 'assert';
 
-import { BitString } from '@alphabill/alphabill-js-sdk/lib/codec/cbor/BitString.js';
-import { UpdateNonFungibleTokenAttributes } from '@alphabill/alphabill-js-sdk/lib/tokens/attributes/UpdateNonFungibleTokenAttributes.js';
-import { ClientMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/ClientMetadata.js';
-import { TypeDataUpdateProofsAuthProof } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/TypeDataUpdateProofsAuthProof.js';
-import { ServerMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/record/ServerMetadata.js';
-import { TransactionProof } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionProof.js';
-import { TransactionRecord } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionRecord.js';
-import { TransactionRecordWithProof } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionRecordWithProof.js';
-import { TransactionStatus } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionStatus.js';
-import { StateLock } from '@alphabill/alphabill-js-sdk/lib/transaction/StateLock.js';
-import { TransactionOrder } from '@alphabill/alphabill-js-sdk/lib/transaction/TransactionOrder.js';
-import { TransactionPayload } from '@alphabill/alphabill-js-sdk/lib/transaction/TransactionPayload.js';
+import { BitString } from '@unicitylabs/bft-js-sdk/lib/codec/cbor/BitString.js';
+import { UpdateNonFungibleTokenAttributes } from '@unicitylabs/bft-js-sdk/lib/tokens/attributes/UpdateNonFungibleTokenAttributes.js';
+import { ClientMetadata } from '@unicitylabs/bft-js-sdk/lib/transaction/ClientMetadata.js';
+import { TypeDataUpdateProofsAuthProof } from '@unicitylabs/bft-js-sdk/lib/transaction/proofs/TypeDataUpdateProofsAuthProof.js';
+import { ServerMetadata } from '@unicitylabs/bft-js-sdk/lib/transaction/record/ServerMetadata.js';
+import { TransactionProof } from '@unicitylabs/bft-js-sdk/lib/transaction/record/TransactionProof.js';
+import { TransactionRecord } from '@unicitylabs/bft-js-sdk/lib/transaction/record/TransactionRecord.js';
+import { TransactionRecordWithProof } from '@unicitylabs/bft-js-sdk/lib/transaction/record/TransactionRecordWithProof.js';
+import { TransactionStatus } from '@unicitylabs/bft-js-sdk/lib/transaction/record/TransactionStatus.js';
+import { StateLock } from '@unicitylabs/bft-js-sdk/lib/transaction/StateLock.js';
+import { TransactionOrder } from '@unicitylabs/bft-js-sdk/lib/transaction/TransactionOrder.js';
+import { TransactionPayload } from '@unicitylabs/bft-js-sdk/lib/transaction/TransactionPayload.js';
 import {
   UnicityCertificate,
   InputRecord,
   ShardTreeCertificate,
   UnicityTreeCertificate,
   UnicitySeal,
-} from '@alphabill/alphabill-js-sdk/lib/unit/UnicityCertificate.js';
-import { UnitId } from '@alphabill/alphabill-js-sdk/lib/UnitId.js';
+} from '@unicitylabs/bft-js-sdk/lib/unit/UnicityCertificate.js';
+import { UnitId } from '@unicitylabs/bft-js-sdk/lib/UnitId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';

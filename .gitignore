@@ -137,5 +137,5 @@ records.json
 # MacOS
 .DS_Store
 
-# Alphabill Docker genesis files
-tests/consensus/alphabill/docker/genesis
+# BFT Docker genesis files
+tests/consensus/bft/docker/genesis

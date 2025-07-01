@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { Server } from 'node:http';
 import os from 'node:os';
 
-import { DefaultSigningService } from '@alphabill/alphabill-js-sdk/lib/signing/DefaultSigningService.js';
+import { DefaultSigningService } from '@unicitylabs/bft-js-sdk/lib/signing/DefaultSigningService.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
@@ -12,8 +12,8 @@ import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
 import { AggregatorService } from './AggregatorService.js';
 import { AggregatorStorage } from './AggregatorStorage.js';
-import { AlphabillClient } from './consensus/alphabill/AlphabillClient.js';
-import { IAlphabillClient } from './consensus/alphabill/IAlphabillClient.js';
+import { BftClient } from './consensus/bft/BftClient.js';
+import { IBftClient } from './consensus/bft/IBftClient.js';
 import { LeaderElection } from './highAvailability/LeaderElection.js';
 import { LeadershipStorage } from './highAvailability/LeadershipStorage.js';
 import logger from './logger.js';
@@ -24,13 +24,13 @@ import { setupRouter } from './router/AggregatorRouter.js';
 import { ISmtStorage } from './smt/ISmtStorage.js';
 import { Smt } from './smt/Smt.js';
 import { SmtNode } from './smt/SmtNode.js';
-import { MockAlphabillClient } from '../tests/consensus/alphabill/MockAlphabillClient.js';
+import { MockBftClient } from '../tests/consensus/bft/MockBftClient.js';
 import { ValidationService, IValidationService } from './ValidationService.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 
 export interface IGatewayConfig {
   aggregatorConfig?: IAggregatorConfig;
-  alphabill?: IAlphabillConfig;
+  bft?: IBftConfig;
   highAvailability?: IHighAvailabilityConfig;
   storage?: IStorageConfig;
   validationService?: IValidationService;
@@ -49,7 +49,7 @@ export interface IAggregatorConfig {
   blockCreationWaitTime?: number;
 }
 
-export interface IAlphabillConfig {
+export interface IBftConfig {
   useMock?: boolean;
   privateKey?: string;
   tokenPartitionUrl?: string;
@@ -126,12 +126,12 @@ export class AggregatorGateway {
         leaderHeartbeatInterval: config.highAvailability?.leaderHeartbeatInterval ?? 10000,
         leaderElectionPollingInterval: config.highAvailability?.leaderElectionPollingInterval ?? 5000,
       },
-      alphabill: {
-        useMock: config.alphabill?.useMock ?? false,
-        networkId: config.alphabill?.networkId ?? 3,
-        tokenPartitionId: config.alphabill?.tokenPartitionId ?? 2,
-        tokenPartitionUrl: config.alphabill?.tokenPartitionUrl ?? DEFAULT_TOKEN_PARTITION_URL,
-        privateKey: config.alphabill?.privateKey,
+      bft: {
+        useMock: config.bft?.useMock ?? false,
+        networkId: config.bft?.networkId ?? 3,
+        tokenPartitionId: config.bft?.tokenPartitionId ?? 2,
+        tokenPartitionUrl: config.bft?.tokenPartitionUrl ?? DEFAULT_TOKEN_PARTITION_URL,
+        privateKey: config.bft?.privateKey,
       },
       storage: {
         uri: config.storage?.uri ?? DEFAULT_MONGODB_URI,
@@ -142,15 +142,15 @@ export class AggregatorGateway {
     const serverId = config.aggregatorConfig!.serverId || `${os.hostname()}-${process.pid}`;
     const storage = await AggregatorStorage.init(config.storage!.uri!, serverId);
 
-    if (!config.alphabill?.privateKey) {
-      throw new Error('Alphabill private key must be defined in hex encoding.');
+    if (!config.bft?.privateKey) {
+      throw new Error('BFT private key must be defined in hex encoding.');
     }
 
-    const alphabillClient = await AggregatorGateway.setupAlphabillClient(config.alphabill!, serverId);
+    const bftClient = await AggregatorGateway.setupBftClient(config.bft!, serverId);
     const smt = await AggregatorGateway.setupSmt(storage.smtStorage, serverId);
     const roundManager = new RoundManager(
       config.aggregatorConfig!,
-      alphabillClient,
+      bftClient,
       smt,
       storage.blockStorage,
       storage.recordStorage,
@@ -159,7 +159,7 @@ export class AggregatorGateway {
       storage.smtStorage,
     );
 
-    const signingService = new SigningService(HexConverter.decode(config.alphabill.privateKey));
+    const signingService = new SigningService(HexConverter.decode(config.bft!.privateKey!));
 
     const validationService = config.validationService || new ValidationService();
     await validationService.initialize(config.storage!.uri!);
@@ -253,31 +253,31 @@ export class AggregatorGateway {
     }
   }
 
-  private static async setupAlphabillClient(
-    config: IAlphabillConfig,
+  private static async setupBftClient(
+    config: IBftConfig,
     aggregatorServerId: string,
-  ): Promise<IAlphabillClient> {
+  ): Promise<IBftClient> {
     const { useMock, tokenPartitionUrl, tokenPartitionId, networkId, privateKey } = config;
     if (useMock) {
-      logger.info(`Server ${aggregatorServerId} using mock AlphabillClient.`);
-      return new MockAlphabillClient();
+      logger.info(`Server ${aggregatorServerId} using mock BftClient.`);
+      return new MockBftClient();
     }
-    logger.info(`Server ${aggregatorServerId} using real AlphabillClient.`);
+    logger.info(`Server ${aggregatorServerId} using real BftClient.`);
 
     if (!privateKey) {
-      throw new Error('Alphabill private key must be defined in hex encoding.');
+      throw new Error('Bft private key must be defined in hex encoding.');
     }
     const signingService = new DefaultSigningService(HexConverter.decode(privateKey));
     if (!tokenPartitionUrl) {
-      throw new Error('Alphabill token partition URL must be defined.');
+      throw new Error('Bft token partition URL must be defined.');
     }
     if (!tokenPartitionId) {
-      throw new Error('Alphabill token partition ID must be defined.');
+      throw new Error('Bft token partition ID must be defined.');
     }
     if (!networkId) {
-      throw new Error('Alphabill network ID must be defined.');
+      throw new Error('Bft network ID must be defined.');
     }
-    return await AlphabillClient.create(signingService, tokenPartitionUrl, tokenPartitionId, networkId);
+    return await BftClient.create(signingService, tokenPartitionUrl, tokenPartitionId, networkId);
   }
 
   private static async setupSmt(smtStorage: ISmtStorage, aggregatorServerId: string): Promise<Smt> {

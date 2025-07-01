@@ -25,14 +25,14 @@ async function main(): Promise<void> {
         ? parseInt(process.env.LEADER_ELECTION_POLLING_INTERVAL)
         : undefined,
     },
-    alphabill: {
-      useMock: process.env.USE_MOCK_ALPHABILL === 'true',
-      privateKey: process.env.ALPHABILL_PRIVATE_KEY ?? '',
-      tokenPartitionUrl: process.env.ALPHABILL_TOKEN_PARTITION_URL,
-      tokenPartitionId: process.env.ALPHABILL_TOKEN_PARTITION_ID
-        ? parseInt(process.env.ALPHABILL_TOKEN_PARTITION_ID)
+    bft: {
+      useMock: process.env.USE_MOCK_BFT === 'true',
+      privateKey: process.env.BFT_PRIVATE_KEY ?? '',
+      tokenPartitionUrl: process.env.BFT_TOKEN_PARTITION_URL,
+      tokenPartitionId: process.env.BFT_TOKEN_PARTITION_ID
+        ? parseInt(process.env.BFT_TOKEN_PARTITION_ID)
         : undefined,
-      networkId: process.env.ALPHABILL_NETWORK_ID ? parseInt(process.env.ALPHABILL_NETWORK_ID) : undefined,
+      networkId: process.env.BFT_NETWORK_ID ? parseInt(process.env.BFT_NETWORK_ID) : undefined,
     },
     storage: {
       uri: process.env.MONGODB_URI,

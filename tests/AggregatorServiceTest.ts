@@ -10,7 +10,7 @@ import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.
 import { AggregatorService } from '../src/AggregatorService.js';
 import { Commitment } from '../src/commitment/Commitment.js';
 import logger from '../src/logger.js';
-import { MockAlphabillClient } from './consensus/alphabill/MockAlphabillClient.js';
+import { MockBftClient } from './consensus/bft/MockBftClient.js';
 import { CommitmentStorage } from '../src/commitment/CommitmentStorage.js';
 import { BlockStorage } from '../src/hashchain/BlockStorage.js';
 import { AggregatorRecordStorage } from '../src/records/AggregatorRecordStorage.js';
@@ -32,7 +32,7 @@ describe('AggregatorService Tests', () => {
   let blockStorage: BlockStorage;
   let blockRecordsStorage: BlockRecordsStorage;
   let smt: SparseMerkleTree;
-  let alphabillClient: MockAlphabillClient;
+  let bftClient: MockBftClient;
   let signingService: SigningService;
   let validationService: IValidationService;
 
@@ -60,7 +60,7 @@ describe('AggregatorService Tests', () => {
   });
 
   beforeEach(async () => {
-    alphabillClient = new MockAlphabillClient();
+    bftClient = new MockBftClient();
     recordStorage = new AggregatorRecordStorage();
     commitmentStorage = new CommitmentStorage();
     blockStorage = new BlockStorage();
@@ -76,7 +76,7 @@ describe('AggregatorService Tests', () => {
         port: 9876,
         initialBlockHash: '185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969',
       },
-      alphabillClient,
+      bftClient,
       new Smt(smt),
       {} as never,
       recordStorage,

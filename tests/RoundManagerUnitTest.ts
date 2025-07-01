@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 
 import { IAggregatorConfig } from '../src/AggregatorGateway.js';
 import { CommitmentStorage } from '../src/commitment/CommitmentStorage.js';
-import { MockAlphabillClient } from './consensus/alphabill/MockAlphabillClient.js';
+import { MockBftClient } from './consensus/bft/MockBftClient.js';
 import { connectToSharedMongo, disconnectFromSharedMongo, generateTestCommitments, clearAllCollections } from './TestUtils.js';
 import { BlockStorage } from '../src/hashchain/BlockStorage.js';
 import logger from '../src/logger.js';
@@ -25,7 +25,7 @@ describe('Round Manager Tests', () => {
   let commitmentStorage: CommitmentStorage;
   let smtStorage: SmtStorage;
   let smt: SparseMerkleTree;
-  let alphabillClient: MockAlphabillClient;
+  let bftClient: MockBftClient;
   let blockRecordsStorage: BlockRecordsStorage;
 
   beforeAll(async () => {
@@ -47,7 +47,7 @@ describe('Round Manager Tests', () => {
       initialBlockHash: '185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969',
     };
 
-    alphabillClient = new MockAlphabillClient();
+    bftClient = new MockBftClient();
     blockStorage = new BlockStorage();
     recordStorage = new AggregatorRecordStorage();
     commitmentStorage = new CommitmentStorage();
@@ -58,7 +58,7 @@ describe('Round Manager Tests', () => {
 
     roundManager = new RoundManager(
       config,
-      alphabillClient,
+      bftClient,
       smtWrapper,
       blockStorage,
       recordStorage,

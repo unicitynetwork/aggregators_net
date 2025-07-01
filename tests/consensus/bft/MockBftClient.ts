@@ -1,34 +1,34 @@
-import { BitString } from '@alphabill/alphabill-js-sdk/lib/codec/cbor/BitString.js';
-import { TokenPartitionJsonRpcClient } from '@alphabill/alphabill-js-sdk/lib/json-rpc/TokenPartitionJsonRpcClient.js';
-import { type ISigningService } from '@alphabill/alphabill-js-sdk/lib/signing/ISigningService.js';
-import { UpdateNonFungibleTokenAttributes } from '@alphabill/alphabill-js-sdk/lib/tokens/attributes/UpdateNonFungibleTokenAttributes.js';
-import { NonFungibleTokenData } from '@alphabill/alphabill-js-sdk/lib/tokens/NonFungibleTokenData.js';
-import type { UpdateNonFungibleTokenTransactionOrder } from '@alphabill/alphabill-js-sdk/lib/tokens/transactions/UpdateNonFungibleToken.js';
-import { ClientMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/ClientMetadata.js';
-import { AlwaysTruePredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/AlwaysTruePredicate.js';
-import { AlwaysTrueProofFactory } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/AlwaysTrueProofFactory.js';
-import { type IProofFactory } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/IProofFactory.js';
-import { TypeDataUpdateProofsAuthProof } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/TypeDataUpdateProofsAuthProof.js';
-import { ServerMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/record/ServerMetadata.js';
-import { TransactionProof } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionProof.js';
-import { TransactionRecord } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionRecord.js';
-import { TransactionRecordWithProof } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionRecordWithProof.js';
-import { TransactionStatus } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionStatus.js';
-import { StateLock } from '@alphabill/alphabill-js-sdk/lib/transaction/StateLock.js';
-import { TransactionOrder } from '@alphabill/alphabill-js-sdk/lib/transaction/TransactionOrder.js';
-import { TransactionPayload } from '@alphabill/alphabill-js-sdk/lib/transaction/TransactionPayload.js';
+import { TokenPartitionJsonRpcClient } from '@unicitylabs/bft-js-sdk/lib/json-rpc/TokenPartitionJsonRpcClient.js';
+import { type ISigningService } from '@unicitylabs/bft-js-sdk/lib/signing/ISigningService.js';
+import { UpdateNonFungibleTokenAttributes } from '@unicitylabs/bft-js-sdk/lib/tokens/attributes/UpdateNonFungibleTokenAttributes.js';
+import { NonFungibleTokenData } from '@unicitylabs/bft-js-sdk/lib/tokens/NonFungibleTokenData.js';
+import type { UpdateNonFungibleTokenTransactionOrder } from '@unicitylabs/bft-js-sdk/lib/tokens/transactions/UpdateNonFungibleToken.js';
+import { ClientMetadata } from '@unicitylabs/bft-js-sdk/lib/transaction/ClientMetadata.js';
+import { AlwaysTruePredicate } from '@unicitylabs/bft-js-sdk/lib/transaction/predicates/AlwaysTruePredicate.js';
+import { AlwaysTrueProofFactory } from '@unicitylabs/bft-js-sdk/lib/transaction/proofs/AlwaysTrueProofFactory.js';
+import { type IProofFactory } from '@unicitylabs/bft-js-sdk/lib/transaction/proofs/IProofFactory.js';
+import { TypeDataUpdateProofsAuthProof } from '@unicitylabs/bft-js-sdk/lib/transaction/proofs/TypeDataUpdateProofsAuthProof.js';
+import { ServerMetadata } from '@unicitylabs/bft-js-sdk/lib/transaction/record/ServerMetadata.js';
+import { TransactionProof } from '@unicitylabs/bft-js-sdk/lib/transaction/record/TransactionProof.js';
+import { TransactionRecord } from '@unicitylabs/bft-js-sdk/lib/transaction/record/TransactionRecord.js';
+import { TransactionRecordWithProof } from '@unicitylabs/bft-js-sdk/lib/transaction/record/TransactionRecordWithProof.js';
+import { TransactionStatus } from '@unicitylabs/bft-js-sdk/lib/transaction/record/TransactionStatus.js';
+import { StateLock } from '@unicitylabs/bft-js-sdk/lib/transaction/StateLock.js';
+import { TransactionOrder } from '@unicitylabs/bft-js-sdk/lib/transaction/TransactionOrder.js';
+import { TransactionPayload } from '@unicitylabs/bft-js-sdk/lib/transaction/TransactionPayload.js';
 import {
+  UnicityCertificate,
   InputRecord,
   ShardTreeCertificate,
-  UnicityCertificate,
-  UnicitySeal,
   UnicityTreeCertificate,
-} from '@alphabill/alphabill-js-sdk/lib/unit/UnicityCertificate.js';
-import { UnitId } from '@alphabill/alphabill-js-sdk/lib/UnitId.js';
+  UnicitySeal,
+} from '@unicitylabs/bft-js-sdk/lib/unit/UnicityCertificate.js';
+import { UnitId } from '@unicitylabs/bft-js-sdk/lib/UnitId.js';
+import { BitString } from '@unicitylabs/bft-js-sdk/lib/codec/cbor/BitString.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 
-import { IAlphabillClient } from '../../../src/consensus/alphabill/IAlphabillClient.js';
-import { SubmitHashResponse } from '../../../src/consensus/alphabill/SubmitHashResponse.js';
+import { IBftClient } from '../../../src/consensus/bft/IBftClient.js';
+import { SubmitHashResponse } from '../../../src/consensus/bft/SubmitHashResponse.js';
 import logger from '../../../src/logger.js';
 
 class MockSigningService implements ISigningService {
@@ -39,7 +39,7 @@ class MockSigningService implements ISigningService {
   }
 }
 
-export class MockAlphabillClient implements IAlphabillClient {
+export class MockBftClient implements IBftClient {
   public readonly signingService: ISigningService;
   public readonly tokenClient: TokenPartitionJsonRpcClient;
   public readonly networkId: number;
@@ -63,7 +63,7 @@ export class MockAlphabillClient implements IAlphabillClient {
 
     const txProof = this.createMockTransactionProof(transactionHash.data);
 
-    logger.info('Mock Alphabill client: submitting hash successfully');
+    logger.info('Mock BFT client: submitting hash successfully');
     return new SubmitHashResponse(previousData, txProof);
   }
 
@@ -102,13 +102,9 @@ export class MockAlphabillClient implements IAlphabillClient {
     const transactionRecord = new TransactionRecord<typeof transactionOrder>(1n, transactionOrder, serverMetadata);
 
     const inputRecord = new InputRecord(1n, 1n, 1n, null, null, new Uint8Array([1]), 1n, null, 1n, null);
-
     const shardTreeCertificate = new ShardTreeCertificate(BitString.create(new Uint8Array([1])), [new Uint8Array([1])]);
-
     const unicityTreeCertificate = new UnicityTreeCertificate(1n, 1n, []);
-
     const unicitySeal = new UnicitySeal(1n, 1n, 1n, 1n, BigInt(Date.now()), null, new Uint8Array([1]), new Map());
-
     const unicityCertificate = new UnicityCertificate(
       1n,
       inputRecord,
@@ -118,7 +114,6 @@ export class MockAlphabillClient implements IAlphabillClient {
       unicityTreeCertificate,
       unicitySeal,
     );
-
     const transactionProof = new TransactionProof(1n, new Uint8Array([1]), [], unicityCertificate);
 
     return new TransactionRecordWithProof(transactionRecord, transactionProof);

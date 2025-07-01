@@ -98,7 +98,7 @@ The Unicity Aggregator implements a high availability system ensuring service co
 The gateway uses a MongoDB-based leader election mechanism where all servers process requests but only the leader creates blocks:
 
 - **Distributed Processing**: All servers can handle API requests, improving scalability
-- **Leader Role**: Only one server (the leader) is responsible for block creation and hash submission to Alphabill
+- **Leader Role**: Only one server (the leader) is responsible for block creation and hash submission to the BFT consensus layer
 - **Automatic Failover**: If the leader fails, another server automatically takes over block creation responsibilities
 - **Conflict Prevention**: MongoDB's atomic operations prevent split-brain scenarios
 

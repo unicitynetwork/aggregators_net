@@ -7,13 +7,13 @@ export default {
   },
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
-    '^(@unicitylabs/.*|@alphabill/.*)\\.js$': '$1'
+    '^(@unicitylabs/.*)\\.js$': '$1'
   },
   testMatch: ['<rootDir>/tests/**/*Test.ts'],
   collectCoverage: true,
   collectCoverageFrom: ['<rootDir>/src/**/*.ts'],
   transformIgnorePatterns: [
-    '/node_modules/(?!@alphabill|@unicitylabs)'
+    '/node_modules/(?!@unicitylabs)'
   ],
   extensionsToTreatAsEsm: ['.ts'],
 };

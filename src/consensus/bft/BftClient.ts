@@ -1,30 +1,30 @@
-import { IUnitId } from '@alphabill/alphabill-js-sdk/lib/IUnitId.js';
-import { TokenPartitionJsonRpcClient } from '@alphabill/alphabill-js-sdk/lib/json-rpc/TokenPartitionJsonRpcClient.js';
-import { type ISigningService } from '@alphabill/alphabill-js-sdk/lib/signing/ISigningService.js';
-import { createTokenClient, http } from '@alphabill/alphabill-js-sdk/lib/StateApiClientFactory.js';
-import { NonFungibleToken } from '@alphabill/alphabill-js-sdk/lib/tokens/NonFungibleToken.js';
-import { NonFungibleTokenData } from '@alphabill/alphabill-js-sdk/lib/tokens/NonFungibleTokenData.js';
-import { NonFungibleTokenType } from '@alphabill/alphabill-js-sdk/lib/tokens/NonFungibleTokenType.js';
-import { TokenPartitionUnitType } from '@alphabill/alphabill-js-sdk/lib/tokens/TokenPartitionUnitType.js';
-import { CreateNonFungibleToken } from '@alphabill/alphabill-js-sdk/lib/tokens/transactions/CreateNonFungibleToken.js';
-import { CreateNonFungibleTokenType } from '@alphabill/alphabill-js-sdk/lib/tokens/transactions/CreateNonFungibleTokenType.js';
-import { UpdateNonFungibleToken } from '@alphabill/alphabill-js-sdk/lib/tokens/transactions/UpdateNonFungibleToken.js';
-import { UnitIdWithType } from '@alphabill/alphabill-js-sdk/lib/tokens/UnitIdWithType.js';
-import { ClientMetadata } from '@alphabill/alphabill-js-sdk/lib/transaction/ClientMetadata.js';
-import { AlwaysFalsePredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/AlwaysFalsePredicate.js';
-import { AlwaysTruePredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/AlwaysTruePredicate.js';
-import { PayToPublicKeyHashPredicate } from '@alphabill/alphabill-js-sdk/lib/transaction/predicates/PayToPublicKeyHashPredicate.js';
-import { AlwaysTrueProofFactory } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/AlwaysTrueProofFactory.js';
-import { type IProofFactory } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/IProofFactory.js';
-import { PayToPublicKeyHashProofFactory } from '@alphabill/alphabill-js-sdk/lib/transaction/proofs/PayToPublicKeyHashProofFactory.js';
-import { TransactionStatus } from '@alphabill/alphabill-js-sdk/lib/transaction/record/TransactionStatus.js';
+import { IUnitId } from '@unicitylabs/bft-js-sdk/lib/IUnitId.js';
+import { TokenPartitionJsonRpcClient } from '@unicitylabs/bft-js-sdk/lib/json-rpc/TokenPartitionJsonRpcClient.js';
+import { type ISigningService } from '@unicitylabs/bft-js-sdk/lib/signing/ISigningService.js';
+import { createTokenClient, http } from '@unicitylabs/bft-js-sdk/lib/StateApiClientFactory.js';
+import { NonFungibleToken } from '@unicitylabs/bft-js-sdk/lib/tokens/NonFungibleToken.js';
+import { NonFungibleTokenData } from '@unicitylabs/bft-js-sdk/lib/tokens/NonFungibleTokenData.js';
+import { NonFungibleTokenType } from '@unicitylabs/bft-js-sdk/lib/tokens/NonFungibleTokenType.js';
+import { TokenPartitionUnitType } from '@unicitylabs/bft-js-sdk/lib/tokens/TokenPartitionUnitType.js';
+import { CreateNonFungibleToken } from '@unicitylabs/bft-js-sdk/lib/tokens/transactions/CreateNonFungibleToken.js';
+import { CreateNonFungibleTokenType } from '@unicitylabs/bft-js-sdk/lib/tokens/transactions/CreateNonFungibleTokenType.js';
+import { UpdateNonFungibleToken } from '@unicitylabs/bft-js-sdk/lib/tokens/transactions/UpdateNonFungibleToken.js';
+import { UnitIdWithType } from '@unicitylabs/bft-js-sdk/lib/tokens/UnitIdWithType.js';
+import { ClientMetadata } from '@unicitylabs/bft-js-sdk/lib/transaction/ClientMetadata.js';
+import { AlwaysFalsePredicate } from '@unicitylabs/bft-js-sdk/lib/transaction/predicates/AlwaysFalsePredicate.js';
+import { AlwaysTruePredicate } from '@unicitylabs/bft-js-sdk/lib/transaction/predicates/AlwaysTruePredicate.js';
+import { PayToPublicKeyHashPredicate } from '@unicitylabs/bft-js-sdk/lib/transaction/predicates/PayToPublicKeyHashPredicate.js';
+import { AlwaysTrueProofFactory } from '@unicitylabs/bft-js-sdk/lib/transaction/proofs/AlwaysTrueProofFactory.js';
+import { type IProofFactory } from '@unicitylabs/bft-js-sdk/lib/transaction/proofs/IProofFactory.js';
+import { PayToPublicKeyHashProofFactory } from '@unicitylabs/bft-js-sdk/lib/transaction/proofs/PayToPublicKeyHashProofFactory.js';
+import { TransactionStatus } from '@unicitylabs/bft-js-sdk/lib/transaction/record/TransactionStatus.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 
-import { IAlphabillClient } from './IAlphabillClient.js';
+import { IBftClient } from './IBftClient.js';
 import { SubmitHashResponse } from './SubmitHashResponse.js';
 import logger from '../../logger.js';
 
-export class AlphabillClient implements IAlphabillClient {
+export class BftClient implements IBftClient {
   private constructor(
     private readonly tokenClient: TokenPartitionJsonRpcClient,
     private readonly networkId: number,
@@ -40,8 +40,8 @@ export class AlphabillClient implements IAlphabillClient {
     tokenPartitionUrl: string,
     tokenPartitionId: number,
     networkId: number,
-  ): Promise<AlphabillClient> {
-    logger.info('Initializing Alphabill client...');
+  ): Promise<BftClient> {
+    logger.info('Initializing BFT client...');
     const tokenClient = createTokenClient({ transport: http(tokenPartitionUrl) });
     const proofFactory = new PayToPublicKeyHashProofFactory(signingService);
     const alwaysTrueProofFactory = new AlwaysTrueProofFactory();
@@ -110,8 +110,8 @@ export class AlphabillClient implements IAlphabillClient {
     }
 
     if (nftID) {
-      logger.info(`NFT already exists (ID=${nftID}), skipping initial Alphabill setup.`);
-      return new AlphabillClient(
+      logger.info(`NFT already exists (ID=${nftID}), skipping initial BFT setup.`);
+      return new BftClient(
         tokenClient,
         networkId,
         tokenPartitionId,
@@ -147,11 +147,11 @@ export class AlphabillClient implements IAlphabillClient {
     const createNftTxStatus = createNonFungibleTokenProof.transactionRecord.serverMetadata.successIndicator;
     logger.info(`Create NFT transaction status - ${TransactionStatus[createNftTxStatus]}.`);
     if (createNftTxStatus !== TransactionStatus.Successful) {
-      throw new Error('Alphabill client setup failed.');
+      throw new Error('BFT client setup failed.');
     }
     nftID = createNonFungibleTokenProof.transactionRecord.transactionOrder.payload.unitId;
-    logger.info(`Alphabill client setup successful, NFT ID: ${nftID}.`);
-    return new AlphabillClient(
+    logger.info(`BFT client setup successful, NFT ID: ${nftID}.`);
+    return new BftClient(
       tokenClient,
       networkId,
       tokenPartitionId,

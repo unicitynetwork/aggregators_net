@@ -13,7 +13,7 @@ import logger from '../../src/logger.js';
 import { AggregatorRecord } from '../../src/records/AggregatorRecord.js';
 import { RoundManager } from '../../src/RoundManager.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
-import { MockAlphabillClient } from '../consensus/alphabill/MockAlphabillClient.js';
+import { MockBftClient } from '../consensus/bft/MockBftClient.js';
 import { Smt } from '../../src/smt/Smt.js';
 import { generateTestCommitments } from '../TestUtils.js';
 
@@ -148,7 +148,7 @@ describe('Block Creation Performance Benchmarks', () => {
   let mongoUri: string;
   let storage: AggregatorStorage;
   let metrics: TimingMetricsCollector;
-  let mockAlphabillClient: MockAlphabillClient;
+  let mockBftClient: MockBftClient;
   let smt: Smt;
 
   jest.setTimeout(300000);
@@ -177,10 +177,10 @@ describe('Block Creation Performance Benchmarks', () => {
 
   beforeEach(async () => {
     smt = new Smt(new SparseMerkleTree(HashAlgorithm.SHA256));
-    mockAlphabillClient = new MockAlphabillClient();
+    mockBftClient = new MockBftClient();
 
-    const originalSubmitHash = mockAlphabillClient.submitHash;
-    mockAlphabillClient.submitHash = async function (hash) {
+    const originalSubmitHash = mockBftClient.submitHash;
+    mockBftClient.submitHash = async function (hash) {
       const endPhase = metrics.startPhase('submitHash');
       const result = await originalSubmitHash.call(this, hash);
       endPhase();
@@ -205,7 +205,7 @@ describe('Block Creation Performance Benchmarks', () => {
   function createInstrumentedRoundManager(): RoundManager {
     const roundManager = new RoundManager(
       { chainId: 1, version: 1, forkId: 1 },
-      mockAlphabillClient,
+      mockBftClient,
       smt,
       storage.blockStorage,
       storage.recordStorage,
@@ -268,7 +268,7 @@ describe('Block Creation Performance Benchmarks', () => {
       const rootHash = this.smt.rootHash;
       endPreparationPhase();
 
-      const submitHashResponse = await this.alphabillClient.submitHash(rootHash);
+      const submitHashResponse = await this.bftClient.submitHash(rootHash);
 
       const endDbPhase = metrics.startPhase('blockFinalization');
       const txProof = submitHashResponse.txProof;
