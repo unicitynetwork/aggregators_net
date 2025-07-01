@@ -8,6 +8,8 @@
     "start": "node -r dotenv/config dist/index.cjs",
     "docker:mongo": "docker compose -f tests/docker/mongodb-docker-compose.yml up -d",
     "docker:mongo:down": "docker compose -f tests/docker/mongodb-docker-compose.yml down -v",
+    "docker:bft": "docker compose -f tests/consensus/bft/docker/bft-docker-compose.yml up -d",
+    "docker:bft:down": "docker compose -f tests/consensus/bft/docker/bft-docker-compose.yml down -v",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --fix",
     "test": "jest tests/ --runInBand --testPathIgnorePatterns=\"tests/benchmarks\"",
