@@ -44,7 +44,6 @@
           - docker-compose.yml
         state: absent
       tags:
-#       - never
         - restart
         - stop
 
@@ -55,15 +54,14 @@
           - docker-compose.yml
         state: present
       tags:
-#       - never
         - restart
         - start
 
-    - name: Pause allow service to start up
+    - name: Pause for service startup
       ansible.builtin.pause:
         seconds: 10
 
-    - name: Wait for service to recover
+    - name: Wait for service recovery
       ansible.builtin.uri:
         url: "http://127.0.0.1:3000/health"
         method: GET
@@ -72,9 +70,7 @@
       until: health_check.status == 200
       retries: 20 # Number of retries
       delay: 3 # Delay in seconds between retries
-      delegate_to: "{{ inventory_hostname }}" # Ensure this runs on the remote host
       tags:
-#       - never
         - restart
         - start
 
