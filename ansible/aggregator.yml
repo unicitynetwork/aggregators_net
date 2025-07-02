@@ -1,5 +1,5 @@
 ---
-- name: aggregator
+- name: Deploy Aggregator
   become: false
   gather_facts: true
   hosts: "{{env}}"
@@ -61,7 +61,7 @@
       ansible.builtin.pause:
         seconds: 10
 
-    - name: Wait for service recovery
+    - name: Check for service recovery
       ansible.builtin.uri:
         url: "http://127.0.0.1:3000/health"
         method: GET
