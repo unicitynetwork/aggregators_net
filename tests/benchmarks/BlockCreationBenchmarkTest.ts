@@ -16,6 +16,9 @@ import { SmtNode } from '../../src/smt/SmtNode.js';
 import { MockBftClient } from '../consensus/bft/MockBftClient.js';
 import { Smt } from '../../src/smt/Smt.js';
 import { generateTestCommitments } from '../TestUtils.js';
+import { SparseMerkleTreeBuilder } from '@unicitylabs/commons/lib/smt/SparseMerkleTreeBuilder';
+import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory';
+import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher';
 
 interface BenchmarkResult {
   numCommitments: number;
@@ -176,7 +179,7 @@ describe('Block Creation Performance Benchmarks', () => {
   });
 
   beforeEach(async () => {
-    smt = new Smt(new SparseMerkleTree(HashAlgorithm.SHA256));
+    smt = new SparseMerkleTreeBuilder(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
     mockBftClient = new MockBftClient();
 
     const originalSubmitHash = mockBftClient.submitHash;
@@ -230,7 +233,7 @@ describe('Block Creation Performance Benchmarks', () => {
           new AggregatorRecord(commitment.requestId, commitment.transactionHash, commitment.authenticator),
         );
 
-        const nodePath = commitment.requestId.toBigInt();
+        const nodePath = commitment.requestId.toBitString().toBigInt();
         const nodeValue = commitment.transactionHash.data;
         smtLeaves.push(new SmtNode(nodePath, nodeValue));
       }

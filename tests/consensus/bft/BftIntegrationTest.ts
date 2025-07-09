@@ -199,7 +199,7 @@ describe('BFT Client Integration Tests', () => {
     expect(getInclusionProofResponse.data.id).toEqual(2);
     expect(getInclusionProofResponse.data).toHaveProperty('result');
     const inclusionProof = InclusionProof.fromJSON(getInclusionProofResponse.data.result);
-    const verificationResult = await inclusionProof.verify(requestId.toBigInt());
+    const verificationResult = await inclusionProof.verify(requestId);
     expect(verificationResult).toBeTruthy();
   }, 60000);
 

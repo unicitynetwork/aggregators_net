@@ -5,7 +5,9 @@ import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
+import { SparseMerkleTreeBuilder } from '@unicitylabs/commons/lib/smt/SparseMerkleTreeBuilder.js';
+import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
+import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
 
 import { AggregatorService } from '../src/AggregatorService.js';
 import { Commitment } from '../src/commitment/Commitment.js';
@@ -31,7 +33,7 @@ describe('AggregatorService Tests', () => {
   let commitmentStorage: CommitmentStorage;
   let blockStorage: BlockStorage;
   let blockRecordsStorage: BlockRecordsStorage;
-  let smt: SparseMerkleTree;
+  let smt: SparseMerkleTreeBuilder;
   let bftClient: MockBftClient;
   let signingService: SigningService;
   let validationService: IValidationService;
@@ -66,7 +68,7 @@ describe('AggregatorService Tests', () => {
     blockStorage = new BlockStorage();
     blockRecordsStorage = await BlockRecordsStorage.create('test-server');
 
-    smt = new SparseMerkleTree(HashAlgorithm.SHA256);
+    smt = new SparseMerkleTreeBuilder(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
 
     roundManager = new RoundManager(
       {
@@ -77,7 +79,7 @@ describe('AggregatorService Tests', () => {
         initialBlockHash: '185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969',
       },
       bftClient,
-      new Smt(smt),
+      await Smt.create(smt),
       {} as never,
       recordStorage,
       {} as never,
@@ -93,7 +95,7 @@ describe('AggregatorService Tests', () => {
     
     aggregatorService = new AggregatorService(
       roundManager,
-      new Smt(smt),
+      await Smt.create(smt),
       recordStorage,
       blockStorage,
       blockRecordsStorage,
@@ -131,7 +133,7 @@ describe('AggregatorService Tests', () => {
     expect(receipt.request).toBeDefined();
     
     const requestHash = receipt.request.hash;
-    const signatureValid = await signingService.verify(requestHash.data, receipt.signature);
+    const signatureValid = await signingService.verify(requestHash, receipt.signature);
     expect(signatureValid).toBe(true);
     
     expect(receipt.publicKey).toBe(HexConverter.encode(signingService.publicKey));
@@ -200,7 +202,7 @@ describe('AggregatorService Tests', () => {
     for (const commitment of commitments) {
       const found = result!.find(
         (record) =>
-          record.requestId.toBigInt() === commitment.requestId.toBigInt() &&
+          record.requestId.toBitString().toBigInt() === commitment.requestId.toBitString().toBigInt() &&
           record.transactionHash.equals(commitment.transactionHash),
       );
       expect(found).toBeDefined();
@@ -219,7 +221,7 @@ describe('AggregatorService Tests', () => {
   it('should return inclusion proof with PATH_NOT_INCLUDED status for non-existent requestId', async () => {
     const existingCommitment = await createTestCommitment(1);
     await recordStorage.put(existingCommitment);
-    smt.addLeaf(existingCommitment.requestId.toBigInt(), existingCommitment.transactionHash.imprint);
+    smt.addLeaf(existingCommitment.requestId.toBitString().toBigInt(), existingCommitment.transactionHash.imprint);
 
     const nonExistentStateHash = new DataHash(HashAlgorithm.SHA256, new TextEncoder().encode('non-existent-state'));
     const nonExistentRequestId = await RequestId.create(new Uint8Array(32), nonExistentStateHash);
@@ -232,7 +234,7 @@ describe('AggregatorService Tests', () => {
     expect(inclusionProof.transactionHash).toBeNull();
     expect(inclusionProof.merkleTreePath).toBeDefined();
 
-    const verificationResult = await inclusionProof.verify(nonExistentRequestId.toBigInt());
+    const verificationResult = await inclusionProof.verify(nonExistentRequestId);
     expect(verificationResult).toBe('PATH_NOT_INCLUDED');
   });
 
@@ -250,7 +252,7 @@ describe('AggregatorService Tests', () => {
 
     jest.spyOn(inclusionProof.authenticator!, 'verify').mockResolvedValue(true);
 
-    const verificationResult = await inclusionProof.verify(commitment.requestId.toBigInt());
+    const verificationResult = await inclusionProof.verify(commitment.requestId);
     expect(verificationResult).toBe('PATH_NOT_INCLUDED');
   });
 });

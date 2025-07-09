@@ -3,10 +3,12 @@ import { performance } from 'perf_hooks';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
-import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { v4 as uuidv4 } from 'uuid';
 
 import logger from '../../src/logger.js';
+import { SparseMerkleTreeBuilder } from '@unicitylabs/commons/lib/smt/SparseMerkleTreeBuilder.js';
+import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
+import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
 
 interface ISmtBenchmarkResult {
   testDescription: string;
@@ -41,13 +43,13 @@ describe('Sparse Merkle Tree Performance Benchmarks', () => {
     logger.info(`Running benchmark: ${description}`);
     logger.info(`Pre-populating tree with ${existingTreeSize} leaves...`);
 
-    const smt = await SparseMerkleTree.create(HashAlgorithm.SHA256);
+    const smt = new SparseMerkleTreeBuilder(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
 
     // Pre-populate the tree with existingTreeSize leaves
     for (let i = 0; i < existingTreeSize; i++) {
       const requestId = await generateUniqueRequestId(i);
       const value = generateHashValue(i);
-      const path = requestId.toBigInt();
+      const path = requestId.toBitString().toBigInt();
 
       await smt.addLeaf(path, value);
 
@@ -56,6 +58,7 @@ describe('Sparse Merkle Tree Performance Benchmarks', () => {
         logger.info(`  Added ${i} leaves to the tree...`);
       }
     }
+    await smt.calculateRoot();
 
     logger.info(`Tree populated with ${existingTreeSize} leaves. Starting benchmark...`);
 
@@ -64,7 +67,7 @@ describe('Sparse Merkle Tree Performance Benchmarks', () => {
     for (let i = 0; i < newOperationsCount; i++) {
       const requestId = await generateUniqueRequestId(existingTreeSize + i);
       const value = generateHashValue(existingTreeSize + i);
-      newLeaves.push({ path: requestId.toBigInt(), value });
+      newLeaves.push({ path: requestId.toBitString().toBigInt(), value });
     }
 
     logger.info(`Adding ${newOperationsCount} new leaves...`);
@@ -73,6 +76,7 @@ describe('Sparse Merkle Tree Performance Benchmarks', () => {
     for (const leaf of newLeaves) {
       await smt.addLeaf(leaf.path, leaf.value);
     }
+    await smt.calculateRoot();
 
     const totalTime = performance.now() - startTime;
     const operationsPerSecond = (newOperationsCount / totalTime) * 1000;

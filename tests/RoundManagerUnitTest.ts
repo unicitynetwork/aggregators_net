@@ -1,5 +1,7 @@
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
-import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
+import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
+import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
+import { SparseMerkleTreeBuilder } from '@unicitylabs/commons/lib/smt/SparseMerkleTreeBuilder.js';
 import mongoose from 'mongoose';
 
 import { IAggregatorConfig } from '../src/AggregatorGateway.js';
@@ -24,7 +26,7 @@ describe('Round Manager Tests', () => {
   let recordStorage: AggregatorRecordStorage;
   let commitmentStorage: CommitmentStorage;
   let smtStorage: SmtStorage;
-  let smt: SparseMerkleTree;
+  let smt: SparseMerkleTreeBuilder;
   let bftClient: MockBftClient;
   let blockRecordsStorage: BlockRecordsStorage;
 
@@ -53,8 +55,8 @@ describe('Round Manager Tests', () => {
     commitmentStorage = new CommitmentStorage();
     blockRecordsStorage = await BlockRecordsStorage.create('test-server');
     smtStorage = new SmtStorage();
-    smt = new SparseMerkleTree(HashAlgorithm.SHA256);
-    const smtWrapper = new Smt(smt);
+    smt = new SparseMerkleTreeBuilder(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
+    const smtWrapper = await Smt.create(smt);
 
     roundManager = new RoundManager(
       config,

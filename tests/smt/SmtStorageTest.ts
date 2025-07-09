@@ -1,5 +1,7 @@
+import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
-import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
+import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
+import { SparseMerkleTreeBuilder } from '@unicitylabs/commons/lib/smt/SparseMerkleTreeBuilder.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
 import logger from '../../src/logger.js';
@@ -198,13 +200,13 @@ describe('SMT Storage Tests', () => {
   });
 
   it('Try adding the same leaf to SMT tree twice', async () => {
-    const smt = new SparseMerkleTree(HashAlgorithm.SHA256);
+    const smt = new SparseMerkleTreeBuilder(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
 
     const path = BigInt(12345);
     const value = new Uint8Array([1, 2, 3, 4, 5]);
 
     smt.addLeaf(path, value);
-    const rootHashAfterFirstAddition = await smt.root.calculateHash();
+    const rootHashAfterFirstAddition = await smt.calculateRoot();
     logger.info(`Root hash after first addition: ${rootHashAfterFirstAddition.toString()}`);
 
     try {

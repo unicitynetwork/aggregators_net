@@ -113,7 +113,7 @@ describe('SMT Chunked Loading Tests', () => {
     logger.info('Verifying SMT root hash through round manager...');
     
     const roundManager = gateway.getRoundManager();
-    const actualRootHash = await roundManager.smt.rootHash();
+    const actualRootHash = roundManager.smt.rootHash;
     
     logger.info(`Actual root hash from gateway: ${actualRootHash.toString()}`);
     logger.info(`Expected root hash: ${expectedRootHash.toString()}`);

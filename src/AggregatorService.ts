@@ -42,7 +42,7 @@ export class AggregatorService {
 
   public async getInclusionProof(requestId: RequestId): Promise<InclusionProof> {
     const record = await this.recordStorage.get(requestId);
-    const merkleTreePath = await this.smt.getPath(requestId.toBigInt());
+    const merkleTreePath = this.smt.getPath(requestId.toBitString().toBigInt());
 
     if (!record) {
       return new InclusionProof(merkleTreePath, null, null);
