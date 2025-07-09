@@ -1,13 +1,14 @@
 import { performance } from 'perf_hooks';
-
-import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
-import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
-import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import mongoose, { model } from 'mongoose';
 import { GenericContainer, StartedTestContainer, Wait } from 'testcontainers';
 
+import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
+import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
+import { SparseMerkleTreeBuilder } from '@unicitylabs/commons/lib/smt/SparseMerkleTreeBuilder.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
+
 import { AggregatorStorage } from '../../src/AggregatorStorage.js';
-import { Commitment } from '../../src/commitment/Commitment.js';
 import { Block } from '../../src/hashchain/Block.js';
 import logger from '../../src/logger.js';
 import { AggregatorRecord } from '../../src/records/AggregatorRecord.js';
@@ -16,9 +17,6 @@ import { SmtNode } from '../../src/smt/SmtNode.js';
 import { MockBftClient } from '../consensus/bft/MockBftClient.js';
 import { Smt } from '../../src/smt/Smt.js';
 import { generateTestCommitments } from '../TestUtils.js';
-import { SparseMerkleTreeBuilder } from '@unicitylabs/commons/lib/smt/SparseMerkleTreeBuilder';
-import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory';
-import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher';
 
 interface BenchmarkResult {
   numCommitments: number;
