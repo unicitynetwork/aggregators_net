@@ -177,7 +177,7 @@ describe('Block Creation Performance Benchmarks', () => {
   });
 
   beforeEach(async () => {
-    smt = new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
+    smt = await Smt.create(new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher)));
     mockBftClient = new MockBftClient();
 
     const originalSubmitHash = mockBftClient.submitHash;

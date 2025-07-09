@@ -51,9 +51,7 @@ describe('SMT Wrapper Tests', () => {
 
       await smtWrapper.withSmtLock(async () => {
         await delay(duration);
-        await smt.calculateRoot();
-        const merkleTreePath = (await smt.calculateRoot()).getPath(path);
-        return merkleTreePath;
+        return smt.calculateRoot().then((root) => root.getPath(path));
       });
 
       const totalTime = Date.now() - startTime;
