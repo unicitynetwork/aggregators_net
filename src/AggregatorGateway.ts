@@ -10,7 +10,7 @@ import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFacto
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
-import { SparseMerkleTreeBuilder } from '@unicitylabs/commons/lib/smt/SparseMerkleTreeBuilder.js';
+import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
 import { AggregatorService } from './AggregatorService.js';
@@ -283,7 +283,7 @@ export class AggregatorGateway {
   }
 
   private static async setupSmt(smtStorage: ISmtStorage, aggregatorServerId: string): Promise<Smt> {
-    const smt = new SparseMerkleTreeBuilder(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
+    const smt = new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
     const smtWrapper = await Smt.create(smt);
 
     let totalLeaves = 0;

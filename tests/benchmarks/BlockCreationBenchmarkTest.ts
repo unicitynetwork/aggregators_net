@@ -5,7 +5,7 @@ import { GenericContainer, StartedTestContainer, Wait } from 'testcontainers';
 import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
-import { SparseMerkleTreeBuilder } from '@unicitylabs/commons/lib/smt/SparseMerkleTreeBuilder.js';
+import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
 import { AggregatorStorage } from '../../src/AggregatorStorage.js';
@@ -177,7 +177,7 @@ describe('Block Creation Performance Benchmarks', () => {
   });
 
   beforeEach(async () => {
-    smt = new SparseMerkleTreeBuilder(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
+    smt = new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
     mockBftClient = new MockBftClient();
 
     const originalSubmitHash = mockBftClient.submitHash;

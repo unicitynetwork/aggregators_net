@@ -1,7 +1,7 @@
 import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
-import { SparseMerkleTreeBuilder } from '@unicitylabs/commons/lib/smt/SparseMerkleTreeBuilder.js';
+import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 
 import logger from '../../src/logger.js';
 import { Smt } from '../../src/smt/Smt.js';
@@ -10,11 +10,11 @@ import { delay } from '../TestUtils.js';
 describe('SMT Wrapper Tests', () => {
   jest.setTimeout(30000);
 
-  let smt: SparseMerkleTreeBuilder;
+  let smt: SparseMerkleTree;
   let smtWrapper: Smt;
 
   beforeEach(async () => {
-    smt = new SparseMerkleTreeBuilder(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
+    smt = new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
     smtWrapper = await Smt.create(smt);
   });
 
@@ -150,7 +150,7 @@ describe('SMT Wrapper Tests', () => {
 
     await Promise.all([addPromise, readPromise]);
 
-    const tempSmt = new SparseMerkleTreeBuilder(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
+    const tempSmt = new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
     await Promise.all([
       tempSmt.addLeaf(BigInt(1), new Uint8Array([1])),
       tempSmt.addLeaf(BigInt(2), new Uint8Array([2])),

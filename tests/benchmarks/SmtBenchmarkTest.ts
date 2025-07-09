@@ -2,13 +2,14 @@ import { performance } from 'perf_hooks';
 
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
+import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
+import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { v4 as uuidv4 } from 'uuid';
 
 import logger from '../../src/logger.js';
-import { SparseMerkleTreeBuilder } from '@unicitylabs/commons/lib/smt/SparseMerkleTreeBuilder.js';
-import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
-import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
+
 
 interface ISmtBenchmarkResult {
   testDescription: string;
@@ -43,7 +44,7 @@ describe('Sparse Merkle Tree Performance Benchmarks', () => {
     logger.info(`Running benchmark: ${description}`);
     logger.info(`Pre-populating tree with ${existingTreeSize} leaves...`);
 
-    const smt = new SparseMerkleTreeBuilder(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
+    const smt = new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
 
     // Pre-populate the tree with existingTreeSize leaves
     for (let i = 0; i < existingTreeSize; i++) {

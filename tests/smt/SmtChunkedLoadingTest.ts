@@ -1,7 +1,7 @@
 import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
-import { SparseMerkleTreeBuilder } from '@unicitylabs/commons/lib/smt/SparseMerkleTreeBuilder.js';
+import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import axios from 'axios';
 
 import { AggregatorGateway } from '../../src/AggregatorGateway.js';
@@ -38,7 +38,7 @@ describe('SMT Chunked Loading Tests', () => {
     
     const storage = new SmtStorage();
     const testLeaves: SmtNode[] = [];
-    const referenceTree = new SparseMerkleTreeBuilder(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
+    const referenceTree = new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
     
     for (let i = 0; i < leafCount; i++) {
       const path = BigInt(i + 1000000);

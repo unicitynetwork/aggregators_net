@@ -1,7 +1,7 @@
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { MerkleTreePath } from '@unicitylabs/commons/lib/smt/MerkleTreePath.js';
 import { MerkleTreeRootNode } from '@unicitylabs/commons/lib/smt/MerkleTreeRootNode.js';
-import { SparseMerkleTreeBuilder } from '@unicitylabs/commons/lib/smt/SparseMerkleTreeBuilder.js';
+import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 
 import logger from '../logger.js';
 
@@ -25,38 +25,31 @@ export class Smt {
   /**
    * Creates a new SMT wrapper
    * @param smt The SparseMerkleTree to wrap
-   * @param _tree SparseMerkleTreeRoot representing the current state of the tree
+   * @param _root SparseMerkleTreeRoot representing the current state of the tree
    */
   private constructor(
-    private readonly smt: SparseMerkleTreeBuilder,
-    private _tree: MerkleTreeRootNode,
+    private readonly smt: SparseMerkleTree,
+    private _root: MerkleTreeRootNode,
   ) {}
-
-  public static async create(smt: SparseMerkleTreeBuilder): Promise<Smt> {
-    return new Smt(smt, await smt.calculateRoot());
-  }
 
   /**
    * Gets the root hash of the tree
    */
   public get rootHash(): DataHash {
-    return this._tree.hash;
+    return this._root.hash;
   }
 
-  /**
-   * Gets the underlying MerkleTreeRootNode
-   */
-  public get tree(): MerkleTreeRootNode {
-    return this._tree;
+  public static async create(smt: SparseMerkleTree): Promise<Smt> {
+    return new Smt(smt, await smt.calculateRoot());
   }
 
   /**
    * Adds a leaf to the SMT with locking to prevent concurrent updates
    */
-  public async addLeaf(path: bigint, value: Uint8Array): Promise<void> {
+  public addLeaf(path: bigint, value: Uint8Array): Promise<void> {
     return this.withSmtLock(async () => {
       await this.smt.addLeaf(path, value);
-      this._tree = await this.smt.calculateRoot();
+      this._root = await this.smt.calculateRoot();
     });
   }
 
@@ -64,7 +57,7 @@ export class Smt {
    * Gets a proof path for a leaf with locking to ensure consistent view
    */
   public getPath(path: bigint): MerkleTreePath {
-    return this._tree.getPath(path);
+    return this._root.getPath(path);
   }
 
   /**
@@ -84,7 +77,7 @@ export class Smt {
         ),
       );
 
-      this._tree = await this.smt.calculateRoot();
+      this._root = await this.smt.calculateRoot();
     });
   }
 
@@ -92,7 +85,7 @@ export class Smt {
    * Acquires a lock for SMT updates with a timeout
    * @returns A promise that resolves when the lock is acquired
    */
-  private async acquireSmtLock(): Promise<void> {
+  private acquireSmtLock(): Promise<void> {
     if (!this.smtUpdateLock) {
       this.smtUpdateLock = true;
       return Promise.resolve();

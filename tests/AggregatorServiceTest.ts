@@ -2,12 +2,12 @@ import { InclusionProof } from '@unicitylabs/commons/lib/api/InclusionProof.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
-import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
-import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
-import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import { SparseMerkleTreeBuilder } from '@unicitylabs/commons/lib/smt/SparseMerkleTreeBuilder.js';
 import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
+import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
+import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
+import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
 import { AggregatorService } from '../src/AggregatorService.js';
 import { Commitment } from '../src/commitment/Commitment.js';
@@ -33,7 +33,7 @@ describe('AggregatorService Tests', () => {
   let commitmentStorage: CommitmentStorage;
   let blockStorage: BlockStorage;
   let blockRecordsStorage: BlockRecordsStorage;
-  let smt: SparseMerkleTreeBuilder;
+  let smt: SparseMerkleTree;
   let bftClient: MockBftClient;
   let signingService: SigningService;
   let validationService: IValidationService;
@@ -68,7 +68,7 @@ describe('AggregatorService Tests', () => {
     blockStorage = new BlockStorage();
     blockRecordsStorage = await BlockRecordsStorage.create('test-server');
 
-    smt = new SparseMerkleTreeBuilder(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
+    smt = new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
 
     roundManager = new RoundManager(
       {
