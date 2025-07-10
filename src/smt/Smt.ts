@@ -1,4 +1,5 @@
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
+import { LeafInBranchError } from '@unicitylabs/commons/lib/smt/LeafInBranchError.js';
 import { MerkleTreePath } from '@unicitylabs/commons/lib/smt/MerkleTreePath.js';
 import { MerkleTreeRootNode } from '@unicitylabs/commons/lib/smt/MerkleTreeRootNode.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
@@ -68,7 +69,7 @@ export class Smt {
       await Promise.all(
         leaves.map((leaf) =>
           this.smt.addLeaf(leaf.path, leaf.value).catch((error) => {
-            if (error instanceof Error && error.message.includes('Cannot add leaf inside branch')) {
+            if (error instanceof LeafInBranchError) {
               logger.warn(`Leaf already exists in tree for path ${leaf.path} - skipping`);
             } else {
               throw error;
