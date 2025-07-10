@@ -79,7 +79,7 @@ describe('AggregatorService Tests', () => {
         initialBlockHash: '185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969',
       },
       bftClient,
-      await Smt.create(smt),
+      new Smt(smt),
       {} as never,
       recordStorage,
       {} as never,
@@ -95,7 +95,7 @@ describe('AggregatorService Tests', () => {
     
     aggregatorService = new AggregatorService(
       roundManager,
-      await Smt.create(smt),
+      new Smt(smt),
       recordStorage,
       blockStorage,
       blockRecordsStorage,

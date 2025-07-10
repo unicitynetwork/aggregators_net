@@ -1,5 +1,5 @@
-import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
+import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
 import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import mongoose from 'mongoose';
@@ -9,7 +9,6 @@ import { CommitmentStorage } from '../src/commitment/CommitmentStorage.js';
 import { MockBftClient } from './consensus/bft/MockBftClient.js';
 import { connectToSharedMongo, disconnectFromSharedMongo, generateTestCommitments, clearAllCollections } from './TestUtils.js';
 import { BlockStorage } from '../src/hashchain/BlockStorage.js';
-import logger from '../src/logger.js';
 import { AggregatorRecordStorage } from '../src/records/AggregatorRecordStorage.js';
 import { BlockRecordsStorage } from '../src/records/BlockRecordsStorage.js';
 import { RoundManager } from '../src/RoundManager.js';
@@ -56,7 +55,7 @@ describe('Round Manager Tests', () => {
     blockRecordsStorage = await BlockRecordsStorage.create('test-server');
     smtStorage = new SmtStorage();
     smt = new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
-    const smtWrapper = await Smt.create(smt);
+    const smtWrapper = new Smt(smt);
 
     roundManager = new RoundManager(
       config,

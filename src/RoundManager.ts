@@ -92,7 +92,7 @@ export class RoundManager {
     }
 
     let submitHashResponse;
-    const rootHash = this.smt.rootHash;
+    const rootHash = await this.smt.rootHash();
     try {
       loggerWithMetadata.info(`Submitting hash to BFT: ${rootHash.toString()}...`);
       submitHashResponse = await this.bftClient.submitHash(rootHash);

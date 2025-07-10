@@ -284,7 +284,7 @@ export class AggregatorGateway {
 
   private static async setupSmt(smtStorage: ISmtStorage, aggregatorServerId: string): Promise<Smt> {
     const smt = new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
-    const smtWrapper = await Smt.create(smt);
+    const smtWrapper = new Smt(smt);
 
     let totalLeaves = 0;
     const chunkSize = 1000;
@@ -465,8 +465,9 @@ export class AggregatorGateway {
       }));
 
       await this.smt.addLeaves(leavesToAdd);
+      const rootHash = await this.smt.rootHash();
 
-      logger.info(`Updated in-memory SMT for follower node, new root hash: ${(this.smt.rootHash).toString()}`);
+      logger.info(`Updated in-memory SMT for follower node, new root hash: ${rootHash.toString()}`);
     });
 
     logger.info(`BlockRecords change listener initialized for server ${this.serverId}`);
