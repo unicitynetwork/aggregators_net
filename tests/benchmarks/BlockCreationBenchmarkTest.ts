@@ -1,13 +1,14 @@
 import { performance } from 'perf_hooks';
-
-import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
-import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
-import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import mongoose, { model } from 'mongoose';
 import { GenericContainer, StartedTestContainer, Wait } from 'testcontainers';
 
+import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
+import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
+import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
+import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
+
 import { AggregatorStorage } from '../../src/AggregatorStorage.js';
-import { Commitment } from '../../src/commitment/Commitment.js';
 import { Block } from '../../src/hashchain/Block.js';
 import logger from '../../src/logger.js';
 import { AggregatorRecord } from '../../src/records/AggregatorRecord.js';
@@ -176,7 +177,7 @@ describe('Block Creation Performance Benchmarks', () => {
   });
 
   beforeEach(async () => {
-    smt = new Smt(new SparseMerkleTree(HashAlgorithm.SHA256));
+    smt = await Smt.create(new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher)));
     mockBftClient = new MockBftClient();
 
     const originalSubmitHash = mockBftClient.submitHash;
@@ -230,7 +231,7 @@ describe('Block Creation Performance Benchmarks', () => {
           new AggregatorRecord(commitment.requestId, commitment.transactionHash, commitment.authenticator),
         );
 
-        const nodePath = commitment.requestId.toBigInt();
+        const nodePath = commitment.requestId.toBitString().toBigInt();
         const nodeValue = commitment.transactionHash.data;
         smtLeaves.push(new SmtNode(nodePath, nodeValue));
       }

@@ -1,4 +1,6 @@
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
+import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import mongoose from 'mongoose';
 
@@ -53,8 +55,8 @@ describe('Round Manager Tests', () => {
     commitmentStorage = new CommitmentStorage();
     blockRecordsStorage = await BlockRecordsStorage.create('test-server');
     smtStorage = new SmtStorage();
-    smt = new SparseMerkleTree(HashAlgorithm.SHA256);
-    const smtWrapper = new Smt(smt);
+    smt = new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
+    const smtWrapper = await Smt.create(smt);
 
     roundManager = new RoundManager(
       config,

@@ -1,8 +1,11 @@
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
+import { LeafInBranchError } from '@unicitylabs/commons/lib/smt/LeafInBranchError.js';
 import { MerkleTreePath } from '@unicitylabs/commons/lib/smt/MerkleTreePath.js';
+import { MerkleTreeRootNode } from '@unicitylabs/commons/lib/smt/MerkleTreeRootNode.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 
 import logger from '../logger.js';
+
 
 /**
  * Wrapper for SparseMerkleTree that provides concurrency control
@@ -23,59 +26,59 @@ export class Smt {
   /**
    * Creates a new SMT wrapper
    * @param smt The SparseMerkleTree to wrap
+   * @param _root SparseMerkleTreeRoot representing the current state of the tree
    */
-  public constructor(private readonly smt: SparseMerkleTree) {}
+  private constructor(
+    private readonly smt: SparseMerkleTree,
+    private _root: MerkleTreeRootNode,
+  ) {}
 
   /**
    * Gets the root hash of the tree
    */
-  public rootHash(): Promise<DataHash> {
-    return this.smt.root.calculateHash();
+  public get rootHash(): DataHash {
+    return this._root.hash;
   }
 
-  /**
-   * Gets the underlying SparseMerkleTree
-   */
-  public get tree(): SparseMerkleTree {
-    return this.smt;
+  public static async create(smt: SparseMerkleTree): Promise<Smt> {
+    return new Smt(smt, await smt.calculateRoot());
   }
 
   /**
    * Adds a leaf to the SMT with locking to prevent concurrent updates
    */
-  public async addLeaf(path: bigint, value: Uint8Array): Promise<void> {
+  public addLeaf(path: bigint, value: Uint8Array): Promise<void> {
     return this.withSmtLock(async () => {
-      this.smt.addLeaf(path, value);
+      await this.smt.addLeaf(path, value);
+      this._root = await this.smt.calculateRoot();
     });
   }
 
   /**
    * Gets a proof path for a leaf with locking to ensure consistent view
    */
-  public async getPath(path: bigint): Promise<MerkleTreePath> {
-    return this.withSmtLock(async () => {
-      return this.smt.getPath(path);
-    });
+  public getPath(path: bigint): MerkleTreePath {
+    return this._root.getPath(path);
   }
 
   /**
    * Adds multiple leaves atomically with a single lock
    */
-  public async addLeaves(leaves: Array<{ path: bigint; value: Uint8Array }>): Promise<void> {
+  public addLeaves(leaves: Array<{ path: bigint; value: Uint8Array }>): Promise<void> {
     return this.withSmtLock(async () => {
-      for (const leaf of leaves) {
-        try {
-          this.smt.addLeaf(leaf.path, leaf.value);
-        } catch (error) {
-          // Check if the error is "Cannot add leaf inside branch" which indicates
-          // the leaf is already in the tree - this is not a fatal error
-          if (error instanceof Error && error.message.includes('Cannot add leaf inside branch')) {
-            logger.warn(`Leaf already exists in tree for path ${leaf.path} - skipping`);
-          } else {
-            throw error;
-          }
-        }
-      }
+      await Promise.all(
+        leaves.map((leaf) =>
+          this.smt.addLeaf(leaf.path, leaf.value).catch((error) => {
+            if (error instanceof LeafInBranchError) {
+              logger.warn(`Leaf already exists in tree for path ${leaf.path} - skipping`);
+            } else {
+              throw error;
+            }
+          }),
+        ),
+      );
+
+      this._root = await this.smt.calculateRoot();
     });
   }
 
@@ -83,7 +86,7 @@ export class Smt {
    * Acquires a lock for SMT updates with a timeout
    * @returns A promise that resolves when the lock is acquired
    */
-  private async acquireSmtLock(): Promise<void> {
+  private acquireSmtLock(): Promise<void> {
     if (!this.smtUpdateLock) {
       this.smtUpdateLock = true;
       return Promise.resolve();

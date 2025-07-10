@@ -38,7 +38,7 @@ export function setupRouter(
   app.get('/health', async (req: Request, res: Response) => {
     let smtRootHash: string | null = null;
     try {
-      smtRootHash = aggregatorService ? (await aggregatorService.getSmt().rootHash()).toString() : null;
+      smtRootHash = aggregatorService ? aggregatorService.getSmt().rootHash.toString() : null;
     } catch (error) {
       logger.error('Error getting SMT root hash in health endpoint:', error);
     }

@@ -38,7 +38,7 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
     const loggerWithMetadata = logger.child({ requestId: record.requestId.toString() });
     try {
       await new AggregatorRecordModel({
-        requestId: record.requestId.toBigInt(),
+        requestId: record.requestId.toBitString().toBigInt(),
         transactionHash: record.transactionHash.imprint,
         authenticator: {
           algorithm: record.authenticator.algorithm,
@@ -63,10 +63,10 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
       // Use bulkWrite with insertOne operations that will not update existing records
       const operations = records.map((record) => ({
         updateOne: {
-          filter: { requestId: record.requestId.toBigInt() },
+          filter: { requestId: record.requestId.toBitString().toBigInt() },
           update: {
             $setOnInsert: {
-              requestId: record.requestId.toBigInt(),
+              requestId: record.requestId.toBitString().toBigInt(),
               transactionHash: record.transactionHash.imprint,
               authenticator: {
                 algorithm: record.authenticator.algorithm,
@@ -89,7 +89,7 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
   }
 
   public async get(requestId: RequestId): Promise<AggregatorRecord | null> {
-    const stored = await AggregatorRecordModel.findOne({ requestId: requestId.toBigInt() });
+    const stored = await AggregatorRecordModel.findOne({ requestId: requestId.toBitString().toBigInt() });
     if (!stored) {
       return null;
     }
@@ -107,13 +107,13 @@ export class AggregatorRecordStorage implements IAggregatorRecordStorage {
       return [];
     }
 
-    const requestIdBigInts = requestIds.map((id) => id.toBigInt());
+    const requestIdBigInts = requestIds.map((id) => id.toBitString().toBigInt());
     const storedRecords = await AggregatorRecordModel.find({
       requestId: { $in: requestIdBigInts },
     });
 
     return storedRecords.map((stored) => {
-      const originalRequestId = requestIds.find((id) => id.toBigInt() === stored.requestId)!;
+      const originalRequestId = requestIds.find((id) => id.toBitString().toBigInt() === stored.requestId)!;
 
       const authenticator = new Authenticator(
         stored.authenticator.algorithm,

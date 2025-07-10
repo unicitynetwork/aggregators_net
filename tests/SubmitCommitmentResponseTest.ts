@@ -8,6 +8,7 @@ import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 import { SubmitCommitmentResponse, SubmitCommitmentStatus, IRequestJson } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
 
 import { Commitment } from '../src/commitment/Commitment.js';
+import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 
 describe('SubmitCommitmentResponse Receipt Tests', () => {
   let signingService: SigningService;
@@ -48,14 +49,14 @@ describe('SubmitCommitmentResponse Receipt Tests', () => {
     const requestHash = response.receipt!.request!.hash;
 
     // Verify the signature using the signing service (aggregator side)
-    const isValidSignature = await signingService.verify(requestHash.data, signatureFromResponse);
+    const isValidSignature = await signingService.verify(requestHash, signatureFromResponse);
     expect(isValidSignature).toBe(true);
 
     // Verify using only the public key (client side)
     const aggregatorPublicKey = HexConverter.decode(response.receipt!.publicKey);
 
     const isValidWithPublicKeyOnly = await SigningService.verifyWithPublicKey(
-      requestHash.data,
+      requestHash,
       signatureFromResponse.bytes, // Just the signature bytes (64), not including recovery byte
       aggregatorPublicKey,
     );
@@ -65,7 +66,7 @@ describe('SubmitCommitmentResponse Receipt Tests', () => {
     const differentPrivateKey = SigningService.generatePrivateKey();
     const differentSigningService = await SigningService.createFromSecret(differentPrivateKey);
     const isValidWithDifferentSigningService = await SigningService.verifyWithPublicKey(
-      requestHash.data,
+      requestHash,
       signatureFromResponse.bytes,
       differentSigningService.publicKey,
     );
@@ -82,8 +83,10 @@ describe('SubmitCommitmentResponse Receipt Tests', () => {
     const signatureFromResponse = response.receipt!.signature!;
 
     // Try to verify with different data (should fail)
-    const wrongData = new TextEncoder().encode('wrong-data');
-    const isValidSignature = await signingService.verify(wrongData, signatureFromResponse);
+    const isValidSignature = await signingService.verify(
+      DataHash.fromImprint(new Uint8Array(34)),
+      signatureFromResponse,
+    );
 
     expect(isValidSignature).toBe(false);
   });

@@ -50,7 +50,7 @@ describe('BlockRecords Change Stream Test', () => {
     logger.info(`Generated ${commitments.length} test commitments`);
 
     const smtLeaves: SmtNode[] = commitments.map((commitment) => {
-      const nodePath = commitment.requestId.toBigInt();
+      const nodePath = commitment.requestId.toBitString().toBigInt();
       const value = new Uint8Array(32);
       value.set(Buffer.from(nodePath.toString().padStart(32, '0').slice(0, 32)));
       return new SmtNode(nodePath, value);
@@ -83,13 +83,13 @@ describe('BlockRecords Change Stream Test', () => {
       expect(event.requestIds[i].toString()).toBe(requestIds[i].toString());
     }
 
-    const paths = event.requestIds.map((id) => id.toBigInt());
+    const paths = event.requestIds.map((id) => id.toBitString().toBigInt());
     const leaves = await smtStorage.getByPaths(paths);
 
     expect(leaves.length).toBe(smtLeaves.length);
 
     for (const leaf of leaves) {
-      const matchingRequestId = requestIds.find((rid) => rid.toBigInt() === leaf.path);
+      const matchingRequestId = requestIds.find((rid) => rid.toBitString().toBigInt() === leaf.path);
       expect(matchingRequestId).toBeDefined();
     }
   });

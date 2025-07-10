@@ -50,7 +50,7 @@ describe('Aggregator Record Storage Tests', () => {
     assert(retrieved);
     logger.info('Retrieved successfully');
     logger.info('Data comparison:');
-    expect(retrieved.requestId.toBigInt()).toEqual(aggregatorRecord.requestId.toBigInt());
+    expect(retrieved.requestId.toBitString().toBigInt()).toEqual(aggregatorRecord.requestId.toBitString().toBigInt());
     expect(retrieved.transactionHash.equals(aggregatorRecord.transactionHash)).toBeTruthy();
     expect(HexConverter.encode(retrieved.authenticator.signature.bytes)).toEqual(
       HexConverter.encode(aggregatorRecord.authenticator.signature.bytes),
@@ -90,7 +90,7 @@ describe('Aggregator Record Storage Tests', () => {
       assert(retrieved);
 
       const originalRecord = records[i];
-      expect(retrieved.requestId.toBigInt()).toEqual(originalRecord.requestId.toBigInt());
+      expect(retrieved.requestId.toBitString().toBigInt()).toEqual(originalRecord.requestId.toBitString().toBigInt());
       expect(retrieved.transactionHash.equals(originalRecord.transactionHash)).toBeTruthy();
       expect(HexConverter.encode(retrieved.authenticator.signature.bytes)).toEqual(
         HexConverter.encode(originalRecord.authenticator.signature.bytes),
@@ -162,7 +162,7 @@ describe('Aggregator Record Storage Tests', () => {
     for (const original of originalHashes) {
       const retrieved = await storage.get(original.requestId);
       expect(retrieved).not.toBeNull();
-      expect(retrieved!.requestId.toBigInt()).toEqual(original.requestId.toBigInt());
+      expect(retrieved!.requestId.toBitString().toBigInt()).toEqual(original.requestId.toBitString().toBigInt());
       // Should still have the original transaction hash, not the modified one
       expect(retrieved!.transactionHash.equals(original.transactionHash)).toBeTruthy();
     }
@@ -217,7 +217,9 @@ describe('Aggregator Record Storage Tests', () => {
     // Verify each record matches the original
     for (let i = 0; i < records.length; i++) {
       const originalRecord = records[i];
-      const retrievedRecord = allRetrieved.find((r) => r.requestId.toBigInt() === originalRecord.requestId.toBigInt());
+      const retrievedRecord = allRetrieved.find(
+        (r) => r.requestId.toBitString().toBigInt() === originalRecord.requestId.toBitString().toBigInt(),
+      );
 
       expect(retrievedRecord).toBeDefined();
       expect(retrievedRecord!.transactionHash.equals(originalRecord.transactionHash)).toBeTruthy();
@@ -236,9 +238,9 @@ describe('Aggregator Record Storage Tests', () => {
     const subsetRetrieved = await storage.getByRequestIds(subsetRequestIds);
     expect(subsetRetrieved.length).toBe(2);
 
-    const subsetRequestIdValues = subsetRequestIds.map((id) => id.toBigInt());
+    const subsetRequestIdValues = subsetRequestIds.map((id) => id.toBitString().toBigInt());
     for (const retrievedRecord of subsetRetrieved) {
-      expect(subsetRequestIdValues).toContain(retrievedRecord.requestId.toBigInt());
+      expect(subsetRequestIdValues).toContain(retrievedRecord.requestId.toBitString().toBigInt());
     }
 
     logger.info('Testing with empty request IDs array...');
@@ -297,7 +299,7 @@ describe('Aggregator Record Storage Tests', () => {
     );
     const testData = {
       _id: new mongoose.Types.ObjectId('6826fe3ea9ca86eff83fef56'),
-      requestId: new Binary(Buffer.from(BigintConverter.encode(requestIdFromJson.toBigInt()))),
+      requestId: new Binary(Buffer.from(BigintConverter.encode(requestIdFromJson.toBitString().toBigInt()))),
       transactionHash: new Binary(Buffer.from('AACzHOIylRlYHOOXctUBFHB1KLEpacoapZ8Z98+85DrH2Q==', 'base64')),
       authenticator: {
         algorithm: 'secp256k1',

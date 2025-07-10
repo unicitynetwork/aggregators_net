@@ -60,7 +60,7 @@ export class RoundManager {
           new AggregatorRecord(commitment.requestId, commitment.transactionHash, commitment.authenticator),
         );
 
-        const nodePath = commitment.requestId.toBigInt();
+        const nodePath = commitment.requestId.toBitString().toBigInt();
         const leafValue = await LeafValue.create(commitment.authenticator, commitment.transactionHash);
         smtLeaves.push(new SmtNode(nodePath, leafValue.bytes));
       }
@@ -92,7 +92,7 @@ export class RoundManager {
     }
 
     let submitHashResponse;
-    const rootHash = await this.smt.rootHash();
+    const rootHash = this.smt.rootHash;
     try {
       loggerWithMetadata.info(`Submitting hash to BFT: ${rootHash.toString()}...`);
       submitHashResponse = await this.bftClient.submitHash(rootHash);

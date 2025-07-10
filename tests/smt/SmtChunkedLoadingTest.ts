@@ -1,4 +1,6 @@
+import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import axios from 'axios';
 
@@ -7,6 +9,7 @@ import logger from '../../src/logger.js';
 import { SmtNode } from '../../src/smt/SmtNode.js';
 import { SmtStorage } from '../../src/smt/SmtStorage.js';
 import { connectToSharedMongo, disconnectFromSharedMongo, delay, clearAllCollections, createGatewayConfig } from '../TestUtils.js';
+
 
 describe('SMT Chunked Loading Tests', () => {
   jest.setTimeout(300000);
@@ -35,7 +38,7 @@ describe('SMT Chunked Loading Tests', () => {
     
     const storage = new SmtStorage();
     const testLeaves: SmtNode[] = [];
-    const referenceTree = new SparseMerkleTree(HashAlgorithm.SHA256);
+    const referenceTree = new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
     
     for (let i = 0; i < leafCount; i++) {
       const path = BigInt(i + 1000000);
@@ -69,7 +72,7 @@ describe('SMT Chunked Loading Tests', () => {
       }
     }
     
-    const expectedRootHash = await referenceTree.root.calculateHash();
+    const expectedRootHash = (await referenceTree.calculateRoot()).hash;
     logger.info(`Expected root hash: ${expectedRootHash.toString()}`);
     
     logger.info('Creating AggregatorGateway to test chunked SMT loading...');
@@ -113,7 +116,7 @@ describe('SMT Chunked Loading Tests', () => {
     logger.info('Verifying SMT root hash through round manager...');
     
     const roundManager = gateway.getRoundManager();
-    const actualRootHash = await roundManager.smt.rootHash();
+    const actualRootHash = roundManager.smt.rootHash;
     
     logger.info(`Actual root hash from gateway: ${actualRootHash.toString()}`);
     logger.info(`Expected root hash: ${expectedRootHash.toString()}`);

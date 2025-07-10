@@ -1,4 +1,6 @@
+import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
 
@@ -198,17 +200,17 @@ describe('SMT Storage Tests', () => {
   });
 
   it('Try adding the same leaf to SMT tree twice', async () => {
-    const smt = new SparseMerkleTree(HashAlgorithm.SHA256);
+    const smt = new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
 
     const path = BigInt(12345);
     const value = new Uint8Array([1, 2, 3, 4, 5]);
 
-    smt.addLeaf(path, value);
-    const rootHashAfterFirstAddition = await smt.root.calculateHash();
-    logger.info(`Root hash after first addition: ${rootHashAfterFirstAddition.toString()}`);
+    await smt.addLeaf(path, value);
+    const rootAfterFirstAddition = await smt.calculateRoot();
+    logger.info(`Root hash after first addition: ${rootAfterFirstAddition.hash.toString()}`);
 
     try {
-      smt.addLeaf(path, value);
+      await smt.addLeaf(path, value);
       expect(false).toBe(true);
     } catch (error) {
       logger.info('Got expected error when adding the same leaf twice:', error);
@@ -217,7 +219,7 @@ describe('SMT Storage Tests', () => {
 
     const differentPath = BigInt(54321);
     try {
-      smt.addLeaf(differentPath, value);
+      await smt.addLeaf(differentPath, value);
       logger.info('Successfully added leaf with same value but different path');
     } catch (error) {
       logger.error('Unexpected error when adding leaf with same value but different path:', error);

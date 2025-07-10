@@ -5,7 +5,10 @@ import { Server } from 'node:http';
 import os from 'node:os';
 
 import { DefaultSigningService } from '@unicitylabs/bft-js-sdk/lib/signing/DefaultSigningService.js';
+import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
+import { DataHasherFactory } from '@unicitylabs/commons/lib/hash/DataHasherFactory.js';
 import { HashAlgorithm } from '@unicitylabs/commons/lib/hash/HashAlgorithm.js';
+import { NodeDataHasher } from '@unicitylabs/commons/lib/hash/NodeDataHasher.js';
 import { SigningService } from '@unicitylabs/commons/lib/signing/SigningService.js';
 import { SparseMerkleTree } from '@unicitylabs/commons/lib/smt/SparseMerkleTree.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
@@ -26,7 +29,6 @@ import { Smt } from './smt/Smt.js';
 import { SmtNode } from './smt/SmtNode.js';
 import { MockBftClient } from '../tests/consensus/bft/MockBftClient.js';
 import { ValidationService, IValidationService } from './ValidationService.js';
-import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
 
 export interface IGatewayConfig {
   aggregatorConfig?: IAggregatorConfig;
@@ -281,8 +283,8 @@ export class AggregatorGateway {
   }
 
   private static async setupSmt(smtStorage: ISmtStorage, aggregatorServerId: string): Promise<Smt> {
-    const smt = new SparseMerkleTree(HashAlgorithm.SHA256);
-    const smtWrapper = new Smt(smt);
+    const smt = new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
+    const smtWrapper = await Smt.create(smt);
 
     let totalLeaves = 0;
     const chunkSize = 1000;
@@ -299,7 +301,7 @@ export class AggregatorGateway {
     });
 
     if (totalLeaves > 0) {
-      const rootHash = await smtWrapper.rootHash();
+      const rootHash = smtWrapper.rootHash;
       logger.info(`Server ${aggregatorServerId} loaded ${totalLeaves} leaves from storage.`);
       logger.info(`Tree with root hash ${rootHash.toString()} constructed successfully.`);
     } else {
@@ -419,7 +421,7 @@ export class AggregatorGateway {
         `Follower node received BlockRecords change for block ${blockRecords.blockNumber} with ${blockRecords.requestIds.length} requestIds`,
       );
 
-      const paths = blockRecords.requestIds.map((id: RequestId) => id.toBigInt());
+      const paths = blockRecords.requestIds.map((id: RequestId) => id.toBitString().toBigInt());
 
       const maxRetries = 5;
       let retryCount = 0;
@@ -464,7 +466,7 @@ export class AggregatorGateway {
 
       await this.smt.addLeaves(leavesToAdd);
 
-      logger.info(`Updated in-memory SMT for follower node, new root hash: ${(await this.smt.rootHash()).toString()}`);
+      logger.info(`Updated in-memory SMT for follower node, new root hash: ${(this.smt.rootHash).toString()}`);
     });
 
     logger.info(`BlockRecords change listener initialized for server ${this.serverId}`);
