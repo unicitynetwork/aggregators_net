@@ -142,11 +142,8 @@ describe('SMT Wrapper Tests', () => {
       { path: BigInt(2), value: new Uint8Array([2]) },
     ];
 
-    const addPromise = await smtWrapper.addLeaves(leavesToAdd);
-    const readPromise = smtWrapper.getPath(BigInt(1));
+    await smtWrapper.addLeaves(leavesToAdd);
     const readRootDuringAdd = smtWrapper.rootHash;
-
-    await Promise.all([addPromise, readPromise]);
 
     const tempSmt = new SparseMerkleTree(new DataHasherFactory(HashAlgorithm.SHA256, NodeDataHasher));
     await Promise.all([

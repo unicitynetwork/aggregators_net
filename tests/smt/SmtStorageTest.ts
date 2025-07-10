@@ -206,8 +206,8 @@ describe('SMT Storage Tests', () => {
     const value = new Uint8Array([1, 2, 3, 4, 5]);
 
     await smt.addLeaf(path, value);
-    const rootHashAfterFirstAddition = await smt.calculateRoot();
-    logger.info(`Root hash after first addition: ${rootHashAfterFirstAddition.toString()}`);
+    const rootAfterFirstAddition = await smt.calculateRoot();
+    logger.info(`Root hash after first addition: ${rootAfterFirstAddition.hash.toString()}`);
 
     try {
       await smt.addLeaf(path, value);
