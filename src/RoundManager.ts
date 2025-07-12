@@ -79,16 +79,16 @@ export class RoundManager {
       throw error;
     }
 
-    // Add leaves to the SMT tree
-    if (smtLeaves.length > 0) {
-      await this.smt.addLeaves(smtLeaves);
-    }
-
     try {
       await Promise.all([recordStoragePromise, smtLeafStoragePromise]);
     } catch (error) {
       loggerWithMetadata.error('Failed to store records and SMT leaves:', error);
       throw error;
+    }
+
+    // Add leaves to the SMT tree
+    if (smtLeaves.length > 0) {
+      await this.smt.addLeaves(smtLeaves);
     }
 
     let submitHashResponse;
