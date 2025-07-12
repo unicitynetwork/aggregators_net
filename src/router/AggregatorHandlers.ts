@@ -1,8 +1,8 @@
 import { Authenticator } from '@unicitylabs/commons/lib/api/Authenticator.js';
 import { RequestId } from '@unicitylabs/commons/lib/api/RequestId.js';
+import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
 import { DataHash } from '@unicitylabs/commons/lib/hash/DataHash.js';
 import { HexConverter } from '@unicitylabs/commons/lib/util/HexConverter.js';
-import { SubmitCommitmentStatus } from '@unicitylabs/commons/lib/api/SubmitCommitmentResponse.js';
 import { Request, Response } from 'express';
 
 import { AggregatorService } from '../AggregatorService.js';
@@ -23,6 +23,7 @@ export async function handleSubmitCommitment(
   if (!req.body.params.authenticator) missingFields.push('authenticator');
 
   if (missingFields.length > 0) {
+    logger.error(`Invalid parameters: Missing required fields: ${missingFields.join(', ')}`);
     sendJsonRpcError(
       res,
       400,
@@ -48,6 +49,7 @@ export async function handleSubmitCommitment(
 
   const response = await aggregatorService.submitCommitment(commitment, parseBoolean(req.body.params.receipt));
   if (response.status !== SubmitCommitmentStatus.SUCCESS) {
+    logger.error('Failed to submit commitment', req.body.id, response.toJSON());
     sendJsonRpcError(res, 400, -32000, 'Failed to submit commitment', req.body.id, response.toJSON());
     return;
   }
