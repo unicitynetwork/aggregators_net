@@ -1,0 +1,73 @@
+x-mongo-common: &mongo-common
+  image: mongo:8.0
+  restart: always
+  healthcheck: &mongo-healthcheck
+    interval: 10s
+    timeout: 5s
+    retries: 5
+
+services:
+  mongo1:
+    <<: *mongo-common
+    container_name: mongo1
+    command: ["mongod", "--replSet", "rs0", "--bind_ip", "0.0.0.0", "--port", "27017"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo1_data:/data/db
+    healthcheck:
+      <<: *mongo-healthcheck
+      test: ["CMD", "mongosh", "--host", "localhost", "--port", "27017", "--eval", "db.adminCommand('ping')"]
+
+  mongo2:
+    <<: *mongo-common
+    container_name: mongo2
+    command: ["mongod", "--replSet", "rs0", "--bind_ip", "0.0.0.0", "--port", "27018"]
+    ports:
+      - "27018:27018"
+    volumes:
+      - mongo2_data:/data/db
+    healthcheck:
+      <<: *mongo-healthcheck
+      test: ["CMD", "mongosh", "--host", "localhost", "--port", "27018", "--eval", "db.adminCommand('ping')"]
+
+  mongo3:
+    <<: *mongo-common
+    container_name: mongo3
+    command: ["mongod", "--replSet", "rs0", "--bind_ip", "0.0.0.0", "--port", "27019"]
+    ports:
+      - "27019:27019"
+    volumes:
+      - mongo3_data:/data/db
+    healthcheck:
+      <<: *mongo-healthcheck
+      test: ["CMD", "mongosh", "--host", "localhost", "--port", "27019", "--eval", "db.adminCommand('ping')"]
+
+  mongo-init:
+    image: mongo:8.0
+    container_name: mongo-init
+    restart: "no"
+    depends_on:
+      mongo1:
+        condition: service_healthy
+      mongo2:
+        condition: service_healthy
+      mongo3:
+        condition: service_healthy
+    entrypoint: [ "sh", "-c" ]
+    command:
+      - |
+        mongosh --host localhost:27017 --eval '
+        rs.initiate({
+          _id: "rs0",
+          members: [
+            { _id: 0, host: "localhost:27017" },
+            { _id: 1, host: "localhost:27018" },
+            { _id: 2, host: "localhost:27019" }
+          ]
+        })'
+
+volumes:
+  mongo1_data:
+  mongo2_data:
+  mongo3_data:
